@@ -268,6 +268,15 @@ public class ConceptGoBildaStarterKitRobotTeleop_IntoTheDeep extends LinearOpMod
                     armPosition = ARM_CLEAR_BARRIER;
                 }
 
+                else if (gamepad1.left_bumper) {
+                    /* Adds a simple slow mode to the left bumper. Pushing the joystick gives you 
+                    100% power. This change will create a "slow mode" using the left bumper, which
+                    might help the driver for intake, shooting position, defensive strategies, and 
+                    general movement */
+                    left *= 0.5 /* 50% power */
+                    right *= 0.5 /* 50% power */
+                        }
+
                 else if (gamepad1.y){
                     /* This is the correct height to score the sample in the LOW BASKET */
                     armPosition = ARM_SCORE_SAMPLE_IN_LOW;
