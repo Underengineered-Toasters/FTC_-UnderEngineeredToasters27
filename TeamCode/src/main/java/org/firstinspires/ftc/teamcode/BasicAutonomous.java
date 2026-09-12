@@ -2,56 +2,44 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
-@TeleOp(name = "Basic Tank Drive", group = "TeleOp")
-public class BasicTankDrive extends LinearOpMode {
-
-    // Make the names match what we have in Driver Station Menu
+@Autonomous(name = "Basic Auto - Drive Forward", group = "Autonomous")
+public class BasicAutonomous extends LinearOpMode {
+    //Same as before, make sure names match driverStation
     private DcMotor leftDrive;
     private DcMotor rightDrive;
+    private final ElapsedTime runtime = new ElapsedTime();
 
     @Override
     public void runOpMode() {
-
-        // Map the hardware — grabs the motors by the config names
         leftDrive = hardwareMap.get(DcMotor.class, "leftDrive");
         rightDrive = hardwareMap.get(DcMotor.class, "rightDrive");
-
-        //Keep opposite as the motors are oriented the opposite way in tank
+        //Same as before, set motors opposite during tank drive
         leftDrive.setDirection(DcMotor.Direction.REVERSE);
         rightDrive.setDirection(DcMotor.Direction.FORWARD);
 
-        // Optional but recommended: motors actively resist being pushed when stopped
-        leftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rightDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
         telemetry.addData("Status", "Initialized");
         telemetry.update();
-
-        // Use PLAY for driver station
+        //Waits for PLAY
         waitForStart();
+        runtime.reset();
 
-        // Runs Teleop till disable
-        while (opModeIsActive()) {
+        //Give motors 50% power = 50% max velocity
+        leftDrive.setPower(0.5);
+        rightDrive.setPower(0.5);
 
-            double drive = -gamepad1.left_stick_y;  // stick is inverted: up = negative
-            double turn  =  gamepad1.right_stick_x;
-
-            double leftPower  = drive + turn;
-            double rightPower = drive - turn;
-
-            // Clip to [-1, 1] in case drive+turn exceeds motor range
-            leftPower  = Math.max(-1.0, Math.min(1.0, leftPower));
-            rightPower = Math.max(-1.0, Math.min(1.0, rightPower));
-
-            leftDrive.setPower(leftPower);
-            rightDrive.setPower(rightPower);
-
-            telemetry.addData("Left Power", leftPower);
-            telemetry.addData("Right Power", rightPower);
+        while (opModeIsActive() && runtime.seconds() < 2.0) {
+            telemetry.addData("Auto", "Driving forward: %.1f sec", runtime.seconds());
             telemetry.update();
         }
+
+        leftDrive.setPower(0);
+        rightDrive.setPower(0);
+
+        telemetry.addData("Status", "Done");
+        telemetry.update();
     }
 }
