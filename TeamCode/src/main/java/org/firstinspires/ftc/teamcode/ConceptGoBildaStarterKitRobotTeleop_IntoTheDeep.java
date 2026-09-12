@@ -273,8 +273,8 @@ public class ConceptGoBildaStarterKitRobotTeleop_IntoTheDeep extends LinearOpMod
                     100% power. This change will create a "slow mode" using the left bumper, which
                     might help the driver for intake, shooting position, defensive strategies, and 
                     general movement */
-                    left *= 0.5 /* 50% power */
-                    right *= 0.5 /* 50% power */
+                    left *= 0.5; /* 50% power */
+                    right *= 0.5; /* 50% power */
                         }
 
                 else if (gamepad1.y){
