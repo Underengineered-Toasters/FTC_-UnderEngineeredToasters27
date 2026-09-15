@@ -16,8 +16,8 @@ public class BasicTankDrive extends LinearOpMode {
     public void runOpMode() {
 
         // Map the hardware — grabs the motors by the config names
-        leftDrive = hardwareMap.get(DcMotor.class, "leftDrive");
-        rightDrive = hardwareMap.get(DcMotor.class, "rightDrive");
+        leftDrive = hardwareMap.get(DcMotor.class, "left");
+        rightDrive = hardwareMap.get(DcMotor.class, "right");
 
         //Keep opposite as the motors are oriented the opposite way in tank
         leftDrive.setDirection(DcMotor.Direction.REVERSE);
