@@ -46,6 +46,11 @@ public class BasicTankDrive extends LinearOpMode {
             leftPower  = Math.max(-1.0, Math.min(1.0, leftPower));
             rightPower = Math.max(-1.0, Math.min(1.0, rightPower));
 
+            if (gamepad1.left_bumper) {
+                leftPower *= 0.5;
+                rightPower *= 0.5;
+            }
+
             leftDrive.setPower(leftPower);
             rightDrive.setPower(rightPower);
 
