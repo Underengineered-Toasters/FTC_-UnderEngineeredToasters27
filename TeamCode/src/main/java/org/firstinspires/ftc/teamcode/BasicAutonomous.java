@@ -8,15 +8,15 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 @Autonomous(name = "Basic Auto - Drive Forward", group = "Autonomous")
 public class BasicAutonomous extends LinearOpMode {
-    //Same as before, make sure names match driverStation
+//Same as before, make sure names match driverStation
     private DcMotor leftDrive;
     private DcMotor rightDrive;
     private final ElapsedTime runtime = new ElapsedTime();
 
     @Override
     public void runOpMode() {
-        leftDrive = hardwareMap.get(DcMotor.class, "leftDrive");
-        rightDrive = hardwareMap.get(DcMotor.class, "rightDrive");
+        leftDrive = hardwareMap.get(DcMotor.class, "left");
+        rightDrive = hardwareMap.get(DcMotor.class, "right");
         //Same as before, set motors opposite during tank drive
         leftDrive.setDirection(DcMotor.Direction.REVERSE);
         rightDrive.setDirection(DcMotor.Direction.FORWARD);
