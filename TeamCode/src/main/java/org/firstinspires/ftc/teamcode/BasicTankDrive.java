@@ -9,23 +9,23 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 public class BasicTankDrive extends LinearOpMode {
 
     // Make the names match what we have in Driver Station Menu
-    private DcMotor leftDrive;
-    private DcMotor rightDrive;
+    private DcMotor left;
+    private DcMotor right;
 
     @Override
     public void runOpMode() {
 
         // Map the hardware — grabs the motors by the config names
-        leftDrive = hardwareMap.get(DcMotor.class, "left");
-        rightDrive = hardwareMap.get(DcMotor.class, "right");
+        left = hardwareMap.get(DcMotor.class, "left");
+        right = hardwareMap.get(DcMotor.class, "right");
 
         //Keep opposite as the motors are oriented the opposite way in tank
-        leftDrive.setDirection(DcMotor.Direction.REVERSE);
-        rightDrive.setDirection(DcMotor.Direction.FORWARD);
+        left.setDirection(DcMotor.Direction.REVERSE);
+        right.setDirection(DcMotor.Direction.FORWARD);
 
         // Optional but recommended: motors actively resist being pushed when stopped
-        leftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rightDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        left.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        right.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         telemetry.addData("Status", "Initialized");
         telemetry.update();
@@ -46,13 +46,8 @@ public class BasicTankDrive extends LinearOpMode {
             leftPower  = Math.max(-1.0, Math.min(1.0, leftPower));
             rightPower = Math.max(-1.0, Math.min(1.0, rightPower));
 
-            if (gamepad1.left_bumper) {
-                leftPower *= 0.5;
-                rightPower *= 0.5;
-            }
-
-            leftDrive.setPower(leftPower);
-            rightDrive.setPower(rightPower);
+            left.setPower(leftPower);
+            right.setPower(rightPower);
 
             telemetry.addData("Left Power", leftPower);
             telemetry.addData("Right Power", rightPower);
