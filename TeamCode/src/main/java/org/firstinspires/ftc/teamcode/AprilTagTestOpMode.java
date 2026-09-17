@@ -10,6 +10,7 @@ import java.util.List;
 public class AprilTagTestOpMode extends LinearOpMode {
 
     private AprilTagVision vision = new AprilTagVision();
+    private static final int DESIRED_TAG_ID = 34;
 
     @Override
     public void runOpMode() {
@@ -24,18 +25,40 @@ public class AprilTagTestOpMode extends LinearOpMode {
         while (opModeIsActive()) {
 
             List<AprilTagDetection> detections = vision.getDetections();
+            boolean targetFound = false;
 
-            telemetry.addData("Tags visible", detections.size());
+            telemetry.addData("Tags Visible", detections.size());
+            telemetry.addData("Looking for ID", DESIRED_TAG_ID);
+            telemetry.addLine("--------------------------------");
 
             for (AprilTagDetection tag : detections) {
-                telemetry.addLine(String.format(
-                        "ID %d (%s): range=%.1fin, bearing=%.1fdeg, yaw=%.1fdeg",
-                        tag.id,
-                        tag.metadata != null ? tag.metadata.name : "unknown",
-                        tag.ftcPose.range,
-                        tag.ftcPose.bearing,
-                        tag.ftcPose.yaw
-                ));
+                if (tag.id == DESIRED_TAG_ID) {
+                    targetFound = true;
+                    telemetry.addLine(String.format(">> TARGET TAG (ID %d) FOUND! <<", tag.id));
+                } else {
+                    telemetry.addLine(String.format("Other Tag (ID %d):", tag.id));
+                }
+
+                // Null check prevents the NullPointerException crash
+                if (tag.ftcPose != null) {
+                    telemetry.addLine(String.format(
+                            "   Range: %.1fin | Bearing: %.1fdeg | Yaw: %.1fdeg",
+                            tag.ftcPose.range,
+                            tag.ftcPose.bearing,
+                            tag.ftcPose.yaw
+                    ));
+                } else {
+                    telemetry.addLine(String.format(
+                            "   Pose unavailable (Center at X: %.0f, Y: %.0f)",
+                            tag.center.x,
+                            tag.center.y
+                    ));
+                }
+                telemetry.addLine("");
+            }
+
+            if (!targetFound) {
+                telemetry.addLine("Status: Target tag 34 not in view.");
             }
 
             telemetry.update();
