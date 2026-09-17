@@ -6,7 +6,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 public class Shooter {
 
-    private DcMotorEx flywheel;
+    private DcMotorEx shooter;
 
     // Velocity is in encoder ticks/second. These are PLACEHOLDER values —
     // you WILL need to tune these once the wheel is spun up on a real motor,
@@ -23,20 +23,20 @@ public class Shooter {
     private double targetVelocity = VELOCITY_OFF;
 
     public void init(HardwareMap hardwareMap) {
-        flywheel = hardwareMap.get(DcMotorEx.class, "flywheel");
+        shooter = hardwareMap.get(DcMotorEx.class, "flywheel");
 
         // Flywheels should coast, NOT brake, when off — braking a spinning
         // flywheel abruptly can strain the motor and gears unnecessarily.
-        flywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         // RUN_USING_ENCODER lets us command a velocity (ticks/sec) instead of raw power,
         // so the flywheel spins at a consistent speed regardless of battery voltage.
-        flywheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        flywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        shooter.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
     }
 
     public void update() {
-        flywheel.setVelocity(targetVelocity);
+        shooter.setVelocity(targetVelocity);
     }
 
     public void setTargetVelocity(double velocity) {
@@ -48,7 +48,7 @@ public class Shooter {
     }
 
     public double getCurrentVelocity() {
-        return flywheel.getVelocity();
+        return shooter.getVelocity();
     }
 
     public double getTargetVelocity() {
