@@ -1,0 +1,49 @@
+name: OpenCodeReview PR Review
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ocr-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  code-review:
+    # Only 0xhis can spend the review gateway quota.
+    if: >-
+      github.event.issue.pull_request
+      && github.event.comment.user.type != 'Bot'
+      && github.event.comment.user.login == '0xhis'
+      && startsWith(github.event.comment.body, '/open-code-review')
+    runs-on: [self-hosted, linux, x64, ftc-review]
+    timeout-minutes: 30
+    steps:
+      - name: Get PR context
+        id: pr-context
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pullRequest } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            core.setOutput('base_ref', pullRequest.base.ref);
+            core.setOutput('head_sha', pullRequest.head.sha);
+
+      - name: Run OpenCodeReview
+        uses: alibaba/open-code-review@189be5b024d3309dd10fdc8cd8ee31b2530c210b
+        with:
+          llm_url: ${{ vars.OCR_LLM_URL }}
+          llm_auth_token: ${{ secrets.OCR_LLM_AUTH_TOKEN }}
+          llm_model: ${{ vars.OCR_LLM_MODEL }}
+          llm_use_anthropic: ${{ vars.OCR_LLM_USE_ANTHROPIC }}
+          llm_extra_body: '{"reasoning_effort":"xhigh"}'
+          effort: high
+          base_ref: ${{ steps.pr-context.outputs.base_ref }}
+          head_sha: ${{ steps.pr-context.outputs.head_sha }}
