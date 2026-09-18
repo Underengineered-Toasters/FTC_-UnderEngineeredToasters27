@@ -21,9 +21,24 @@ public class AprilTagVision {
 
     public void init(HardwareMap hardwareMap) {
 
-        // Register Tag 34 so the SDK knows its dimensions to calculate range/bearing/yaw
+        // Register tags 30–45 so the SDK knows their dimensions to calculate range/bearing/yaw
         AprilTagLibrary tagLibrary = new AprilTagLibrary.Builder()
+                .addTag(30, "Tag 30", TAG_SIZE_INCHES, DistanceUnit.INCH)
+                .addTag(31, "Tag 31", TAG_SIZE_INCHES, DistanceUnit.INCH)
+                .addTag(32, "Tag 32", TAG_SIZE_INCHES, DistanceUnit.INCH)
+                .addTag(33, "Tag 33", TAG_SIZE_INCHES, DistanceUnit.INCH)
                 .addTag(34, "Tag 34", TAG_SIZE_INCHES, DistanceUnit.INCH)
+                .addTag(35, "Tag 35", TAG_SIZE_INCHES, DistanceUnit.INCH)
+                .addTag(36, "Tag 36", TAG_SIZE_INCHES, DistanceUnit.INCH)
+                .addTag(37, "Tag 37", TAG_SIZE_INCHES, DistanceUnit.INCH)
+                .addTag(38, "Tag 38", TAG_SIZE_INCHES, DistanceUnit.INCH)
+                .addTag(39, "Tag 39", TAG_SIZE_INCHES, DistanceUnit.INCH)
+                .addTag(40, "Tag 40", TAG_SIZE_INCHES, DistanceUnit.INCH)
+                .addTag(41, "Tag 41", TAG_SIZE_INCHES, DistanceUnit.INCH)
+                .addTag(42, "Tag 42", TAG_SIZE_INCHES, DistanceUnit.INCH)
+                .addTag(43, "Tag 43", TAG_SIZE_INCHES, DistanceUnit.INCH)
+                .addTag(44, "Tag 44", TAG_SIZE_INCHES, DistanceUnit.INCH)
+                .addTag(45, "Tag 45", TAG_SIZE_INCHES, DistanceUnit.INCH)
                 .build();
 
         aprilTag = new AprilTagProcessor.Builder()
