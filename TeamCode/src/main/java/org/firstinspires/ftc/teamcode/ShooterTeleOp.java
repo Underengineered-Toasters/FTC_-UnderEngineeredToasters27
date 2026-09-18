@@ -7,19 +7,19 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 @TeleOp(name = "Drive + Shooter", group = "TeleOp")
 public class ShooterTeleOp extends LinearOpMode {
 
-    private DcMotor leftDrive;
-    private DcMotor rightDrive;
+    private DcMotor left;
+    private DcMotor right;
     private Shooter shooter = new Shooter();
 
     @Override
     public void runOpMode() {
 
-        leftDrive  = hardwareMap.get(DcMotor.class, "left");
-        rightDrive = hardwareMap.get(DcMotor.class, "right");
-        leftDrive.setDirection(DcMotor.Direction.REVERSE);
-        rightDrive.setDirection(DcMotor.Direction.FORWARD);
-        leftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rightDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        left = hardwareMap.get(DcMotor.class, "left");
+        right = hardwareMap.get(DcMotor.class, "right");
+        left.setDirection(DcMotor.Direction.REVERSE);
+        right.setDirection(DcMotor.Direction.FORWARD);
+        left.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        right.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         shooter.init(hardwareMap);
 
@@ -35,8 +35,8 @@ public class ShooterTeleOp extends LinearOpMode {
             double leftPower  = Math.max(-1.0, Math.min(1.0, drive + turn));
             double rightPower = Math.max(-1.0, Math.min(1.0, drive - turn));
 
-            leftDrive.setPower(leftPower);
-            rightDrive.setPower(rightPower);
+            left.setPower(leftPower);
+            right.setPower(rightPower);
 
             // Shooter (gamepad1 face buttons — swap to gamepad2 if you add an operator)
             // Y = far shot, B = mid shot, A = close shot, X = spin down/off

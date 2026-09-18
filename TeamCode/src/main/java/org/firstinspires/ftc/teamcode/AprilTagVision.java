@@ -17,7 +17,7 @@ public class AprilTagVision {
     private VisionPortal visionPortal;
 
     // Physical tag width in inches (adjust if your printed tag is different)
-    private static final double TAG_SIZE_INCHES = 2.0;
+        private static final double TAG_SIZE_INCHES = 2.0;
 
     public void init(HardwareMap hardwareMap) {
 
@@ -32,7 +32,7 @@ public class AprilTagVision {
 
         // "Vision" must match the name in your Driver Station configuration
         visionPortal = new VisionPortal.Builder()
-                .setCamera(hardwareMap.get(WebcamName.class, "vision"))
+                .setCamera(hardwareMap.get(WebcamName.class, "Webcam 1"))
                 .addProcessor(aprilTag)
                 .build();
     }

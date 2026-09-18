@@ -1,63 +1,62 @@
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.HardwareMap;
 
-@TeleOp(name = "Drive + Shooter", group = "TeleOp")
-public class ShooterTeleOp extends LinearOpMode {
+public class Shooter {
 
-    private DcMotor left;
-    private DcMotor right;
-    private Shooter shooter = new Shooter();
+    private DcMotorEx flywheel;
 
-    @Override
-    public void runOpMode() {
+    // Velocity is in encoder ticks/second. These are PLACEHOLDER values —
+    // you WILL need to tune these once the wheel is spun up on a real motor,
+    // by testing actual shots at known distances from the HIVE.
+    public static final double VELOCITY_OFF        = 0;
+    public static final double VELOCITY_CLOSE_SHOT  = 1200;  // tune: short range
+    public static final double VELOCITY_MID_SHOT    = 1600;  // tune: mid range
+    public static final double VELOCITY_FAR_SHOT    = 2000;  // tune: long range
 
-        left = hardwareMap.get(DcMotor.class, "left");
-        right = hardwareMap.get(DcMotor.class, "right");
-        left.setDirection(DcMotor.Direction.REVERSE);
-        right.setDirection(DcMotor.Direction.FORWARD);
-        left.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        right.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+    // How close (in ticks/sec) the actual velocity needs to be to target
+    // before we consider the wheel "ready to fire" — flywheels take a moment to spin up.
+    private static final double VELOCITY_TOLERANCE = 50;
 
-        shooter.init(hardwareMap);
+    private double targetVelocity = VELOCITY_OFF;
 
-        telemetry.addLine("Ready.");
-        telemetry.update();
+    public void init(HardwareMap hardwareMap) {
+        flywheel = hardwareMap.get(DcMotorEx.class, "flywheel");
 
-        waitForStart();
+        // Flywheels should coast, NOT brake, when off — braking a spinning
+        // flywheel abruptly can strain the motor and gears unnecessarily.
+        flywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
-        while (opModeIsActive()) {
-            double drive = -gamepad1.left_stick_y;
-            double turn  =  gamepad1.right_stick_x;
+        // RUN_USING_ENCODER lets us command a velocity (ticks/sec) instead of raw power,
+        // so the flywheel spins at a consistent speed regardless of battery voltage.
+        flywheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        flywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+    }
 
-            double leftPower  = Math.max(-1.0, Math.min(1.0, drive + turn));
-            double rightPower = Math.max(-1.0, Math.min(1.0, drive - turn));
+    public void update() {
+        flywheel.setVelocity(targetVelocity);
+    }
 
-            left.setPower(leftPower);
-            right.setPower(rightPower);
+    public void setTargetVelocity(double velocity) {
+        targetVelocity = velocity;
+    }
 
-            // Shooter (gamepad1 face buttons — swap to gamepad2 if you add an operator)
-            // Y = far shot, B = mid shot, A = close shot, X = spin down/off
-            // you want the SAME repeatable speed every time you pick a distance
-            if (gamepad1.y) {
-                shooter.setTargetVelocity(Shooter.VELOCITY_FAR_SHOT);
-            } else if (gamepad1.b) {
-                shooter.setTargetVelocity(Shooter.VELOCITY_MID_SHOT);
-            } else if (gamepad1.a) {
-                shooter.setTargetVelocity(Shooter.VELOCITY_CLOSE_SHOT);
-            } else if (gamepad1.x) {
-                shooter.spinDown();
-            }
+    public void spinDown() {
+        targetVelocity = VELOCITY_OFF;
+    }
 
-            shooter.update(); // actually commands the motor every loop
+    public double getCurrentVelocity() {
+        return flywheel.getVelocity();
+    }
 
+    public double getTargetVelocity() {
+        return targetVelocity;
+    }
 
-            telemetry.addData("Shooter target (ticks/s)", shooter.getTargetVelocity());
-            telemetry.addData("Shooter actual (ticks/s)", shooter.getCurrentVelocity());
-            telemetry.addData("Ready to fire", shooter.isReadyToFire());
-            telemetry.update();
-        }
+    public boolean isReadyToFire() {
+        if (targetVelocity == VELOCITY_OFF) return false;
+        return Math.abs(getCurrentVelocity() - targetVelocity) < VELOCITY_TOLERANCE;
     }
 }
