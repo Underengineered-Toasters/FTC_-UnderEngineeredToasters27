@@ -19,7 +19,7 @@ jobs:
       github.event.issue.pull_request
       && github.event.comment.user.type != 'Bot'
       && github.event.comment.user.login == '0xhis'
-      && startsWith(github.event.comment.body, '/open-code-review')
+      && startsWith(github.event.comment.body, '/code-review')
     runs-on: [self-hosted, linux, x64, ftc-review]
     timeout-minutes: 30
     steps:
