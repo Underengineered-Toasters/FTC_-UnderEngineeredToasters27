@@ -23,7 +23,7 @@ public class Shooter {
     private double targetVelocity = VELOCITY_OFF;
 
     public void init(HardwareMap hardwareMap) {
-        flywheel = hardwareMap.get(DcMotorEx.class, "flywheel");
+        flywheel = hardwareMap.get(DcMotorEx.class, "shooter");
 
         // Flywheels should coast, NOT brake, when off — braking a spinning
         // flywheel abruptly can strain the motor and gears unnecessarily.
