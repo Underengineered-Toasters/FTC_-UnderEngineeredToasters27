@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 
@@ -62,6 +63,18 @@ public class AprilTagTestOpMode extends LinearOpMode {
                     ));
                 } else {
                     telemetry.addLine("   Pose unavailable");
+                }
+
+                // Field pose only exists for tags with real field positions
+                // (official DECODE tags) — custom test tags 30-45 have none.
+                if (tag.robotPose != null) {
+                    telemetry.addLine(String.format(
+                            "   Robot Pose: X %.1f  Y %.1f  Z %.1f in | Yaw %.1f deg",
+                            tag.robotPose.getPosition().x,
+                            tag.robotPose.getPosition().y,
+                            tag.robotPose.getPosition().z,
+                            tag.robotPose.getOrientation().getYaw(AngleUnit.DEGREES)
+                    ));
                 }
                 telemetry.addLine("");
             }
