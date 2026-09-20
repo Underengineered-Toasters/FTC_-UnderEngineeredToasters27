@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@source "../src/main/assets/ds";
+
+/* shadcn/ui tokens, OLED dark: pure-black background, zinc surfaces. */
+@theme {
+  --color-background: #000000;
+  --color-foreground: #fafafa;
+  --color-card: #18181b;
+  --color-card-foreground: #fafafa;
+  --color-primary: #fafafa;
+  --color-primary-foreground: #18181b;
+  --color-secondary: #27272a;
+  --color-secondary-foreground: #fafafa;
+  --color-muted: #27272a;
+  --color-muted-foreground: #a1a1aa;
+  --color-accent: #27272a;
+  --color-accent-foreground: #fafafa;
+  --color-destructive: #ef4444;
+  --color-border: #27272a;
+  --color-input: #27272a;
+  --color-ring: #d4d4d8;
+
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+}
+
+/* Browser chrome from the same palette: scrollbars, selection, focus. */
+html {
+  scrollbar-color: #3f3f46 #000000;
+}
+
+::selection {
+  background: #3f3f46;
+  color: #fafafa;
+}
