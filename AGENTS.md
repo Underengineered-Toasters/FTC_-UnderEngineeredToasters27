@@ -34,6 +34,7 @@ Small edits that do not change behavior or contracts may leave docs unchanged, b
 - Each parent explains what its direct children cover and what stays owned by the parent.
 - The closer a document is to the work, the more specific and practical it must be.
 - Create a child AGENTS.md when a folder becomes a durable boundary with its own purpose, rules, responsibilities, workflow, materials, or quality standards.
+- New child docs default to this section order: Purpose, Ownership, Local Contracts, Work Guidance, Verification, Child DOX Index.
 
 ## Style
 
