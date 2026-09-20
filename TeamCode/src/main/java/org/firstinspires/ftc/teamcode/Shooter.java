@@ -24,6 +24,7 @@ public class Shooter {
 
     public void init(HardwareMap hardwareMap) {
         flywheel = hardwareMap.get(DcMotorEx.class, "shooter");
+        flywheel.setDirection(DcMotor.Direction.REVERSE);
 
         // Flywheels should coast, NOT brake, when off — braking a spinning
         // flywheel abruptly can strain the motor and gears unnecessarily.
