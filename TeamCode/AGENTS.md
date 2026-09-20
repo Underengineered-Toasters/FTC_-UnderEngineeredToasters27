@@ -14,6 +14,8 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 - Annotate competition TeleOp classes with `@TeleOp(name = "...", group = "...")`.
 - Annotate competition Autonomous classes with `@Autonomous(name = "...", group = "...")`.
 - Ensure actuators and sensors match hardware configuration names on the Control Hub.
+- Configure `frontLeftServo` and `frontRightServo` as continuous-rotation servos; `Intake` mirrors their directions and owns intake/eject/stop behavior.
+- In `Drive + Shooter`, hold the right bumper to intake, hold the left bumper to eject, and release both to stop the front servos.
 - Register all AprilTag clusters in the shared `AprilTagVision` library; use each unique ID once and its measured tag size for pose calculations.
 
 ## Work Guidance

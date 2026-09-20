@@ -10,6 +10,7 @@ public class ShooterTeleOp extends LinearOpMode {
     private DcMotor left;
     private DcMotor right;
     private Shooter shooter = new Shooter();
+    private Intake intake = new Intake();
 
     @Override
     public void runOpMode() {
@@ -22,6 +23,7 @@ public class ShooterTeleOp extends LinearOpMode {
         right.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         shooter.init(hardwareMap);
+        intake.init(hardwareMap);
 
         telemetry.addLine("Ready.");
         telemetry.update();
@@ -53,11 +55,21 @@ public class ShooterTeleOp extends LinearOpMode {
 
             shooter.update(); // actually commands the motor every loop
 
+            if (gamepad1.right_bumper) {
+                intake.intake();
+            } else if (gamepad1.left_bumper) {
+                intake.eject();
+            } else {
+                intake.stop();
+            }
+
 
             telemetry.addData("Shooter target (ticks/s)", shooter.getTargetVelocity());
             telemetry.addData("Shooter actual (ticks/s)", shooter.getCurrentVelocity());
             telemetry.addData("Ready to fire", shooter.isReadyToFire());
             telemetry.update();
         }
+
+        intake.stop();
     }
 }
