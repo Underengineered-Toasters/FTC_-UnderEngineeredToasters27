@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 
 import java.util.List;
 
@@ -32,11 +33,16 @@ public class AprilTagTestOpMode extends LinearOpMode {
             telemetry.addLine("--------------------------------");
 
             for (AprilTagDetection tag : detections) {
-                if (tag.id == DESIRED_TAG_ID) {
-                    targetFound = true;
-                    telemetry.addLine(String.format(">> TARGET TAG (ID %d) FOUND! <<", tag.id));
+                if (tag instanceof AprilTagSingleDetection) {
+                    AprilTagSingleDetection single = (AprilTagSingleDetection) tag;
+                    if (single.id == DESIRED_TAG_ID) {
+                        targetFound = true;
+                        telemetry.addLine(String.format(">> TARGET TAG (ID %d) FOUND! <<", single.id));
+                    } else {
+                        telemetry.addLine(String.format("Other Tag (ID %d):", single.id));
+                    }
                 } else {
-                    telemetry.addLine(String.format("Other Tag (ID %d):", tag.id));
+                    telemetry.addLine("Tag cluster detected:");
                 }
 
                 // Null check prevents the NullPointerException crash
@@ -47,12 +53,15 @@ public class AprilTagTestOpMode extends LinearOpMode {
                             tag.ftcPose.bearing,
                             tag.ftcPose.yaw
                     ));
-                } else {
+                } else if (tag instanceof AprilTagSingleDetection) {
+                    AprilTagSingleDetection single = (AprilTagSingleDetection) tag;
                     telemetry.addLine(String.format(
                             "   Pose unavailable (Center at X: %.0f, Y: %.0f)",
-                            tag.center.x,
-                            tag.center.y
+                            single.center.x,
+                            single.center.y
                     ));
+                } else {
+                    telemetry.addLine("   Pose unavailable");
                 }
                 telemetry.addLine("");
             }
