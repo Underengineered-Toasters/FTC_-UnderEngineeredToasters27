@@ -1,9 +1,9 @@
 ## NOTICE
 
-This repository contains the public FTC SDK for the INTO THE DEEP (2024-2025) competition season.
+This repository contains the public FTC SDK for the BIOBUZZ (2026-2027) competition season.
 
 ## Welcome!
-This is a fork of the offical FTC SDK for the 24-25 season. It includes the source code for the FTC SDK, as well as the example code for the 2024-2025 FTC goBILDA Starter Kit Robot: [https://www.gobilda.com/ftc-starter-bot-resource-guide-into-the-deep/](https://www.gobilda.com/ftc-starter-bot-resource-guide-into-the-deep/)
+This is a fork of the offical FTC SDK. It includes the source code for the FTC SDK, as well as the example code for the 2024-2025 FTC goBILDA Starter Kit Robot: [https://www.gobilda.com/ftc-starter-bot-resource-guide-into-the-deep/](https://www.gobilda.com/ftc-starter-bot-resource-guide-into-the-deep/)
 
 This repo includes the Java File for the example teleop opmode for the Starter Kit Robot.
 
@@ -21,7 +21,7 @@ https://github.com/goBILDA-Official/FtcRobotController-Add-Starter-Kit-Code/blob
 This GitHub repository contains the source code that is used to build an Android app to control a *FIRST* Tech Challenge competition robot.  To use this SDK, download/clone the entire project to your local computer.
 
 ## Requirements
-To use this Android Studio project, you will need Android Studio Ladybug (2024.2) or later.
+To use this Android Studio project, you will need Android Studio Narwhal 3 Feature Drop or later.
 
 To program your robot in Blocks or OnBot Java, you do not need Android Studio.
 
@@ -74,6 +74,7 @@ The readme.md file located in the [/TeamCode/src/main/java/org/firstinspires/ftc
 
 # Release Information
 
+ @theirs
 ## Version 10.1.1 (20241102-092223)
 
 ### Breaking Changes
