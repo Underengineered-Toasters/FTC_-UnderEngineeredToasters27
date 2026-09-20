@@ -74,6 +74,7 @@ Default section order:
 
 - Git commit style: Always format commit messages to match previous repository commits. Use imperative mood, concise summary, capitalized first letter, and no trailing period (for example: `Add DcMotor interface for motor functionality`).
 - Git push and branch rules: Always follow existing branch rules and conventions stated in the current `README.md`.
+- Branch and draft PR workflow: Never commit directly to `main`. Do all work on a feature branch and open a draft pull request for it. Merge into `main` only after the change works on the feature branch.
 - Symlink maintenance: Keep `CLAUDE.md` symlinked to `AGENTS.md` in the project root.
 - Out-of-date sync alert: If the local branch is behind remote commits, alert the user once and ensure they acknowledge before proceeding.
 - Error diagnostics via Driver Hub: Since runtime errors and telemetry alerts appear on the REV Driver Hub screen (not the Control Hub), connect via ADB to the Driver Hub (`192.168.43.141:5555`) to screenshot and inspect errors during debugging.
