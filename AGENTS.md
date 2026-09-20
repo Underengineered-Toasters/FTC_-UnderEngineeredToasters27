@@ -114,3 +114,4 @@ Android 10 Driver Hubs require TCP/IP mode reactivation after every device resta
 
 - `TeamCode/`: custom team OpModes, subsystems, autonomous routines, and teleoperation programs.
 - `FtcRobotController/`: the FTC SDK application module and sample OpModes.
+- `PRODUCT.md` (repo root): product context record for the driver station web UI (impeccable skill artifact).
