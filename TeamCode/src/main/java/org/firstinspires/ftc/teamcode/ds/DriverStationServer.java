@@ -70,9 +70,12 @@ public final class DriverStationServer {
             new OpModeManagerNotifier.Notifications() {
                 @Override
                 public void onOpModePreInit(OpMode opMode) {
+                    DriverStation.attach(opMode);
+                    if (!(opMode.telemetry instanceof DsTelemetry)) {
+                        opMode.telemetry = new DsTelemetry(opMode.telemetry);
+                    }
                     DriverStation.setOpModeState("INIT");
                 }
-
                 @Override
                 public void onOpModePreStart(OpMode opMode) {
                     DriverStation.setOpModeState("LOOPING");
@@ -207,9 +210,9 @@ public final class DriverStationServer {
                 }
                 byte[] jpeg = compressJpeg(frame);
                 frame.recycle();
-                out.write("--frame\r\nContent-Type: image/jpeg\r\n\r\n".getBytes("UTF-8"));
+                out.write("--frame\r\nContent-Type: image/jpeg\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 out.write(jpeg);
-                out.write("\r\n".getBytes("UTF-8"));
+                out.write("\r\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
                 out.flush();
                 Thread.sleep(FRAME_INTERVAL_MS);
             }

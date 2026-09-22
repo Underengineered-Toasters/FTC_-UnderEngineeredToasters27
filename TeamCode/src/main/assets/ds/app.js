@@ -242,6 +242,20 @@ function handle(msg) {
     case "error":
       addLog("Error: " + String(data.message), true);
       break;
+    case "telemetryDump":
+      if (data.entries) {
+        for (const key of telemetryRows.keys()) {
+          if (!(key in data.entries)) {
+            telemetryRows.get(key).tr.remove();
+            telemetryRows.delete(key);
+          }
+        }
+        for (const [key, value] of Object.entries(data.entries)) {
+          setTelemetry(key, value);
+        }
+        if (telemetryRows.size === 0) els.telemetryEmpty.classList.remove("hidden");
+      }
+      break;
   }
 }
 
