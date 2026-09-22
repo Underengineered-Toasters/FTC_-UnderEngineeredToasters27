@@ -80,7 +80,7 @@ public class AprilTagTestOpMode extends LinearOpMode {
             }
 
             if (!targetFound) {
-                telemetry.addLine("Status: Target tag 34 not in view.");
+                telemetry.addLine("Status: Target tag " + DESIRED_TAG_ID + " not in view.");
             }
 
             telemetry.update();
