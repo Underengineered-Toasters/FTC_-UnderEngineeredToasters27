@@ -15,6 +15,8 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 - Annotate competition Autonomous classes with `@Autonomous(name = "...", group = "...")`.
 - Ensure actuators and sensors match hardware configuration names on the Control Hub.
 - Register all AprilTag clusters in the shared `AprilTagVision` library; use each unique ID once and its measured tag size for pose calculations.
+- `org.firstinspires.ftc.teamcode.ds` hosts the driver station web UI backend (web handlers, `ds` websocket namespace, diagnostics poller); opmodes publish through the `DriverStation` facade.
+- `src/main/assets/ds/` holds the web UI assets served at `/ds`; `app.css` is generated output — edit `ds-ui/input.css` and rebuild with `cd TeamCode/ds-ui && ./build.sh` instead of editing it directly.
 
 ## Work Guidance
 

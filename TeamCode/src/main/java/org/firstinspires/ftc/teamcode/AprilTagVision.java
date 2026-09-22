@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.robotcore.external.stream.CameraStreamSource;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.vision.VisionPortal;
@@ -62,6 +63,10 @@ public class AprilTagVision {
     public List<AprilTagDetection> getDetections() {
         if (aprilTag == null) return Collections.emptyList();
         return aprilTag.getDetections();
+    }
+
+    public CameraStreamSource getCameraSource() {
+        return visionPortal;
     }
 
     public void close() {
