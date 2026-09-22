@@ -70,6 +70,7 @@ public final class DriverStationServer {
             new OpModeManagerNotifier.Notifications() {
                 @Override
                 public void onOpModePreInit(OpMode opMode) {
+                    DriverStation.attach(opMode);
                     DriverStation.setOpModeState("INIT");
                 }
 
@@ -80,6 +81,7 @@ public final class DriverStationServer {
 
                 @Override
                 public void onOpModePostStop(OpMode opMode) {
+                    DriverStation.detach();
                     DriverStation.setOpModeState(null);
                 }
             };
