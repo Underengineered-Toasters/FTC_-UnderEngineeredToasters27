@@ -6,12 +6,11 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 @TeleOp(name = "Intake TeleOp", group = "TeleOp")
 public class IntakeTeleOp extends LinearOpMode {
 
-    private intake intakeSystem = new intake();
+    private final Robot robot = new Robot();
 
     @Override
     public void runOpMode() {
-
-        intakeSystem.init(hardwareMap);
+        robot.init(hardwareMap);
 
         telemetry.addLine("Intake initialized");
         telemetry.addLine("A = Intake In (100%)");
@@ -22,25 +21,24 @@ public class IntakeTeleOp extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
-
             // Intake motor at 100% speed
             if (gamepad1.a) {
-                intakeSystem.setPower(intake.INTAKE_IN);
+                robot.intake.setPower(Intake.INTAKE_IN);
             } else if (gamepad1.b) {
-                intakeSystem.setPower(intake.INTAKE_OUT);
+                robot.intake.setPower(Intake.INTAKE_OUT);
             } else {
-                intakeSystem.setPower(intake.INTAKE_STOP);
+                robot.intake.setPower(Intake.INTAKE_STOP);
             }
 
             // Feeder servo control: hold Y to push, release to reset
             if (gamepad1.y) {
-                intakeSystem.pushBall();
+                robot.intake.pushBall();
             } else {
-                intakeSystem.restFeeder();
+                robot.intake.restFeeder();
             }
 
-            telemetry.addData("Intake Power", intakeSystem.getPower());
-            telemetry.addData("Feeder Pos", intakeSystem.getServoPosition());
+            telemetry.addData("Intake Power", robot.intake.getPower());
+            telemetry.addData("Feeder Pos", robot.intake.getFeederPosition());
             telemetry.update();
         }
     }

@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 
-public class intake {
+public class Intake {
 
     // =========================
     // Intake Motor
@@ -46,13 +46,13 @@ public class intake {
                 DcMotor.ZeroPowerBehavior.BRAKE
         );
 
-        // Feeder servo
-        feederServo = hardwareMap.get(Servo.class, "feeder");
-        feederServo.setPosition(FEEDER_REST);
-
-        // Front servos
-        frontLeftServo = hardwareMap.get(Servo.class, "frontLeftServo");
-        frontRightServo = hardwareMap.get(Servo.class, "frontRightServo");
+        // Servos are optional until they are wired and added to the config.
+        feederServo = hardwareMap.tryGet(Servo.class, "feeder");
+        if (feederServo != null) {
+            feederServo.setPosition(FEEDER_REST);
+        }
+        frontLeftServo = hardwareMap.tryGet(Servo.class, "frontLeftServo");
+        frontRightServo = hardwareMap.tryGet(Servo.class, "frontRightServo");
     }
 
     // =========================
@@ -80,11 +80,11 @@ public class intake {
     // =========================
 
     public void pushBall() {
-        feederServo.setPosition(FEEDER_PUSH);
+        if (feederServo != null) feederServo.setPosition(FEEDER_PUSH);
     }
 
     public void restFeeder() {
-        feederServo.setPosition(FEEDER_REST);
+        if (feederServo != null) feederServo.setPosition(FEEDER_REST);
     }
 
     // =========================
@@ -92,16 +92,16 @@ public class intake {
     // =========================
 
     public void setFrontLeftPosition(double position) {
-        frontLeftServo.setPosition(position);
+        if (frontLeftServo != null) frontLeftServo.setPosition(position);
     }
 
     public void setFrontRightPosition(double position) {
-        frontRightServo.setPosition(position);
+        if (frontRightServo != null) frontRightServo.setPosition(position);
     }
 
     public void setFrontServos(double leftPosition, double rightPosition) {
-        frontLeftServo.setPosition(leftPosition);
-        frontRightServo.setPosition(rightPosition);
+        setFrontLeftPosition(leftPosition);
+        setFrontRightPosition(rightPosition);
     }
 
     // =========================
@@ -113,14 +113,14 @@ public class intake {
     }
 
     public double getFeederPosition() {
-        return feederServo.getPosition();
+        return feederServo != null ? feederServo.getPosition() : Double.NaN;
     }
 
     public double getFrontLeftPosition() {
-        return frontLeftServo.getPosition();
+        return frontLeftServo != null ? frontLeftServo.getPosition() : Double.NaN;
     }
 
     public double getFrontRightPosition() {
-        return frontRightServo.getPosition();
+        return frontRightServo != null ? frontRightServo.getPosition() : Double.NaN;
     }
 }
