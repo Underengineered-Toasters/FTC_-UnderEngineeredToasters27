@@ -2,9 +2,12 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.robotcore.external.stream.CameraStreamSource;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagGameDatabase;
 import org.firstinspires.ftc.vision.apriltag.AprilTagLibrary;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 
@@ -21,8 +24,11 @@ public class AprilTagVision {
 
     public void init(HardwareMap hardwareMap) {
 
-        // Register tags 30–45 so the SDK knows their dimensions to calculate range/bearing/yaw
+        // Official DECODE field tags carry real field positions, so detection.robotPose
+        // gives field X/Y/Z + orientation. Custom tags 30-45 are merged in for ID/range
+        // testing but have no field position, so they cannot produce a robot pose.
         AprilTagLibrary tagLibrary = new AprilTagLibrary.Builder()
+                .addLibrary(AprilTagGameDatabase.getDecodeTagLibrary())
                 .addTag(30, "Tag 30", TAG_SIZE_INCHES, DistanceUnit.INCH)
                 .addTag(31, "Tag 31", TAG_SIZE_INCHES, DistanceUnit.INCH)
                 .addTag(32, "Tag 32", TAG_SIZE_INCHES, DistanceUnit.INCH)
@@ -43,7 +49,9 @@ public class AprilTagVision {
 
         aprilTag = new AprilTagProcessor.Builder()
                 .setTagLibrary(tagLibrary)
+                .setOutputUnits(DistanceUnit.INCH, AngleUnit.DEGREES)
                 .build();
+
 
         // "Vision" must match the name in your Driver Station configuration
         visionPortal = new VisionPortal.Builder()
@@ -55,6 +63,10 @@ public class AprilTagVision {
     public List<AprilTagDetection> getDetections() {
         if (aprilTag == null) return Collections.emptyList();
         return aprilTag.getDetections();
+    }
+
+    public CameraStreamSource getCameraSource() {
+        return visionPortal;
     }
 
     public void close() {

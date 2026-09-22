@@ -64,6 +64,10 @@ public class ShooterTeleOp extends LinearOpMode {
             }
 
 
+            telemetry.addData("Stick Y (drive)", "%.2f", -gamepad1.left_stick_y);
+            telemetry.addData("Stick X (turn)", "%.2f", gamepad1.right_stick_x);
+            telemetry.addData("Left Power", "%.2f", leftPower);
+            telemetry.addData("Right Power", "%.2f", rightPower);
             telemetry.addData("Shooter target (ticks/s)", shooter.getTargetVelocity());
             telemetry.addData("Shooter actual (ticks/s)", shooter.getCurrentVelocity());
             telemetry.addData("Ready to fire", shooter.isReadyToFire());

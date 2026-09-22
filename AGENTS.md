@@ -9,28 +9,23 @@ AGENTS.md files are binding work contracts for their subtrees. Work products, so
 ## Read Before Editing
 
 1. Read the root AGENTS.md.
-2. Identify every file or folder you expect to touch.
-3. Walk from the repository root to each target path.
-4. Read every AGENTS.md found along each route.
-5. If a parent AGENTS.md lists a child AGENTS.md whose scope contains the path, read that child and continue from there.
-6. Use the nearest AGENTS.md as the local contract and parent docs for repository-wide rules.
-7. If docs conflict, the closer document controls local work details. No child document may weaken DOX.
+2. For every file or folder you expect to touch, walk from the repository root to the target path and read every AGENTS.md on the route, including any child AGENTS.md whose scope contains the path.
+3. The nearest AGENTS.md is the local contract; parents hold repository-wide rules. If docs conflict, the closer document controls local work details. No child document may weaken DOX.
 
 Do not rely on memory. Re-read the applicable DOX chain in the current session before editing.
 
 ## Update After Editing
 
-Every meaningful change requires a DOX pass before the task is done.
+Every meaningful change requires a DOX pass before the task is done:
 
-Update the closest owning AGENTS.md when a change affects:
+1. Re-check changed paths against the DOX chain.
+2. Update the closest owning AGENTS.md when the change affects purpose, scope, ownership, durable structure, contracts, workflows, required inputs/outputs, constraints, side effects, user preferences, or any AGENTS.md creation, deletion, move, rename, or index contents.
+3. Update parent docs when parent-level structure, ownership, workflow, or child index changes; update child docs when parent changes alter local rules.
+4. Refresh every affected Child DOX Index and remove stale or contradictory text.
+5. Run existing verification when relevant.
+6. Report any docs intentionally left unchanged and why.
 
-- Purpose, scope, ownership, or responsibilities
-- Durable structure, contracts, workflows, or operating rules
-- Required inputs, outputs, permissions, constraints, side effects, or artifacts
-- User preferences about behavior, communication, process, organization, or quality
-- AGENTS.md creation, deletion, move, rename, or index contents
-
-Update parent docs when parent-level structure, ownership, workflow, or child index changes. Update child docs when parent changes alter local rules. Remove stale or contradictory text immediately. Small edits that do not change behavior or contracts may leave docs unchanged, but the DOX pass must still happen.
+Small edits that do not change behavior or contracts may leave docs unchanged, but the DOX pass must still happen.
 
 ## Hierarchy
 
@@ -38,18 +33,8 @@ Update parent docs when parent-level structure, ownership, workflow, or child in
 - Child AGENTS.md files own domain-specific instructions and their own Child DOX Index.
 - Each parent explains what its direct children cover and what stays owned by the parent.
 - The closer a document is to the work, the more specific and practical it must be.
-
-## Child Doc Shape
-
-Create a child AGENTS.md when a folder becomes a durable boundary with its own purpose, rules, responsibilities, workflow, materials, or quality standards.
-
-Default section order:
-- Purpose
-- Ownership
-- Local Contracts
-- Work Guidance
-- Verification
-- Child DOX Index
+- Create a child AGENTS.md when a folder becomes a durable boundary with its own purpose, rules, responsibilities, workflow, materials, or quality standards.
+- New child docs default to this section order: Purpose, Ownership, Local Contracts, Work Guidance, Verification, Child DOX Index.
 
 ## Style
 
@@ -61,99 +46,73 @@ Default section order:
 - Delete stale notes instead of explaining history.
 - Trim obvious statements, repeated rules, and misplaced detail.
 
-## Closeout
-
-1. Re-check changed paths against the DOX chain.
-2. Update nearest owning docs and any affected parents or children.
-3. Refresh every affected Child DOX Index.
-4. Remove stale or contradictory text.
-5. Run existing verification when relevant.
-6. Report any docs intentionally left unchanged and why.
-
 ## User Preferences
 
-- Git commit style: Always format commit messages to match previous repository commits. Use imperative mood, concise summary, capitalized first letter, and no trailing period (for example: `Add DcMotor interface for motor functionality`).
-- Git push and branch rules: Always follow existing branch rules and conventions stated in the current `README.md`.
-- Branch and draft PR workflow: Never commit directly to `main`. Do all work on a feature branch and open a draft pull request for it. Merge into `main` only after the change works on the feature branch.
-- Master-to-tag-testing sync: Whenever `master` changes, bring the latest `master` commits into `tag-testing` before continuing work on `tag-testing`.
-- Symlink maintenance: Keep `CLAUDE.md` symlinked to `AGENTS.md` in the project root.
-- Out-of-date sync alert: If the local branch is behind remote commits, alert the user once and ensure they acknowledge before proceeding.
-- Error diagnostics via Driver Hub: Since runtime errors and telemetry alerts appear on the REV Driver Hub screen (not the Control Hub), connect via ADB to the Driver Hub (`192.168.43.141:5555`) to screenshot and inspect errors during debugging.
+- Git commit style: match previous repository commits. Imperative mood, concise summary, capitalized first letter, no trailing period (for example: `Add DcMotor interface for motor functionality`).
+- Branch and draft PR workflow: never commit directly to `main`. Do all work on a feature branch and open a draft pull request for it. Merge into `main` only after the change works on the feature branch. Follow any further branch rules in `README.md`.
+- Issue tracking: before starting work, check whether a GitHub issue already covers it. If none exists, create one. Link the pull request to the issue when opening it.
+- Master-to-tag-testing sync: whenever `master` changes, bring its latest commits into `tag-testing` before continuing work there.
+- Symlink maintenance: keep `CLAUDE.md` symlinked to `AGENTS.md` in the project root.
+- Pre-work git check: before starting work, run `git status` and `git fetch` to confirm the current branch, uncommitted changes, and whether the local branch is behind remote commits. If the branch is behind, alert the user once and ensure they acknowledge before proceeding.
+- Error diagnostics: runtime errors and telemetry alerts appear on the REV Driver Hub screen, not the Control Hub. Connect via ADB to the Driver Hub (`192.168.43.141:5555`) to screenshot and inspect errors during debugging.
 
 ## Wireless ADB and Hub Setup
 
-### Network credentials
-- Robot Wi-Fi SSID: `36424-RC`
-- Robot Wi-Fi Password: `87654321`
-
-### Device network addresses
-- Control Hub IP: `192.168.43.1:5555`
-- Driver Hub IP: `192.168.43.141:5555`
+- Robot Wi-Fi: SSID `36424-RC`, password `87654321`
+- Control Hub: `192.168.43.1:5555`
+- Driver Hub: `192.168.43.141:5555`
 
 ### Direct connection
-When the development laptop is connected to the robot Wi-Fi network (`36424-RC`):
+
+When the laptop is on the robot Wi-Fi network:
 
 ```bash
-# Connect to Driver Hub
-adb connect 192.168.43.141:5555
+adb connect 192.168.43.141:5555   # Driver Hub
+adb connect 192.168.43.1:5555     # Control Hub
+```
 
-# Connect to Control Hub
+### Dual station setup (keep internet while connected to robot)
+
+To keep internet on `wlan0` (for example a hotspot) while reaching the robot, use a virtual interface `wlan1` so the primary interface keeps default routing:
+
+```bash
+# 1. Create virtual interface
+pkexec iw dev wlan0 interface add wlan1 type managed addr 5a:cd:c9:3c:93:b0
+pkexec ip link set wlan1 up
+
+# 2. Connect wlan1 to the robot Wi-Fi
+wpa_passphrase "36424-RC" "87654321" > /tmp/wpa_36424.conf
+pkexec wpa_supplicant -B -i wlan1 -c /tmp/wpa_36424.conf
+
+# 3. Assign a static robot-subnet IP with no default gateway
+pkexec ip addr add 192.168.43.199/24 dev wlan1
+
+# 4. Connect via ADB
+adb connect 192.168.43.141:5555
 adb connect 192.168.43.1:5555
 ```
 
-### Dual station setup (Keep internet while connected to robot)
-If the laptop must keep internet via another Wi-Fi network (such as a hotspot on `wlan0`), use a virtual interface (`wlan1`) so the primary interface keeps default routing to the internet:
-
-1. Create virtual interface:
-   ```bash
-   pkexec iw dev wlan0 interface add wlan1 type managed addr 5a:cd:c9:3c:93:b0
-   pkexec ip link set wlan1 up
-   ```
-
-2. Connect `wlan1` to the robot Wi-Fi:
-   ```bash
-   wpa_passphrase "36424-RC" "87654321" > /tmp/wpa_36424.conf
-   pkexec wpa_supplicant -B -i wlan1 -c /tmp/wpa_36424.conf
-   ```
-
-3. Assign static robot subnet IP without a default gateway:
-   ```bash
-   pkexec ip addr add 192.168.43.199/24 dev wlan1
-   ```
-
-4. Connect via ADB:
-   ```bash
-   adb connect 192.168.43.141:5555
-   adb connect 192.168.43.1:5555
-   ```
-
-### Screen mirroring (Driver Hub)
-Mirror and control the Driver Hub screen wirelessly:
+### Screen mirroring and screenshots (Driver Hub)
 
 ```bash
+# Mirror and control the Driver Hub screen
 scrcpy -s 192.168.43.141:5555
-```
 
-
-### Error inspection and screenshots (Driver Hub)
-Runtime errors and telemetry popups display on the Driver Hub screen rather than the Control Hub. Use ADB against the Driver Hub to capture screenshots for error inspection:
-
-```bash
-# Capture Driver Hub screenshot
+# Capture a screenshot for error inspection
 adb -s 192.168.43.141:5555 exec-out screencap -p > /tmp/driver_hub_error.png
 ```
+
 ### Re-enabling TCP mode after reboot
+
 Android 10 Driver Hubs require TCP/IP mode reactivation after every device restart:
 
 1. Connect the Driver Hub to the laptop with a USB-C cable.
 2. Enable USB debugging in Developer Options.
-3. Run:
-   ```bash
-   adb tcpip 5555
-   ```
-4. Unplug the cable. Wireless ADB on port 5555 will remain active until the next reboot.
+3. Run `adb tcpip 5555`.
+4. Unplug the cable. Wireless ADB on port 5555 stays active until the next reboot.
 
 ## Child DOX Index
 
-- `TeamCode/`: Holds custom team OpModes, subsystems, autonomous routines, and teleoperation programs.
-- `FtcRobotController/`: Holds the FTC SDK application module and sample OpModes.
+- `TeamCode/`: custom team OpModes, subsystems, autonomous routines, and teleoperation programs.
+- `FtcRobotController/`: the FTC SDK application module and sample OpModes.
+- `PRODUCT.md` (repo root): product context record for the driver station web UI (impeccable skill artifact).
