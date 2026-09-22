@@ -50,7 +50,7 @@ Small edits that do not change behavior or contracts may leave docs unchanged, b
 
 - Git commit style: match previous repository commits. Imperative mood, concise summary, capitalized first letter, no trailing period (for example: `Add DcMotor interface for motor functionality`).
 - Branch and draft PR workflow: never commit directly to `main`. Do all work on a feature branch and open a draft pull request for it. Merge into `main` only after the change works on the feature branch. Follow any further branch rules in `README.md`.
-- Issue tracking: before starting work, check whether a GitHub issue already covers it. If none exists, create one. Link the pull request to the issue when opening it.
+- Issue tracking: GitHub Issues is the tracker (`gh issue`). Before starting work, check for an existing issue; if none, create one. Open a draft PR early while working and link it to the issue.
 - Symlink maintenance: keep `CLAUDE.md` symlinked to `AGENTS.md` in the project root.
 - Pre-work git check: before starting work, run `git status` and `git fetch` to confirm the current branch, uncommitted changes, and whether the local branch is behind remote commits. If the branch is behind, alert the user once and ensure they acknowledge before proceeding.
 - Error diagnostics: runtime errors and telemetry alerts appear on the REV Driver Hub screen, not the Control Hub. Connect via ADB to the Driver Hub (`192.168.43.141:5555`) to screenshot and inspect errors during debugging.
