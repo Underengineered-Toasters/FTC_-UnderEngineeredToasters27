@@ -40,7 +40,7 @@ public class IntakeTeleOp extends LinearOpMode {
             }
 
             telemetry.addData("Intake Power", intakeSystem.getPower());
-            telemetry.addData("Feeder Pos", intakeSystem.getServoPosition());
+            telemetry.addData("Feeder Pos", intakeSystem.getFeederPosition());
             telemetry.update();
         }
     }
