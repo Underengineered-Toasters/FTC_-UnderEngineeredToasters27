@@ -30,6 +30,14 @@ public class MotorIntake {
         intakeMotor.setPower(power);
     }
 
+    public void intakeIn() {
+        setPower(INTAKE_IN);
+    }
+
+    public void intakeOut() {
+        setPower(INTAKE_OUT);
+    }
+
     public void stopIntake() {
         setPower(INTAKE_STOP);
     }

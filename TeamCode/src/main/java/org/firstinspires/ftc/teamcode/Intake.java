@@ -1,40 +1,41 @@
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.robotcore.hardware.CRServo;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
-/** Controls the mirrored continuous-rotation servos at the front of the robot. */
+/** Controls the mirrored positional servos at the front of the robot. */
 public class Intake {
 
-    private static final double INTAKE_POWER = 1.0;
+    private static final double INTAKE_POSITION = 1.0;
+    private static final double EJECT_POSITION = 0.0;
+    private static final double NEUTRAL_POSITION = 0.5;
 
-    private CRServo frontLeftServo;
-    private CRServo frontRightServo;
+    private Servo frontLeftServo;
+    private Servo frontRightServo;
 
     public void init(HardwareMap hardwareMap) {
-        frontLeftServo = hardwareMap.get(CRServo.class, "frontLeftServo");
-        frontRightServo = hardwareMap.get(CRServo.class, "frontRightServo");
+        frontLeftServo = hardwareMap.get(Servo.class, "frontLeftServo");
+        frontRightServo = hardwareMap.get(Servo.class, "frontRightServo");
 
-        frontLeftServo.setDirection(DcMotorSimple.Direction.FORWARD);
-        frontRightServo.setDirection(DcMotorSimple.Direction.REVERSE);
+        frontLeftServo.setDirection(Servo.Direction.FORWARD);
+        frontRightServo.setDirection(Servo.Direction.REVERSE);
         stop();
     }
 
     public void intake() {
-        setPower(INTAKE_POWER);
+        setPosition(INTAKE_POSITION);
     }
 
     public void eject() {
-        setPower(-INTAKE_POWER);
+        setPosition(EJECT_POSITION);
     }
 
     public void stop() {
-        setPower(0.0);
+        setPosition(NEUTRAL_POSITION);
     }
 
-    private void setPower(double power) {
-        frontLeftServo.setPower(power);
-        frontRightServo.setPower(power);
+    private void setPosition(double position) {
+        frontLeftServo.setPosition(position);
+        frontRightServo.setPosition(position);
     }
 }

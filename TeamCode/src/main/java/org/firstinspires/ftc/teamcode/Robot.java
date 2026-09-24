@@ -34,7 +34,7 @@ public class Robot {
     // Subsystems
     // =========================
 
-    public final intake intakeSystem = new intake();
+    public final MotorIntake intakeSystem = new MotorIntake();
     public final Shooter shooter = new Shooter();
     public final AprilTagVision vision = new AprilTagVision();
 
