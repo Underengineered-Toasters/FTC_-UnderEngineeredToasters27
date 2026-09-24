@@ -53,6 +53,9 @@ public final class DriverStation {
     public static void detach() {
         hardwareMap = null;
         cameraSource = null;
+        synchronized (telemetrySnapshot) {
+            telemetrySnapshot.clear();
+        }
     }
 
     public static HardwareMap getHardwareMap() {
@@ -110,6 +113,24 @@ public final class DriverStation {
             return;
         }
         broadcast(json);
+    }
+
+    static void putTelemetry(String key, String value) {
+        synchronized (telemetrySnapshot) {
+            telemetrySnapshot.put(key, value);
+        }
+    }
+
+    static void removeTelemetry(String key) {
+        synchronized (telemetrySnapshot) {
+            telemetrySnapshot.remove(key);
+        }
+    }
+
+    static void clearTelemetry() {
+        synchronized (telemetrySnapshot) {
+            telemetrySnapshot.clear();
+        }
     }
 
     static List<String> logSnapshot() {
