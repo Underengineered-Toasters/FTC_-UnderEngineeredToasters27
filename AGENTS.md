@@ -55,6 +55,13 @@ Small edits that do not change behavior or contracts may leave docs unchanged, b
 - Pre-work git check: before starting work, run `git status` and `git fetch` to confirm the current branch, uncommitted changes, and whether the local branch is behind remote commits. If the branch is behind, alert the user once and ensure they acknowledge before proceeding.
 - Error diagnostics: runtime errors and telemetry alerts appear on the REV Driver Hub screen, not the Control Hub. Connect via ADB to the Driver Hub (`192.168.43.141:5555`) to screenshot and inspect errors during debugging.
 
+## Builds and CI
+
+- CI runs on every pull request and on every branch push (`.github/workflows/android-ci.yml`): JDK 25 (Temurin), Android SDK platform 30, `./gradlew assembleDebug`, then `./gradlew test`, and the debug APKs are uploaded as the `debug-apks` artifact. Read the job log before claiming a change builds.
+- CD runs on `v*` tags (`.github/workflows/android-release.yml`): `./gradlew assembleRelease` and the APKs are published to a GitHub Release named after the tag. It can also be started manually, which uploads the APKs as an artifact without creating a release.
+- Release builds are signed with `libs/ftc.debug.keystore` unless `APK_SIGNING_STORE_FILE` and its companion variables are set, so no signing secrets are required.
+- `open-code-review.yml` is separate: it only runs when `0xhis` comments `/code-review` on a pull request, on the self-hosted `ftc-review` runner.
+
 ## Wireless ADB and Hub Setup
 
 - Robot Wi-Fi: SSID `36424-RC`, password `87654321`
