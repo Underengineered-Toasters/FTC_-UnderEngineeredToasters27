@@ -84,6 +84,7 @@ public final class DriverStationServer {
                 @Override
                 public void onOpModePostStop(OpMode opMode) {
                     DriverStation.setOpModeState(null);
+                    DriverStation.detach();
                 }
             };
     /** Last manager the listener was registered on; replaced on robot restart. */
