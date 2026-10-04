@@ -14,6 +14,8 @@ public class RobotTeleOp extends LinearOpMode {
     private final Robot robot = new Robot();
     private static final double ALIGN_KP = 0.02;
     private static final double ALIGN_MAX_TURN = 0.4;
+    // Smallest turn power that actually rotates the chassis (overcomes friction)
+    private static final double ALIGN_MIN_TURN = 0.15;
     private static final double ALIGN_TOLERANCE_DEG = 1.5;
     // Alliance selected during INIT; defaults to RED
     private String alliance = "RED";
@@ -106,8 +108,9 @@ public class RobotTeleOp extends LinearOpMode {
                     turn = 0;
                     aligned = true;
                 } else {
-                    turn = Math.max(-ALIGN_MAX_TURN,
-                            Math.min(ALIGN_MAX_TURN, -ALIGN_KP * bearing));
+                    double power = Math.max(ALIGN_MIN_TURN,
+                            Math.min(ALIGN_MAX_TURN, Math.abs(ALIGN_KP * bearing)));
+                    turn = -Math.signum(bearing) * power;
                 }
             }
 
