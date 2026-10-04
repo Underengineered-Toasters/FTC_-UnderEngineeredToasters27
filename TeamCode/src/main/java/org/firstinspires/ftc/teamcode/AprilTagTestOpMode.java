@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 
 import java.util.List;
@@ -12,7 +13,7 @@ import java.util.List;
 public class AprilTagTestOpMode extends LinearOpMode {
 
     private AprilTagVision vision = new AprilTagVision();
-    private static final int DESIRED_TAG_ID = 34;
+    private static final String DESIRED_CLUSTER = AprilTagVision.RED_AUDIENCE;
 
     @Override
     public void runOpMode() {
@@ -29,21 +30,34 @@ public class AprilTagTestOpMode extends LinearOpMode {
             List<AprilTagDetection> detections = vision.getDetections();
             boolean targetFound = false;
 
-            telemetry.addData("Tags Visible", detections.size());
-            telemetry.addData("Looking for ID", DESIRED_TAG_ID);
+            telemetry.addData("AprilTag Targets", detections.size());
+            telemetry.addData("Looking for Cluster", DESIRED_CLUSTER);
             telemetry.addLine("--------------------------------");
 
             for (AprilTagDetection tag : detections) {
-                if (tag instanceof AprilTagSingleDetection) {
-                    AprilTagSingleDetection single = (AprilTagSingleDetection) tag;
-                    if (single.id == DESIRED_TAG_ID) {
+                if (tag instanceof AprilTagClusterDetection) {
+                    AprilTagClusterDetection cluster = (AprilTagClusterDetection) tag;
+                    String clusterName = (cluster.metadata != null) ? cluster.metadata.name : "unknown";
+                    if (DESIRED_CLUSTER.equals(clusterName)) {
                         targetFound = true;
-                        telemetry.addLine(String.format(">> TARGET TAG (ID %d) FOUND! <<", single.id));
+                        telemetry.addLine(String.format(
+                                ">> TARGET CLUSTER (%s) FOUND: %d%% of tags <<",
+                                clusterName,
+                                cluster.percentClusterFound
+                        ));
                     } else {
-                        telemetry.addLine(String.format("Other Tag (ID %d):", single.id));
+                        telemetry.addLine(String.format(
+                                "Cluster %s: %d%% of tags",
+                                clusterName,
+                                cluster.percentClusterFound
+                        ));
                     }
+                } else if (tag instanceof AprilTagSingleDetection) {
+                    AprilTagSingleDetection single = (AprilTagSingleDetection) tag;
+                    String tagName = (single.metadata != null) ? single.metadata.name : "unknown tag";
+                    telemetry.addLine(String.format("Tag (ID %d, %s):", single.id, tagName));
                 } else {
-                    telemetry.addLine("Tag cluster detected:");
+                    telemetry.addLine("Unrecognized detection:");
                 }
 
                 // Null check prevents the NullPointerException crash
@@ -65,11 +79,14 @@ public class AprilTagTestOpMode extends LinearOpMode {
                     telemetry.addLine("   Pose unavailable");
                 }
 
-                // Field pose only exists for tags with real field positions
-                // (official DECODE tags) — custom test tags 30-45 have none.
+                // BIOBUZZ tags ride on moving CELLs, so robotPose is relative
+                // to the tag, not an absolute field position.
                 if (tag.robotPose != null) {
+                    String poseLabel = (tag instanceof AprilTagClusterDetection)
+                            ? "   Pose vs cluster (CELL moves; not field-absolute)"
+                            : "   Robot Pose (sample tag)";
                     telemetry.addLine(String.format(
-                            "   Robot Pose: X %.1f  Y %.1f  Z %.1f in | Yaw %.1f deg",
+                            poseLabel + ": X %.1f  Y %.1f  Z %.1f in | Yaw %.1f deg",
                             tag.robotPose.getPosition().x,
                             tag.robotPose.getPosition().y,
                             tag.robotPose.getPosition().z,
@@ -80,7 +97,7 @@ public class AprilTagTestOpMode extends LinearOpMode {
             }
 
             if (!targetFound) {
-                telemetry.addLine("Status: Target tag " + DESIRED_TAG_ID + " not in view.");
+                telemetry.addLine("Status: Target cluster \"" + DESIRED_CLUSTER + "\" not in view.");
             }
 
             telemetry.update();

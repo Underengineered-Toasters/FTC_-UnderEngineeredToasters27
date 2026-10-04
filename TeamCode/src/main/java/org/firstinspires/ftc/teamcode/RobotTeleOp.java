@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 
 import java.util.List;
 
@@ -11,6 +12,13 @@ import java.util.List;
 public class RobotTeleOp extends LinearOpMode {
 
     private final Robot robot = new Robot();
+    private static final double ALIGN_KP = 0.02;
+    private static final double ALIGN_MAX_TURN = 0.4;
+    private static final double ALIGN_TOLERANCE_DEG = 1.5;
+    // Alliance selected during INIT; defaults to RED
+    private String alliance = "RED";
+
+
 
     // Tracks intake direction
     // true = intake in
@@ -29,19 +37,31 @@ public class RobotTeleOp extends LinearOpMode {
 
         robot.init(hardwareMap);
 
-        telemetry.addLine("==============================");
-        telemetry.addLine("       ROBOT INITIALIZED");
-        telemetry.addLine("==============================");
-        telemetry.addLine("");
-        telemetry.addLine("Left Stick Y  = Drive");
-        telemetry.addLine("Right Stick X = Turn");
-        telemetry.addLine("");
-        telemetry.addLine("Left Trigger  = Intake + Feeder");
-        telemetry.addLine("Right Trigger = Shooter + Feeder");
-        telemetry.addLine("Y             = Toggle Intake Direction");
-        telemetry.update();
+        // Alliance select: X = BLUE, B = RED (default RED) before START
+        while (opModeInInit()) {
 
-        waitForStart();
+            if (gamepad1.x) {
+                alliance = "BLUE";
+            } else if (gamepad1.b) {
+                alliance = "RED";
+            }
+
+            telemetry.addLine("==============================");
+            telemetry.addLine("       ROBOT INITIALIZED");
+            telemetry.addLine("==============================");
+            telemetry.addData("Alliance", alliance + " (X = Blue, B = Red)");
+            telemetry.addLine("");
+            telemetry.addLine("Left Stick Y  = Drive");
+            telemetry.addLine("Right Stick X = Turn");
+            telemetry.addLine("");
+            telemetry.addLine("LB (hold)     = Align audience CELL");
+            telemetry.addLine("RB (hold)     = Align far CELL");
+            telemetry.addLine("");
+            telemetry.addLine("Left Trigger  = Intake + Feeder");
+            telemetry.addLine("Right Trigger = Shooter + Feeder");
+            telemetry.addLine("Y             = Toggle Intake Direction");
+            telemetry.update();
+        }
 
         if (isStopRequested()) {
             robot.close();
@@ -60,6 +80,36 @@ public class RobotTeleOp extends LinearOpMode {
 
             double drive = -gamepad1.left_stick_y;
             double turn = gamepad1.right_stick_x;
+
+            // Hold-to-align on the CELL AprilTag cluster.
+            // The camera must face the shooter direction; if the camera moves
+            // to the turret (issue #39) this aims the chassis, not the turret.
+            String alignTarget = null;
+            if (gamepad1.left_bumper) {
+                alignTarget = "RED".equals(alliance)
+                        ? AprilTagVision.RED_AUDIENCE
+                        : AprilTagVision.BLUE_AUDIENCE;
+            } else if (gamepad1.right_bumper) {
+                alignTarget = "RED".equals(alliance)
+                        ? AprilTagVision.RED_SCORING
+                        : AprilTagVision.BLUE_SCORING;
+            }
+
+            AprilTagClusterDetection target =
+                    alignTarget == null ? null : robot.findAprilTagCluster(alignTarget);
+            boolean aligned = false;
+
+            // Positive bearing = target LEFT; positive turn rotates RIGHT.
+            if (target != null && target.ftcPose != null) {
+                double bearing = target.ftcPose.bearing;
+                if (Math.abs(bearing) < ALIGN_TOLERANCE_DEG) {
+                    turn = 0;
+                    aligned = true;
+                } else {
+                    turn = Math.max(-ALIGN_MAX_TURN,
+                            Math.min(ALIGN_MAX_TURN, -ALIGN_KP * bearing));
+                }
+            }
 
             robot.drive(drive, turn);
 
@@ -211,8 +261,21 @@ public class RobotTeleOp extends LinearOpMode {
 
             telemetry.addLine("------------------------------");
 
+            telemetry.addData("Alliance", alliance);
             telemetry.addData(
-                    "AprilTags Visible",
+                    "Align Target",
+                    alignTarget == null ? "off" : alignTarget
+            );
+            telemetry.addData(
+                    "Align Bearing",
+                    target != null && target.ftcPose != null
+                            ? String.format("%.1f deg", target.ftcPose.bearing)
+                            : "not visible"
+            );
+            telemetry.addData("Aligned", aligned);
+
+            telemetry.addData(
+                    "AprilTag Targets",
                     detections.size()
             );
 

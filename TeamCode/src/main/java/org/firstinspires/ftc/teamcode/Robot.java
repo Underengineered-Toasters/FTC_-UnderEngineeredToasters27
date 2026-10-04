@@ -5,6 +5,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.stream.CameraStreamSource;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 
 import java.util.Collections;
 import java.util.List;
@@ -130,6 +131,15 @@ public class Robot {
 
         return vision.getDetections();
     }
+    public AprilTagClusterDetection findAprilTagCluster(String name) {
+
+        if (vision == null) {
+            return null;
+        }
+
+        return vision.findCluster(name);
+    }
+
 
     /*public CameraStreamSource getCameraSource() {
         return vision.getCameraSource();
