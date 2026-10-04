@@ -20,8 +20,8 @@ public class BasicTankDrive extends LinearOpMode {
         right = hardwareMap.get(DcMotor.class, "right");
 
         //Keep opposite as the motors are oriented the opposite way in tank
-        left.setDirection(DcMotor.Direction.REVERSE);
-        right.setDirection(DcMotor.Direction.FORWARD);
+        left.setDirection(DcMotor.Direction.FORWARD);
+        right.setDirection(DcMotor.Direction.REVERSE);
 
         // Optional but recommended: motors actively resist being pushed when stopped
         left.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);

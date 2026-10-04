@@ -51,8 +51,8 @@ public class Robot {
         left = hardwareMap.get(DcMotor.class, "left");
         right = hardwareMap.get(DcMotor.class, "right");
 
-        left.setDirection(DcMotor.Direction.REVERSE);
-        right.setDirection(DcMotor.Direction.FORWARD);
+        left.setDirection(DcMotor.Direction.FORWARD);
+        right.setDirection(DcMotor.Direction.REVERSE);
 
         left.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         right.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
