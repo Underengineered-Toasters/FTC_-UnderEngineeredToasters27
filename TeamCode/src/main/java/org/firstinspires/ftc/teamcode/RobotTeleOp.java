@@ -101,7 +101,7 @@ public class RobotTeleOp extends LinearOpMode {
                     alignTarget == null ? null : robot.findAprilTagCluster(alignTarget);
             boolean aligned = false;
 
-            // Robot test: positive turn rotates toward positive bearing on this chassis.
+            // Positive bearing = target LEFT; positive turn rotates RIGHT.
             if (target != null && target.ftcPose != null) {
                 double bearing = target.ftcPose.bearing;
                 if (Math.abs(bearing) < ALIGN_TOLERANCE_DEG) {
@@ -110,7 +110,7 @@ public class RobotTeleOp extends LinearOpMode {
                 } else {
                     double power = Math.max(ALIGN_MIN_TURN,
                             Math.min(ALIGN_MAX_TURN, Math.abs(ALIGN_KP * bearing)));
-                    turn = Math.signum(bearing) * power;
+                    turn = -Math.signum(bearing) * power;
                 }
             }
 
