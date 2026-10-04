@@ -51,7 +51,6 @@ Small edits that do not change behavior or contracts may leave docs unchanged, b
 - Git commit style: match previous repository commits. Imperative mood, concise summary, capitalized first letter, no trailing period (for example: `Add DcMotor interface for motor functionality`).
 - Branch and draft PR workflow: never commit directly to `main`. Do all work on a feature branch and open a draft pull request for it. Merge into `main` only after the change works on the feature branch. Follow any further branch rules in `README.md`.
 - Issue tracking: GitHub Issues is the tracker (`gh issue`). Before starting work, check for an existing issue; if none, create one. Open a draft PR early while working and link it to the issue.
-- Symlink maintenance: keep `CLAUDE.md` symlinked to `AGENTS.md` in the project root.
 - Pre-work git check: before starting work, run `git status` and `git fetch` to confirm the current branch, uncommitted changes, and whether the local branch is behind remote commits. If the branch is behind, alert the user once and ensure they acknowledge before proceeding.
 - Error diagnostics: runtime errors and telemetry alerts appear on the REV Driver Hub screen, not the Control Hub. Connect via ADB to the Driver Hub (`192.168.43.141:5555`) to screenshot and inspect errors during debugging.
 
@@ -82,18 +81,34 @@ adb connect 192.168.43.1:5555     # Control Hub
 To keep internet on `wlan0` (for example a hotspot) while reaching the robot, use a virtual interface `wlan1` so the primary interface keeps default routing:
 
 ```bash
+# 0. Ignore wlan1 in NetworkManager to prevent auto-connect conflicts
+cat << 'EOF' | pkexec tee /etc/NetworkManager/conf.d/99-unmanage-wlan1.conf
+[keyfile]
+unmanaged-devices=interface-name:wlan1
+EOF
+pkexec systemctl reload NetworkManager
+
 # 1. Create virtual interface
 pkexec iw dev wlan0 interface add wlan1 type managed addr 5a:cd:c9:3c:93:b0
 pkexec ip link set wlan1 up
-
-# 2. Connect wlan1 to the robot Wi-Fi
-wpa_passphrase "36424-RC" "87654321" > /tmp/wpa_36424.conf
-pkexec wpa_supplicant -B -i wlan1 -c /tmp/wpa_36424.conf
-
-# 3. Assign a static robot-subnet IP with no default gateway
 pkexec ip addr add 192.168.43.199/24 dev wlan1
 
-# 4. Connect via ADB
+# 2. Connect wlan1 to robot Wi-Fi with isolated control socket
+cat << 'EOF' > /tmp/wpa_robot.conf
+ctrl_interface=/var/run/wpa_supplicant_wlan1
+update_config=0
+
+network={
+    ssid="36424-RC"
+    psk="87654321"
+    key_mgmt=WPA-PSK
+    proto=RSN WPA
+}
+EOF
+pkexec mkdir -p /var/run/wpa_supplicant_wlan1
+pkexec wpa_supplicant -B -i wlan1 -c /tmp/wpa_robot.conf
+
+# 3. Connect via ADB
 adb connect 192.168.43.141:5555
 adb connect 192.168.43.1:5555
 ```
@@ -122,3 +137,4 @@ Android 10 Driver Hubs require TCP/IP mode reactivation after every device resta
 - `TeamCode/`: custom team OpModes, subsystems, autonomous routines, and teleoperation programs.
 - `FtcRobotController/`: the FTC SDK application module and sample OpModes.
 - `PRODUCT.md` (repo root): product context record for the driver station web UI (impeccable skill artifact).
+- `.agents/skills/robot-wifi-setup/`: skill for dual-station Wi-Fi and wireless ADB connections.
