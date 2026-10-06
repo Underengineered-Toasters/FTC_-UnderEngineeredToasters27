@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.PwmControl;
 import com.qualcomm.robotcore.hardware.Servo;
 
 public class intake {
@@ -115,6 +116,23 @@ public class intake {
 
     public double getFeederPower() {
         return feederServo != null ? feederServo.getPower() : Double.NaN;
+    }
+
+    public String getFeederPwmStatus() {
+        if (!(feederServo instanceof PwmControl)) return "unknown";
+        try {
+            return Boolean.toString(((PwmControl) feederServo).isPwmEnabled());
+        } catch (RuntimeException e) {
+            return "error: " + e.getMessage();
+        }
+    }
+
+    public int getFeederPort() {
+        return feederServo.getPortNumber();
+    }
+
+    public String getFeederConnection() {
+        return feederServo.getConnectionInfo();
     }
 
     public double getFrontLeftPosition() {

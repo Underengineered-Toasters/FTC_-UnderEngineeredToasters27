@@ -21,6 +21,7 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 - Configure `feeder` as a Continuous Rotation Servo on servo port 1. Feeder commands use power: 0.5 to feed, 0.0 to stop; telemetry reports commanded power. Stop the feeder during initialization, trigger release, and OpMode shutdown.
 - `IntakeTeleOp`: gamepad 1 left trigger runs the feeder; A/B operate the intake motor.
 - `RobotTeleOp`: gamepad 1 left trigger operates only the feeder; right trigger operates the shooter and feeder. The intake motor stays stopped in this OpMode.
+- `RobotActionLog` writes a new `/sdcard/FIRST/debug_logs/robot_actions_<timestamp>_<unique>.csv` per Robot TeleOp run: init/start/trigger changes/stop plus samples every 100 ms. Columns record trigger inputs, feeder requested/commanded power, PWM state, port/connection, shooter target/actual speed, intake and drive power. These values do not measure physical feeder motion. Rows flush as written; file failures appear in CSV Log telemetry and do not disable controls. Preserve older logs.
 
 ## Work Guidance
 
