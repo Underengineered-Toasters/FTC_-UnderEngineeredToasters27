@@ -12,14 +12,6 @@ public class RobotTeleOp extends LinearOpMode {
 
     private final Robot robot = new Robot();
 
-    // Tracks intake direction
-    // true = intake in
-    // false = intake out
-    private boolean intakeInDirection = true;
-
-    // Used so holding Y doesn't repeatedly toggle
-    private boolean previousY = false;
-
     @Override
     public void runOpMode() {
 
@@ -36,9 +28,8 @@ public class RobotTeleOp extends LinearOpMode {
         telemetry.addLine("Left Stick Y  = Drive");
         telemetry.addLine("Right Stick X = Turn");
         telemetry.addLine("");
-        telemetry.addLine("Left Trigger  = Intake + Feeder");
+        telemetry.addLine("Left Trigger  = Feeder");
         telemetry.addLine("Right Trigger = Shooter + Feeder");
-        telemetry.addLine("Y             = Toggle Intake Direction");
         telemetry.update();
 
         waitForStart();
@@ -65,52 +56,22 @@ public class RobotTeleOp extends LinearOpMode {
 
 
             // ==================================
-            // INTAKE DIRECTION TOGGLE
-            // ==================================
-
-            boolean currentY = gamepad1.y;
-
-            // Only toggle when Y is initially pressed
-            if (currentY && !previousY) {
-                intakeInDirection = !intakeInDirection;
-            }
-
-            previousY = currentY;
-
-
-            // ==================================
             // TRIGGERS
             // ==================================
 
-            double intakeTrigger = gamepad1.left_trigger;
+            double feederTrigger = gamepad1.left_trigger;
             double shooterTrigger = gamepad1.right_trigger;
 
 
             // ==================================
-            // INTAKE + FEEDER
+            // FEEDER
             // ==================================
 
-            if (intakeTrigger > 0.05) {
+            robot.intakeSystem.stopIntake();
 
-                // Intake direction depends on Y toggle
-                if (intakeInDirection) {
-                    robot.intakeSystem.intakeIn();
-                } else {
-                    robot.intakeSystem.intakeOut();
-                }
-
-                // Push feeder while intake trigger is held
+            if (feederTrigger > 0.05 || shooterTrigger > 0.05) {
                 robot.intakeSystem.pushBall();
-
-            } else if (shooterTrigger > 0.05) {
-
-                // Shooter trigger does not run intake motor,
-                // but DOES run the feeder.
-                robot.intakeSystem.restFeeder();
-
             } else {
-
-                robot.intakeSystem.stopIntake();
                 robot.intakeSystem.restFeeder();
             }
 
@@ -128,9 +89,6 @@ public class RobotTeleOp extends LinearOpMode {
                 robot.shooter.setTargetVelocity(
                         Shooter.VELOCITY_MID_SHOT
                 );
-
-                // Push ball into shooter
-                robot.intakeSystem.pushBall();
 
             } else {
 
@@ -172,11 +130,6 @@ public class RobotTeleOp extends LinearOpMode {
             );
 
             telemetry.addLine("------------------------------");
-
-            telemetry.addData(
-                    "Intake Direction",
-                    intakeInDirection ? "IN" : "OUT"
-            );
 
             telemetry.addData(
                     "Intake Power",

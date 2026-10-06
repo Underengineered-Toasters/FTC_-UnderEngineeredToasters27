@@ -18,6 +18,8 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 - `org.firstinspires.ftc.teamcode.ds` hosts the driver station web UI backend (web handlers, `ds` websocket namespace, diagnostics poller); opmodes publish through the `DriverStation` facade.
 - `src/main/assets/ds/` holds the web UI assets served at `/ds`; `app.css` is generated output — edit `ds-ui/input.css` and rebuild with `cd TeamCode/ds-ui && ./build.sh` instead of editing it directly.
 
+- `RobotTeleOp`: gamepad 1 left trigger operates only the feeder; right trigger operates the shooter and feeder. The intake motor stays stopped in this OpMode.
+
 ## Work Guidance
 
 - Follow Java conventions used in existing OpModes and subsystems.
