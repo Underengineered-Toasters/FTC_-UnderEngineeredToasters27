@@ -16,7 +16,7 @@ public class IntakeTeleOp extends LinearOpMode {
         telemetry.addLine("Intake initialized");
         telemetry.addLine("A = Intake In (100%)");
         telemetry.addLine("B = Intake Out (100%)");
-        telemetry.addLine("Y = Push Ball to Shooter");
+        telemetry.addLine("Left Trigger = Run Feeder");
         telemetry.update();
 
         waitForStart();
@@ -32,16 +32,19 @@ public class IntakeTeleOp extends LinearOpMode {
                 intakeSystem.setPower(intake.INTAKE_STOP);
             }
 
-            // Feeder servo control: hold Y to push, release to reset
-            if (gamepad1.y) {
+            // Hold the left trigger to run the feeder; release to stop.
+            if (gamepad1.left_trigger > 0.05) {
                 intakeSystem.pushBall();
             } else {
                 intakeSystem.restFeeder();
             }
 
             telemetry.addData("Intake Power", intakeSystem.getPower());
-            telemetry.addData("Feeder Pos", intakeSystem.getFeederPosition());
+            telemetry.addData("Feeder Power", intakeSystem.getFeederPower());
             telemetry.update();
         }
+
+        intakeSystem.restFeeder();
+        intakeSystem.stopIntake();
     }
 }

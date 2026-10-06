@@ -138,9 +138,9 @@ public class RobotTeleOp extends LinearOpMode {
             );
 
             telemetry.addData(
-                    "Feeder Position",
+                    "Feeder Power",
                     "%.2f",
-                    robot.intakeSystem.getFeederPosition()
+                    robot.intakeSystem.getFeederPower()
             );
 
             telemetry.addLine("------------------------------");

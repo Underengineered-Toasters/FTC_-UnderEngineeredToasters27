@@ -144,6 +144,7 @@ public class Robot {
         stopDrive();
 
         intakeSystem.stopIntake();
+        intakeSystem.restFeeder();
 
         shooter.spinDown();
         shooter.update();

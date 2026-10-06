@@ -18,6 +18,8 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 - `org.firstinspires.ftc.teamcode.ds` hosts the driver station web UI backend (web handlers, `ds` websocket namespace, diagnostics poller); opmodes publish through the `DriverStation` facade.
 - `src/main/assets/ds/` holds the web UI assets served at `/ds`; `app.css` is generated output — edit `ds-ui/input.css` and rebuild with `cd TeamCode/ds-ui && ./build.sh` instead of editing it directly.
 
+- Configure `feeder` as a Continuous Rotation Servo on servo port 1. Feeder commands use power: 0.5 to feed, 0.0 to stop; telemetry reports commanded power. Stop the feeder during initialization, trigger release, and OpMode shutdown.
+- `IntakeTeleOp`: gamepad 1 left trigger runs the feeder; A/B operate the intake motor.
 - `RobotTeleOp`: gamepad 1 left trigger operates only the feeder; right trigger operates the shooter and feeder. The intake motor stays stopped in this OpMode.
 
 ## Work Guidance
