@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Contains team-written robot control software for competition, including teleoperation OpModes, autonomous paths, subsystem classes, and sensor vision pipelines.
+Contains team-written robot control software for competition, including the main teleoperation OpMode (`RobotTeleOp`), the autonomous path, subsystem classes, and sensor vision pipelines.
 
 ## Ownership
 
