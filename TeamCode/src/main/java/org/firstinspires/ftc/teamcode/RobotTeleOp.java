@@ -12,11 +12,12 @@ import java.util.List;
 public class RobotTeleOp extends LinearOpMode {
     private final Robot robot = new Robot();
     private final AlignLog alignLog = new AlignLog();
-    private static final double ALIGN_KP = 0.03;
+    private static final double ALIGN_KP = 0.05;
     private static final double ALIGN_MAX_TURN = 0.6;
     // Smallest turn power that actually rotates the chassis (overcomes friction)
-    private static final double ALIGN_MIN_TURN = 0.3;
-    private static final double ALIGN_TOLERANCE_DEG = 1.5;
+    private static final double ALIGN_MIN_TURN = 0.15;
+    // Deadband wide enough that the chassis settles inside it instead of hunting
+    private static final double ALIGN_TOLERANCE_DEG = 2.0;
     // Alliance selected during INIT; defaults to RED
     private String alliance = "RED";
 
