@@ -1,8 +1,8 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
-
 import org.firstinspires.ftc.robotcore.external.stream.CameraStreamSource;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
@@ -28,8 +28,8 @@ public class Robot {
     // Drivetrain
     // =========================
 
-    private DcMotor left;
-    private DcMotor right;
+    private DcMotorEx left;
+    private DcMotorEx right;
 
     // =========================
     // Subsystems
@@ -49,8 +49,8 @@ public class Robot {
         // Drivetrain
         // -------------------------
 
-        left = hardwareMap.get(DcMotor.class, "left");
-        right = hardwareMap.get(DcMotor.class, "right");
+        left = hardwareMap.get(DcMotorEx.class, "left");
+        right = hardwareMap.get(DcMotorEx.class, "right");
 
         left.setDirection(DcMotor.Direction.FORWARD);
         right.setDirection(DcMotor.Direction.REVERSE);
@@ -105,6 +105,14 @@ public class Robot {
 
     public double getRightPower() {
         return right.getPower();
+    }
+
+    public double getLeftVelocity() {
+        return left.getVelocity();
+    }
+
+    public double getRightVelocity() {
+        return right.getVelocity();
     }
 
     // =========================

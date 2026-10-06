@@ -10,8 +10,8 @@ import java.util.List;
 
 @TeleOp(name = "Robot TeleOp", group = "Main")
 public class RobotTeleOp extends LinearOpMode {
-
     private final Robot robot = new Robot();
+    private final AlignLog alignLog = new AlignLog();
     private static final double ALIGN_KP = 0.03;
     private static final double ALIGN_MAX_TURN = 0.6;
     // Smallest turn power that actually rotates the chassis (overcomes friction)
@@ -36,8 +36,9 @@ public class RobotTeleOp extends LinearOpMode {
         // =========================
         // Initialize Robot
         // =========================
-
         robot.init(hardwareMap);
+
+        alignLog.open();
 
         // Alliance select: X = BLUE, B = RED (default RED) before START
         while (opModeInInit()) {
@@ -115,6 +116,21 @@ public class RobotTeleOp extends LinearOpMode {
             }
 
             robot.drive(drive, turn);
+
+            alignLog.row(
+                    alliance,
+                    alignTarget,
+                    target != null && target.ftcPose != null
+                            ? target.ftcPose.bearing : null,
+                    turn,
+                    -gamepad1.left_stick_y,
+                    gamepad1.right_stick_x,
+                    drive,
+                    robot.getLeftPower(),
+                    robot.getRightPower(),
+                    robot.getLeftVelocity(),
+                    robot.getRightVelocity()
+            );
 
 
             // ==================================
@@ -289,6 +305,7 @@ public class RobotTeleOp extends LinearOpMode {
         // Cleanup
         // =========================
 
+        alignLog.close();
         robot.close();
     }
 }
