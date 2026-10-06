@@ -36,10 +36,10 @@ public class DriverStationTestOpMode extends LinearOpMode {
         int heartbeat = 0;
         while (opModeIsActive()) {
             List<AprilTagDetection> detections = vision.getDetections();
-            DriverStation.telemetry("Tags Visible", detections.size());
+            DriverStation.telemetry("AprilTag Targets", detections.size());
             DriverStation.telemetry("Heartbeat", heartbeat);
             if (heartbeat % 4 == 0) {
-                DriverStation.log("heartbeat " + heartbeat + ", tags=" + detections.size());
+                DriverStation.log("heartbeat " + heartbeat + ", targets=" + detections.size());
             }
             heartbeat++;
             sleep(250);

@@ -1,10 +1,11 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
-
 import org.firstinspires.ftc.robotcore.external.stream.CameraStreamSource;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 
 import java.util.Collections;
 import java.util.List;
@@ -27,8 +28,8 @@ public class Robot {
     // Drivetrain
     // =========================
 
-    private DcMotor left;
-    private DcMotor right;
+    private DcMotorEx left;
+    private DcMotorEx right;
 
     // =========================
     // Subsystems
@@ -48,8 +49,8 @@ public class Robot {
         // Drivetrain
         // -------------------------
 
-        left = hardwareMap.get(DcMotor.class, "left");
-        right = hardwareMap.get(DcMotor.class, "right");
+        left = hardwareMap.get(DcMotorEx.class, "left");
+        right = hardwareMap.get(DcMotorEx.class, "right");
 
         left.setDirection(DcMotor.Direction.FORWARD);
         right.setDirection(DcMotor.Direction.REVERSE);
@@ -106,6 +107,14 @@ public class Robot {
         return right.getPower();
     }
 
+    public double getLeftVelocity() {
+        return left.getVelocity();
+    }
+
+    public double getRightVelocity() {
+        return right.getVelocity();
+    }
+
     // =========================
     // Shooter Update
     // =========================
@@ -130,6 +139,15 @@ public class Robot {
 
         return vision.getDetections();
     }
+    public AprilTagClusterDetection findAprilTagCluster(String name) {
+
+        if (vision == null) {
+            return null;
+        }
+
+        return vision.findCluster(name);
+    }
+
 
     /*public CameraStreamSource getCameraSource() {
         return vision.getCameraSource();
