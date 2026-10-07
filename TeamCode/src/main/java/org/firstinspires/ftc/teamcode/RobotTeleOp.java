@@ -86,8 +86,11 @@ public class RobotTeleOp extends LinearOpMode {
             double turn = gamepad1.right_stick_x;
 
             // Hold-to-align on the CELL AprilTag cluster.
-            // The camera must face the shooter direction; if the camera moves
-            // to the turret (issue #39) this aims the chassis, not the turret.
+            // LB = audience end, RB = far end. If the chosen cluster is not
+            // visible, fall back to the alliance's other cluster so a held
+            // bumper never dead-ends. The camera must face the shooter
+            // direction; if the camera moves to the turret (issue #39) this
+            // aims the chassis, not the turret.
             String alignTarget = null;
             if (gamepad1.left_bumper) {
                 alignTarget = "RED".equals(alliance)
@@ -101,6 +104,21 @@ public class RobotTeleOp extends LinearOpMode {
 
             AprilTagClusterDetection target =
                     alignTarget == null ? null : robot.findAprilTagCluster(alignTarget);
+
+            // Fallback: chosen cluster not visible, try the other end.
+            if (target == null && alignTarget != null) {
+                String fallback = alignTarget.equals(AprilTagVision.RED_SCORING)
+                        ? AprilTagVision.RED_AUDIENCE
+                        : alignTarget.equals(AprilTagVision.RED_AUDIENCE)
+                        ? AprilTagVision.RED_SCORING
+                        : alignTarget.equals(AprilTagVision.BLUE_SCORING)
+                        ? AprilTagVision.BLUE_AUDIENCE
+                        : AprilTagVision.BLUE_SCORING;
+                target = robot.findAprilTagCluster(fallback);
+                if (target != null) {
+                    alignTarget = fallback;
+                }
+            }
             boolean aligned = false;
 
             // Positive bearing = target LEFT; positive turn rotates RIGHT.
