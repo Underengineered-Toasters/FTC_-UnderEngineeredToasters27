@@ -44,8 +44,9 @@ public class AlignLog {
             writer = new PrintWriter(new FileWriter(file));
             writer.println(
                     "time_ms,alliance,align_target,bearing_deg,turn_cmd,"
-                            + "stick_ly,stick_rx,drive_cmd,"
-                            + "left_cmd,right_cmd,left_vel_deg,right_vel_deg"
+                            + "stick_ly,stick_rx,drive_cmd,left_cmd,right_cmd,"
+                            + "left_vel_deg,right_vel_deg,left_trigger,right_trigger,"
+                            + "intake_power,feeder_power,shooter_target"
             );
             elapsed.reset();
         } catch (IOException e) {
@@ -67,7 +68,12 @@ public class AlignLog {
             double leftCmd,
             double rightCmd,
             double leftVel,
-            double rightVel
+            double rightVel,
+            double leftTrigger,
+            double rightTrigger,
+            double intakePower,
+            double feederPower,
+            double shooterTarget
     ) {
 
         if (writer == null) {
@@ -86,7 +92,12 @@ public class AlignLog {
         row.append(String.format("%.3f", leftCmd)).append(',');
         row.append(String.format("%.3f", rightCmd)).append(',');
         row.append(String.format("%.1f", leftVel)).append(',');
-        row.append(String.format("%.1f", rightVel));
+        row.append(String.format("%.1f", rightVel)).append(',');
+        row.append(String.format("%.3f", leftTrigger)).append(',');
+        row.append(String.format("%.3f", rightTrigger)).append(',');
+        row.append(String.format("%.3f", intakePower)).append(',');
+        row.append(String.format("%.3f", feederPower)).append(',');
+        row.append(String.format("%.1f", shooterTarget));
 
         writer.println(row);
     }

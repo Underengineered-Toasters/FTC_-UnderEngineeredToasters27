@@ -122,7 +122,12 @@ public class RobotTeleOp extends LinearOpMode {
                     robot.getLeftPower(),
                     robot.getRightPower(),
                     robot.getLeftVelocity(),
-                    robot.getRightVelocity()
+                    robot.getRightVelocity(),
+                    gamepad1.left_trigger,
+                    gamepad1.right_trigger,
+                    robot.intakeSystem.getPower(),
+                    robot.intakeSystem.getFeederPower(),
+                    robot.shooter.getTargetVelocity()
             );
 
 
