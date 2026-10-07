@@ -23,13 +23,6 @@ public class RobotTeleOp extends LinearOpMode {
 
 
 
-    // Tracks intake direction
-    // true = intake in
-    // false = intake out
-    private boolean intakeInDirection = true;
-
-    // Used so holding Y doesn't repeatedly toggle
-    private boolean previousY = false;
 
     @Override
     public void runOpMode() {
@@ -63,7 +56,6 @@ public class RobotTeleOp extends LinearOpMode {
             telemetry.addLine("");
             telemetry.addLine("Left Trigger  = Feeder only");
             telemetry.addLine("Right Trigger = Shooter + Feeder");
-            telemetry.addLine("Y             = Toggle Intake Direction");
             telemetry.update();
         }
 
@@ -134,18 +126,6 @@ public class RobotTeleOp extends LinearOpMode {
             );
 
 
-            // ==================================
-            // INTAKE DIRECTION TOGGLE
-            // ==================================
-
-            boolean currentY = gamepad1.y;
-
-            // Only toggle when Y is initially pressed
-            if (currentY && !previousY) {
-                intakeInDirection = !intakeInDirection;
-            }
-
-            previousY = currentY;
 
 
             // ==================================
@@ -180,9 +160,7 @@ public class RobotTeleOp extends LinearOpMode {
             // INTAKE
             // ==================================
 
-            // No trigger drives the intake after the #46 remap; it stays
-            // stopped until a binding is decided (issues #13/#29).
-            // intakeInDirection still toggles with Y for that future binding.
+            // The intake motor has no trigger binding; keep it stopped.
             robot.intakeSystem.stopIntake();
 
 
@@ -244,10 +222,6 @@ public class RobotTeleOp extends LinearOpMode {
 
             telemetry.addLine("------------------------------");
 
-            telemetry.addData(
-                    "Intake Direction",
-                    intakeInDirection ? "IN" : "OUT"
-            );
 
             telemetry.addData(
                     "Intake Power",
