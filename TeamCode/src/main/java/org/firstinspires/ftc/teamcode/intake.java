@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -17,13 +18,14 @@ public class intake {
     private DcMotor intakeMotor;
 
     // =========================
-    // Feeder Servo
+    // Feeder Servo (continuous rotation)
     // =========================
 
+    // CRServo power semantics: 0 = stop, +/- = direction/speed.
     public static final double FEEDER_REST = 0.0;
     public static final double FEEDER_PUSH = 0.5;
 
-    private Servo feederServo;
+    private CRServo feederServo;
 
     // =========================
     // Front Servos
@@ -47,9 +49,11 @@ public class intake {
         );
 
         // Servos are optional until they are wired and added to the config.
-        feederServo = hardwareMap.tryGet(Servo.class, "feeder");
+        // The feeder is a continuous-rotation servo: look it up as CRServo,
+        // not Servo, or the lookup silently returns null (issue #45).
+        feederServo = hardwareMap.tryGet(CRServo.class, "feeder");
         if (feederServo != null) {
-            feederServo.setPosition(FEEDER_REST);
+            feederServo.setPower(FEEDER_REST);
         }
         frontLeftServo = hardwareMap.tryGet(Servo.class, "frontLeftServo");
         frontRightServo = hardwareMap.tryGet(Servo.class, "frontRightServo");
@@ -80,11 +84,11 @@ public class intake {
     // =========================
 
     public void pushBall() {
-        if (feederServo != null) feederServo.setPosition(FEEDER_PUSH);
+        if (feederServo != null) feederServo.setPower(FEEDER_PUSH);
     }
 
     public void restFeeder() {
-        if (feederServo != null) feederServo.setPosition(FEEDER_REST);
+        if (feederServo != null) feederServo.setPower(FEEDER_REST);
     }
 
     // =========================
@@ -112,8 +116,8 @@ public class intake {
         return intakeMotor.getPower();
     }
 
-    public double getFeederPosition() {
-        return feederServo != null ? feederServo.getPosition() : Double.NaN;
+    public double getFeederPower() {
+        return feederServo != null ? feederServo.getPower() : Double.NaN;
     }
 
     public double getFrontLeftPosition() {

@@ -61,7 +61,7 @@ public class RobotTeleOp extends LinearOpMode {
             telemetry.addLine("LB (hold)     = Align audience CELL");
             telemetry.addLine("RB (hold)     = Align far CELL");
             telemetry.addLine("");
-            telemetry.addLine("Left Trigger  = Intake + Feeder");
+            telemetry.addLine("Left Trigger  = Feeder only");
             telemetry.addLine("Right Trigger = Shooter + Feeder");
             telemetry.addLine("Y             = Toggle Intake Direction");
             telemetry.update();
@@ -157,32 +157,35 @@ public class RobotTeleOp extends LinearOpMode {
 
 
             // ==================================
-            // INTAKE + FEEDER
+            // FEEDER (left trigger = feeder only, issue #46)
             // ==================================
 
             if (intakeTrigger > 0.05) {
 
-                // Intake direction depends on Y toggle
-                if (intakeInDirection) {
-                    robot.intakeSystem.intakeIn();
-                } else {
-                    robot.intakeSystem.intakeOut();
-                }
-
-                // Push feeder while intake trigger is held
+                // Left trigger runs only the feeder into the shooter;
+                // the intake motor stays where it is.
                 robot.intakeSystem.pushBall();
 
             } else if (shooterTrigger > 0.05) {
 
-                // Shooter trigger does not run intake motor,
-                // but DOES run the feeder.
-                robot.intakeSystem.restFeeder();
+                // Right trigger runs the feeder while the shooter spins.
+                robot.intakeSystem.pushBall();
 
             } else {
 
-                robot.intakeSystem.stopIntake();
                 robot.intakeSystem.restFeeder();
             }
+
+            // ==================================
+            // INTAKE
+            // ==================================
+
+            // No trigger drives the intake after the #46 remap; it stays
+            // stopped until a binding is decided (issues #13/#29).
+            // intakeInDirection still toggles with Y for that future binding.
+            robot.intakeSystem.stopIntake();
+
+
 
 
             // ==================================
@@ -198,9 +201,7 @@ public class RobotTeleOp extends LinearOpMode {
                 robot.shooter.setTargetVelocity(
                         Shooter.VELOCITY_MID_SHOT
                 );
-
-                // Push ball into shooter
-                robot.intakeSystem.pushBall();
+                // Feeder runs from the FEEDER block above on the same trigger.
 
             } else {
 
@@ -255,9 +256,9 @@ public class RobotTeleOp extends LinearOpMode {
             );
 
             telemetry.addData(
-                    "Feeder Position",
+                    "Feeder Power",
                     "%.2f",
-                    robot.intakeSystem.getFeederPosition()
+                    robot.intakeSystem.getFeederPower()
             );
 
             telemetry.addLine("------------------------------");
