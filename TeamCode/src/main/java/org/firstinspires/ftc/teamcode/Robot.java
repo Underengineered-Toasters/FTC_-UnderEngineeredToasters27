@@ -1,180 +1,74 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
-import org.firstinspires.ftc.robotcore.external.stream.CameraStreamSource;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
-import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Main robot container.
- *
- * This class owns all of the robot's subsystems so that one OpMode
- * can initialize and control the entire robot.
- *
- * Subsystems:
- * - Drivetrain
- * - Intake
- * - Shooter
- * - AprilTag Vision
- */
 public class Robot {
 
-    // =========================
-    // Drivetrain
-    // =========================
+    public intake intakeSystem = new intake();
+    public Shooter shooter = new Shooter();
+    public AprilTagVision vision = new AprilTagVision();
 
-    private DcMotorEx left;
-    private DcMotorEx right;
+    private DcMotor leftDrive;
+    private DcMotor rightDrive;
 
-    // =========================
-    // Subsystems
-    // =========================
-
-    public final intake intakeSystem = new intake();
-    public final Shooter shooter = new Shooter();
-    public final AprilTagVision vision = new AprilTagVision();
-
-    // =========================
-    // Initialization
-    // =========================
+    private double leftPower = 0.0;
+    private double rightPower = 0.0;
 
     public void init(HardwareMap hardwareMap) {
+        leftDrive = hardwareMap.get(DcMotor.class, "left");
+        rightDrive = hardwareMap.get(DcMotor.class, "right");
 
-        // -------------------------
-        // Drivetrain
-        // -------------------------
+        leftDrive.setDirection(DcMotor.Direction.REVERSE);
+        rightDrive.setDirection(DcMotor.Direction.FORWARD);
 
-        left = hardwareMap.get(DcMotorEx.class, "left");
-        right = hardwareMap.get(DcMotorEx.class, "right");
-
-        left.setDirection(DcMotor.Direction.FORWARD);
-        right.setDirection(DcMotor.Direction.REVERSE);
-
-        left.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        right.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
-        // -------------------------
-        // Intake
-        // -------------------------
+        leftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         intakeSystem.init(hardwareMap);
-
-        // -------------------------
-        // Shooter
-        // -------------------------
-
         shooter.init(hardwareMap);
 
-        // -------------------------
-        // AprilTag Vision
-        // -------------------------
-
-        vision.init(hardwareMap);
+        try {
+            vision.init(hardwareMap);
+        } catch (Exception e) {
+            // Allows teleop to run if camera is disconnected
+        }
     }
 
-    // =========================
-    // Drivetrain
-    // =========================
+    public void drive(double forward, double turn) {
+        leftPower = Math.max(-1.0, Math.min(1.0, forward + turn));
+        rightPower = Math.max(-1.0, Math.min(1.0, forward - turn));
 
-    public void drive(double drive, double turn) {
-
-        double leftPower = drive + turn;
-        double rightPower = drive - turn;
-
-        // Prevent values outside [-1, 1]
-        leftPower = Math.max(-1.0, Math.min(1.0, leftPower));
-        rightPower = Math.max(-1.0, Math.min(1.0, rightPower));
-
-        left.setPower(leftPower);
-        right.setPower(rightPower);
+        leftDrive.setPower(leftPower);
+        rightDrive.setPower(rightPower);
     }
 
-    public void stopDrive() {
-        left.setPower(0);
-        right.setPower(0);
-    }
-
-    public double getLeftPower() {
-        return left.getPower();
-    }
-
-    public double getRightPower() {
-        return right.getPower();
-    }
-
-    public double getLeftVelocity() {
-        return left.getVelocity();
-    }
-
-    public double getRightVelocity() {
-        return right.getVelocity();
-    }
-
-    // =========================
-    // Shooter Update
-    // =========================
-
-    /**
-     * Must be called repeatedly while the OpMode is running.
-     * This actually sends the target velocity to the shooter motor.
-     */
     public void update() {
         shooter.update();
     }
 
-    // =========================
-    // Vision
-    // =========================
-
     public List<AprilTagDetection> getAprilTagDetections() {
-
-        if (vision == null) {
-            return Collections.emptyList();
+        if (vision != null) {
+            return vision.getDetections();
         }
-
-        return vision.getDetections();
-    }
-    public AprilTagClusterDetection findAprilTagCluster(String name) {
-
-        if (vision == null) {
-            return null;
-        }
-
-        return vision.findCluster(name);
+        return Collections.emptyList();
     }
 
-
-    /*public CameraStreamSource getCameraSource() {
-        return vision.getCameraSource();
-    }
-    */
-    // =========================
-    // Stop Everything
-    // =========================
-
-    public void stopAll() {
-
-        stopDrive();
-
-        intakeSystem.stopIntake();
-
-        shooter.spinDown();
-        shooter.update();
+    public double getLeftPower() {
+        return leftPower;
     }
 
-    // =========================
-    // Close
-    // =========================
+    public double getRightPower() {
+        return rightPower;
+    }
 
     public void close() {
-
-        stopAll();
-
-        vision.close();
+        if (vision != null) {
+            vision.close();
+        }
     }
 }
