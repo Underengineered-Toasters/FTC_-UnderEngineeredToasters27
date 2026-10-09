@@ -1,63 +1,56 @@
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 public class Shooter {
 
     private DcMotorEx flywheel;
 
-    // Velocity is in encoder ticks/second. These are PLACEHOLDER values —
-    // you WILL need to tune these once the wheel is spun up on a real motor,
-    // by testing actual shots at known distances from the HIVE.
-    public static final double VELOCITY_OFF        = 0;
-    public static final double VELOCITY_CLOSE_SHOT  = 1200;  // tune: short range
-    public static final double VELOCITY_MID_SHOT    = 1600;  // tune: mid range
-    public static final double VELOCITY_FAR_SHOT    = 2000;  // tune: long range
+    // Direct power targets (0.0 to 1.0)
+    public static final double POWER_OFF        = 0.0;
+    public static final double POWER_CLOSE_SHOT = 0.25;
+    public static final double POWER_MID_SHOT   = 0.55;
+    public static final double POWER_FAR_SHOT   = 0.55;
 
-    // How close (in ticks/sec) the actual velocity needs to be to target
-    // before we consider the wheel "ready to fire" — flywheels take a moment to spin up.
-    private static final double VELOCITY_TOLERANCE = 50;
-
-    private double targetVelocity = VELOCITY_OFF;
+    private double targetPower = POWER_OFF;
 
     public void init(HardwareMap hardwareMap) {
         flywheel = hardwareMap.get(DcMotorEx.class, "shooter");
         flywheel.setDirection(DcMotor.Direction.REVERSE);
-
-        // Flywheels should coast, NOT brake, when off — braking a spinning
-        // flywheel abruptly can strain the motor and gears unnecessarily.
         flywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
-        // RUN_USING_ENCODER lets us command a velocity (ticks/sec) instead of raw power,
-        // so the flywheel spins at a consistent speed regardless of battery voltage.
-        flywheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        flywheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        flywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        flywheel.setPower(POWER_OFF);
     }
 
     public void update() {
-        flywheel.setVelocity(targetVelocity);
+        if (flywheel != null) {
+            flywheel.setPower(targetPower);
+        }
     }
 
-    public void setTargetVelocity(double velocity) {
-        targetVelocity = velocity;
+    public void setTargetPower(double power) {
+        targetPower = power;
+        if (flywheel != null) {
+            flywheel.setPower(targetPower);
+        }
     }
 
     public void spinDown() {
-        targetVelocity = VELOCITY_OFF;
+        setTargetPower(POWER_OFF);
+    }
+
+    public double getCurrentPower() {
+        return (flywheel != null) ? flywheel.getPower() : 0.0;
     }
 
     public double getCurrentVelocity() {
-        return flywheel.getVelocity();
+        return (flywheel != null) ? flywheel.getVelocity() : 0.0;
     }
 
-    public double getTargetVelocity() {
-        return targetVelocity;
-    }
-
-    public boolean isReadyToFire() {
-        if (targetVelocity == VELOCITY_OFF) return false;
-        return Math.abs(getCurrentVelocity() - targetVelocity) < VELOCITY_TOLERANCE;
+    public boolean isSpinning() {
+        return targetPower > 0.05;
     }
 }
