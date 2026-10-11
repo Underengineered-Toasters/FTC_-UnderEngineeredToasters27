@@ -9,19 +9,30 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 /** Rear-camera solo route; FIRST BIOBUZZ TU04 section 9, setup guide V1.0 p20. */
 @Autonomous(name = "Basic Auto - Flower to Hive", group = "Autonomous")
 public class BasicAutonomous extends LinearOpMode {
-    // Required robot measurements. Zero values block motion, rather than guessing.
-    // Gear ratio: motor output shaft revolutions per wheel revolution.
-    private static final double WHEEL_DIAMETER_INCHES = 0.0;
-    private static final double TRACK_WIDTH_INCHES = 0.0;
-    private static final double ROBOT_LENGTH_INCHES = 0.0;
-    private static final double ROBOT_WIDTH_INCHES = 0.0;
-    private static final double DRIVE_GEAR_RATIO = 0.0;
+    // Stock BIOBUZZ 6WD StarterBot: goBILDA StarterBotAuto.java and assembly
+    // instructions 3200-2627-0003 (30T:30T external drive gears).
+    // https://www.gobilda.com/ftc-starter-bot-resource-guide-2026-2027-season/
+    private static final double WHEEL_DIAMETER_INCHES = 96.0 / 25.4;
+    private static final double TRACK_WIDTH_INCHES = 402.0 / 25.4;
+    private static final double ENCODER_TICKS_PER_REV = 537.7;
+    // Conservative CAD bounds relative to the middle-wheel axle (turning pivot):
+    // x=[-213.012,213.012], y=[-262.435,195.245] mm; negative y is the intake/front.
+    // Round outward to whole mm. These include stock mechanisms, not added mounts.
+    private static final double FRONT_OVERHANG_INCHES = 263.0 / 25.4;
+    private static final double REAR_OVERHANG_INCHES = 196.0 / 25.4;
+    private static final double HALF_WIDTH_INCHES = 214.0 / 25.4;
+    // Motor output shaft revolutions per wheel revolution (excludes motor gearbox).
+    private static final double DRIVE_GEAR_RATIO = 1.0;
     private static final double START_GAP_INCHES = 12.0;
     private static final double SLOW_APPROACH_INCHES = 2.0;
     private static final double FLOWER_RETRIEVAL_DEPTH_INCHES = 3.57;
-    // Center at x=96, y=36 from audience-left inside corner; outside hive frame.
-    private static final double VIEWING_Y_INCHES = 36.0;
     private static final double FRAME_NEAR_Y_INCHES = 72.0 - 38.95 / 2.0;
+    private static final double TURN_RADIUS_INCHES = Math.hypot(
+            Math.max(FRONT_OVERHANG_INCHES, REAR_OVERHANG_INCHES), HALF_WIDTH_INCHES);
+    // Pivot x=96 from audience-left inside corner; keep the full turning envelope
+    // at least four inches from the near edge of the hive frame.
+    private static final double VIEWING_Y_INCHES = Math.min(36.0,
+            FRAME_NEAR_Y_INCHES - TURN_RADIUS_INCHES - 4.0);
     private static final double MATCH_LIMIT_SECONDS = 29.0;
     private DcMotor left;
     private DcMotor right;
@@ -40,7 +51,7 @@ public class BasicAutonomous extends LinearOpMode {
         stopDrive();
         try {
             if (!calibrationValid()) {
-                report("Motion blocked: set drivetrain dimensions/gearing; check frame clearance");
+                report("Motion blocked: invalid StarterBot dimensions/gearing or frame clearance");
                 waitForStart();
                 return;
             }
@@ -56,7 +67,7 @@ public class BasicAutonomous extends LinearOpMode {
                     -(START_GAP_INCHES - SLOW_APPROACH_INCHES), 0.25, 4.0)) return;
             if (!move("Light rear tap", -SLOW_APPROACH_INCHES, -SLOW_APPROACH_INCHES, 0.10, 2.0)) return;
             double pullAway = VIEWING_Y_INCHES
-                    - (FLOWER_RETRIEVAL_DEPTH_INCHES + ROBOT_LENGTH_INCHES / 2.0);
+                    - (FLOWER_RETRIEVAL_DEPTH_INCHES + REAR_OVERHANG_INCHES);
             if (!move("Pull away to hive viewing position", pullAway, pullAway, 0.25, 7.0)) return;
             if (!turnClockwise("Face hive with rear camera", 180.0)) return;
             if (!alignRearCamera()) return;
@@ -72,13 +83,13 @@ public class BasicAutonomous extends LinearOpMode {
 
     private boolean calibrationValid() {
         return positive(WHEEL_DIAMETER_INCHES) && positive(TRACK_WIDTH_INCHES)
-                && positive(ROBOT_LENGTH_INCHES) && positive(ROBOT_WIDTH_INCHES)
+                && positive(FRONT_OVERHANG_INCHES) && positive(REAR_OVERHANG_INCHES)
+                && positive(HALF_WIDTH_INCHES)
                 && positive(DRIVE_GEAR_RATIO)
-                && positive(left.getMotorType().getTicksPerRev())
-                && positive(right.getMotorType().getTicksPerRev())
-                && FLOWER_RETRIEVAL_DEPTH_INCHES + ROBOT_LENGTH_INCHES / 2.0
+                && positive(ENCODER_TICKS_PER_REV)
+                && FLOWER_RETRIEVAL_DEPTH_INCHES + REAR_OVERHANG_INCHES
                     + START_GAP_INCHES < VIEWING_Y_INCHES
-                && VIEWING_Y_INCHES + Math.hypot(ROBOT_LENGTH_INCHES, ROBOT_WIDTH_INCHES) / 2.0
+                && VIEWING_Y_INCHES + TURN_RADIUS_INCHES
                     + 3.0 < FRAME_NEAR_Y_INCHES;
     }
 
@@ -90,8 +101,8 @@ public class BasicAutonomous extends LinearOpMode {
         return opModeIsActive() && matchTimer.seconds() < MATCH_LIMIT_SECONDS;
     }
 
-    private double ticksPerInch(DcMotor motor) {
-        return motor.getMotorType().getTicksPerRev() * DRIVE_GEAR_RATIO
+    private double ticksPerInch() {
+        return ENCODER_TICKS_PER_REV * DRIVE_GEAR_RATIO
                 / (Math.PI * WHEEL_DIAMETER_INCHES);
     }
 
@@ -103,8 +114,8 @@ public class BasicAutonomous extends LinearOpMode {
     private boolean move(String label, double leftInches, double rightInches,
                          double power, double timeout) {
         if (!active()) return false;
-        int leftTarget = left.getCurrentPosition() + (int) Math.round(leftInches * ticksPerInch(left));
-        int rightTarget = right.getCurrentPosition() + (int) Math.round(rightInches * ticksPerInch(right));
+        int leftTarget = left.getCurrentPosition() + (int) Math.round(leftInches * ticksPerInch());
+        int rightTarget = right.getCurrentPosition() + (int) Math.round(rightInches * ticksPerInch());
         left.setTargetPosition(leftTarget);
         right.setTargetPosition(rightTarget);
         left.setMode(DcMotor.RunMode.RUN_TO_POSITION);
@@ -112,8 +123,8 @@ public class BasicAutonomous extends LinearOpMode {
         stepTimer.reset();
         boolean reached = false;
         while (active() && stepTimer.seconds() < timeout) {
-            boolean leftReached = Math.abs(leftTarget - left.getCurrentPosition()) <= 0.25 * ticksPerInch(left);
-            boolean rightReached = Math.abs(rightTarget - right.getCurrentPosition()) <= 0.25 * ticksPerInch(right);
+            boolean leftReached = Math.abs(leftTarget - left.getCurrentPosition()) <= 0.25 * ticksPerInch();
+            boolean rightReached = Math.abs(rightTarget - right.getCurrentPosition()) <= 0.25 * ticksPerInch();
             left.setPower(leftReached ? 0.0 : power);
             right.setPower(rightReached ? 0.0 : power);
             if (leftReached && rightReached) {
