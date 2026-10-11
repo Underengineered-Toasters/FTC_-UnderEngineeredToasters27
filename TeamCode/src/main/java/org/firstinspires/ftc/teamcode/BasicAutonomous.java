@@ -5,7 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-/** Three one-foot forward segments separated by two counterclockwise quarter-turns. */
+/** Forward 12 inches, turn left 95 degrees, forward 12, turn left 95, forward 15. */
 @Autonomous(name = "Basic Auto - Three Legs", group = "Autonomous")
 public class BasicAutonomous extends LinearOpMode {
     // Stock BIOBUZZ 6WD StarterBot: goBILDA StarterBotAuto.java and assembly
@@ -17,6 +17,8 @@ public class BasicAutonomous extends LinearOpMode {
     // Motor output shaft revolutions per wheel revolution (excludes motor gearbox).
     private static final double DRIVE_GEAR_RATIO = 1.0;
     private static final double LEG_INCHES = 12.0;
+    private static final double FINAL_LEG_INCHES = 15.0;
+    private static final double TURN_DEGREES = 95.0;
     private static final double MATCH_LIMIT_SECONDS = 29.0;
     private DcMotor left;
     private DcMotor right;
@@ -38,17 +40,17 @@ public class BasicAutonomous extends LinearOpMode {
                 waitForStart();
                 return;
             }
-            telemetry.addLine("Forward 12 in -> counterclockwise 90 -> forward 12 in");
-            telemetry.addLine("-> counterclockwise 90 -> forward 12 in -> stop");
+            telemetry.addLine("Forward 12 in -> counterclockwise 95 -> forward 12 in");
+            telemetry.addLine("-> counterclockwise 95 -> forward 15 in -> stop");
             telemetry.update();
             waitForStart();
             if (isStopRequested()) return;
             matchTimer.reset();
             if (!move("Step 1: forward 12 inches", LEG_INCHES, LEG_INCHES, 0.25, 5.0)) return;
-            if (!turnCounterclockwise("Step 2: counterclockwise 90 degrees", 90.0)) return;
+            if (!turnCounterclockwise("Step 2: counterclockwise 95 degrees", TURN_DEGREES)) return;
             if (!move("Step 3: forward 12 inches", LEG_INCHES, LEG_INCHES, 0.25, 5.0)) return;
-            if (!turnCounterclockwise("Step 4: counterclockwise 90 degrees", 90.0)) return;
-            if (!move("Step 5: forward 12 inches", LEG_INCHES, LEG_INCHES, 0.25, 5.0)) return;
+            if (!turnCounterclockwise("Step 4: counterclockwise 95 degrees", TURN_DEGREES)) return;
+            if (!move("Step 5: forward 15 inches", FINAL_LEG_INCHES, FINAL_LEG_INCHES, 0.25, 5.0)) return;
             report("Sequence complete; stopped");
         } finally {
             stopDrive();
