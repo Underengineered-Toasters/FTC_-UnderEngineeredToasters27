@@ -5,7 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-/** Three one-foot forward segments separated by two clockwise quarter-turns. */
+/** Three one-foot forward segments separated by two counterclockwise quarter-turns. */
 @Autonomous(name = "Basic Auto - Three Legs", group = "Autonomous")
 public class BasicAutonomous extends LinearOpMode {
     // Stock BIOBUZZ 6WD StarterBot: goBILDA StarterBotAuto.java and assembly
@@ -38,16 +38,16 @@ public class BasicAutonomous extends LinearOpMode {
                 waitForStart();
                 return;
             }
-            telemetry.addLine("Forward 12 in -> clockwise 90 -> forward 12 in");
-            telemetry.addLine("-> clockwise 90 -> forward 12 in -> stop");
+            telemetry.addLine("Forward 12 in -> counterclockwise 90 -> forward 12 in");
+            telemetry.addLine("-> counterclockwise 90 -> forward 12 in -> stop");
             telemetry.update();
             waitForStart();
             if (isStopRequested()) return;
             matchTimer.reset();
             if (!move("Step 1: forward 12 inches", LEG_INCHES, LEG_INCHES, 0.25, 5.0)) return;
-            if (!turnClockwise("Step 2: clockwise 90 degrees", 90.0)) return;
+            if (!turnCounterclockwise("Step 2: counterclockwise 90 degrees", 90.0)) return;
             if (!move("Step 3: forward 12 inches", LEG_INCHES, LEG_INCHES, 0.25, 5.0)) return;
-            if (!turnClockwise("Step 4: clockwise 90 degrees", 90.0)) return;
+            if (!turnCounterclockwise("Step 4: counterclockwise 90 degrees", 90.0)) return;
             if (!move("Step 5: forward 12 inches", LEG_INCHES, LEG_INCHES, 0.25, 5.0)) return;
             report("Sequence complete; stopped");
         } finally {
@@ -75,9 +75,9 @@ public class BasicAutonomous extends LinearOpMode {
                 / (Math.PI * WHEEL_DIAMETER_INCHES);
     }
 
-    private boolean turnClockwise(String label, double degrees) {
+    private boolean turnCounterclockwise(String label, double degrees) {
         double arc = Math.PI * TRACK_WIDTH_INCHES * degrees / 360.0;
-        return move(label, arc, -arc, 0.20, 5.0);
+        return move(label, -arc, arc, 0.20, 5.0);
     }
 
     private boolean move(String label, double leftInches, double rightInches,
