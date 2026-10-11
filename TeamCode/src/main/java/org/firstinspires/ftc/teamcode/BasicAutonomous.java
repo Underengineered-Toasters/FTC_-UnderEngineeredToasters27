@@ -4,10 +4,9 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 
-/** Rear-camera solo route; FIRST BIOBUZZ TU04 section 9, setup guide V1.0 p20. */
-@Autonomous(name = "Basic Auto - Flower to Hive", group = "Autonomous")
+/** Three one-foot forward segments separated by two clockwise quarter-turns. */
+@Autonomous(name = "Basic Auto - Three Legs", group = "Autonomous")
 public class BasicAutonomous extends LinearOpMode {
     // Stock BIOBUZZ 6WD StarterBot: goBILDA StarterBotAuto.java and assembly
     // instructions 3200-2627-0003 (30T:30T external drive gears).
@@ -15,28 +14,12 @@ public class BasicAutonomous extends LinearOpMode {
     private static final double WHEEL_DIAMETER_INCHES = 96.0 / 25.4;
     private static final double TRACK_WIDTH_INCHES = 402.0 / 25.4;
     private static final double ENCODER_TICKS_PER_REV = 537.7;
-    // Conservative CAD bounds relative to the middle-wheel axle (turning pivot):
-    // x=[-213.012,213.012], y=[-262.435,195.245] mm; negative y is the intake/front.
-    // Round outward to whole mm. These include stock mechanisms, not added mounts.
-    private static final double FRONT_OVERHANG_INCHES = 263.0 / 25.4;
-    private static final double REAR_OVERHANG_INCHES = 196.0 / 25.4;
-    private static final double HALF_WIDTH_INCHES = 214.0 / 25.4;
     // Motor output shaft revolutions per wheel revolution (excludes motor gearbox).
     private static final double DRIVE_GEAR_RATIO = 1.0;
-    private static final double START_GAP_INCHES = 12.0;
-    private static final double SLOW_APPROACH_INCHES = 2.0;
-    private static final double FLOWER_RETRIEVAL_DEPTH_INCHES = 3.57;
-    private static final double FRAME_NEAR_Y_INCHES = 72.0 - 38.95 / 2.0;
-    private static final double TURN_RADIUS_INCHES = Math.hypot(
-            Math.max(FRONT_OVERHANG_INCHES, REAR_OVERHANG_INCHES), HALF_WIDTH_INCHES);
-    // Pivot x=96 from audience-left inside corner; keep the full turning envelope
-    // at least four inches from the near edge of the hive frame.
-    private static final double VIEWING_Y_INCHES = Math.min(36.0,
-            FRAME_NEAR_Y_INCHES - TURN_RADIUS_INCHES - 4.0);
+    private static final double LEG_INCHES = 12.0;
     private static final double MATCH_LIMIT_SECONDS = 29.0;
     private DcMotor left;
     private DcMotor right;
-    private final AprilTagVision vision = new AprilTagVision();
     private final ElapsedTime matchTimer = new ElapsedTime();
     private final ElapsedTime stepTimer = new ElapsedTime();
 
@@ -51,46 +34,32 @@ public class BasicAutonomous extends LinearOpMode {
         stopDrive();
         try {
             if (!calibrationValid()) {
-                report("Motion blocked: invalid StarterBot dimensions/gearing or frame clearance");
+                report("Motion blocked: invalid StarterBot drivetrain calibration");
                 waitForStart();
                 return;
             }
-            vision.init(hardwareMap);
-            telemetry.addLine("SOLO: audience-side FLOWER, 48 in from right corner");
-            telemetry.addLine("Rear bumper 12 in from bottom opening; rear camera faces FLOWER");
-            telemetry.addLine("Front faces into field. Final turn: 180 degrees clockwise");
+            telemetry.addLine("Forward 12 in -> clockwise 90 -> forward 12 in");
+            telemetry.addLine("-> clockwise 90 -> forward 12 in -> stop");
             telemetry.update();
             waitForStart();
             if (isStopRequested()) return;
             matchTimer.reset();
-            if (!move("Approach rear first", -(START_GAP_INCHES - SLOW_APPROACH_INCHES),
-                    -(START_GAP_INCHES - SLOW_APPROACH_INCHES), 0.25, 4.0)) return;
-            if (!move("Light rear tap", -SLOW_APPROACH_INCHES, -SLOW_APPROACH_INCHES, 0.10, 2.0)) return;
-            double pullAway = VIEWING_Y_INCHES
-                    - (FLOWER_RETRIEVAL_DEPTH_INCHES + REAR_OVERHANG_INCHES);
-            if (!move("Pull away to hive viewing position", pullAway, pullAway, 0.25, 7.0)) return;
-            if (!turnClockwise("Face hive with rear camera", 180.0)) return;
-            if (!alignRearCamera()) return;
-            if (!turnClockwise("Turn camera away from hive", 180.0)) return;
+            if (!move("Step 1: forward 12 inches", LEG_INCHES, LEG_INCHES, 0.25, 5.0)) return;
+            if (!turnClockwise("Step 2: clockwise 90 degrees", 90.0)) return;
+            if (!move("Step 3: forward 12 inches", LEG_INCHES, LEG_INCHES, 0.25, 5.0)) return;
+            if (!turnClockwise("Step 4: clockwise 90 degrees", 90.0)) return;
+            if (!move("Step 5: forward 12 inches", LEG_INCHES, LEG_INCHES, 0.25, 5.0)) return;
             report("Sequence complete; stopped");
         } finally {
             stopDrive();
             left.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
             right.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            vision.close();
         }
     }
 
     private boolean calibrationValid() {
         return positive(WHEEL_DIAMETER_INCHES) && positive(TRACK_WIDTH_INCHES)
-                && positive(FRONT_OVERHANG_INCHES) && positive(REAR_OVERHANG_INCHES)
-                && positive(HALF_WIDTH_INCHES)
-                && positive(DRIVE_GEAR_RATIO)
-                && positive(ENCODER_TICKS_PER_REV)
-                && FLOWER_RETRIEVAL_DEPTH_INCHES + REAR_OVERHANG_INCHES
-                    + START_GAP_INCHES < VIEWING_Y_INCHES
-                && VIEWING_Y_INCHES + TURN_RADIUS_INCHES
-                    + 3.0 < FRAME_NEAR_Y_INCHES;
+                && positive(DRIVE_GEAR_RATIO) && positive(ENCODER_TICKS_PER_REV);
     }
 
     private boolean positive(double value) {
@@ -131,7 +100,10 @@ public class BasicAutonomous extends LinearOpMode {
                 reached = true;
                 break;
             }
-            report(label);
+            telemetry.addData("Autonomous", label);
+            telemetry.addData("Left encoder", "%d / %d", left.getCurrentPosition(), leftTarget);
+            telemetry.addData("Right encoder", "%d / %d", right.getCurrentPosition(), rightTarget);
+            telemetry.update();
             idle();
         }
         stopDrive();
@@ -139,34 +111,6 @@ public class BasicAutonomous extends LinearOpMode {
         right.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         if (!reached) report("Aborted: " + label + " timeout/STOP");
         return reached && active();
-    }
-
-    private boolean alignRearCamera() {
-        stepTimer.reset();
-        while (active() && stepTimer.seconds() < 5.0) {
-            AprilTagClusterDetection cluster = vision.findCluster(AprilTagVision.BLUE_AUDIENCE);
-            if (cluster == null || Double.isNaN(cluster.ftcPose.bearing)
-                    || Double.isInfinite(cluster.ftcPose.bearing)) {
-                stopDrive();
-                report("Waiting for BLUE AUDIENCE cluster; stopped");
-            } else {
-                double bearing = cluster.ftcPose.bearing;
-                if (Math.abs(bearing) <= 2.0) {
-                    stopDrive();
-                    return true;
-                }
-                // Camera positive bearing is left; positive motor turn is clockwise.
-                // Rear mounting reverses translation, but preserves yaw correction.
-                double clockwise = Math.max(-0.15, Math.min(0.15, -bearing * 0.015));
-                left.setPower(clockwise);
-                right.setPower(-clockwise);
-                report("Rear camera aligning to BLUE AUDIENCE");
-            }
-            sleep(50);
-        }
-        stopDrive();
-        report("Aborted: hive cluster unavailable or alignment timed out");
-        return false;
     }
 
     private void stopDrive() {
