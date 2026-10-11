@@ -15,10 +15,17 @@ import java.io.PrintWriter;
  * Writes one row per OpMode loop to
  * /sdcard/FIRST/debug_logs/align_<milliseconds>.csv so every
  * teleop run (including align tests) is captured for later analysis.
+ * Rows are flushed to the file every FLUSH_EVERY_ROWS rows so a run
+ * that is force-stopped still keeps its recent diagnostics.
  */
 public class AlignLog {
 
+    // Flush cadence: bounds how much recent data a force-stop can lose while
+    // keeping the flush cost off every loop iteration.
+    private static final int FLUSH_EVERY_ROWS = 64;
+
     private PrintWriter writer;
+    private int rowsSinceFlush;
     private final ElapsedTime elapsed = new ElapsedTime();
     private final StringBuilder row = new StringBuilder(256);
 
@@ -47,6 +54,8 @@ public class AlignLog {
                             + "stick_ly,stick_rx,drive_cmd,"
                             + "left_cmd,right_cmd,left_vel_deg,right_vel_deg"
             );
+            writer.flush();
+            rowsSinceFlush = 0;
             elapsed.reset();
         } catch (IOException e) {
             writer = null;
@@ -89,6 +98,13 @@ public class AlignLog {
         row.append(String.format("%.1f", rightVel));
 
         writer.println(row);
+
+        // Periodic flush so a force-stop keeps the recent rows instead of
+        // only what happens to have filled the writer's own buffer.
+        if (++rowsSinceFlush >= FLUSH_EVERY_ROWS) {
+            writer.flush();
+            rowsSinceFlush = 0;
+        }
     }
 
     /**
@@ -100,6 +116,7 @@ public class AlignLog {
             writer.flush();
             writer.close();
             writer = null;
+            rowsSinceFlush = 0;
         }
     }
 }

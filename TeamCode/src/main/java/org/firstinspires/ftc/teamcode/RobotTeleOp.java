@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
@@ -18,8 +19,19 @@ public class RobotTeleOp extends LinearOpMode {
     private static final double ALIGN_MIN_TURN = 0.15;
     // Deadband wide enough that the chassis settles inside it instead of hunting
     private static final double ALIGN_TOLERANCE_DEG = 2.0;
+    // Re-engage only past this error so a bearing sitting on the deadband edge
+    // cannot toggle the turn command on and off
+    private static final double ALIGN_REENGAGE_DEG = 3.0;
+    // Longest vision dropout to ride out with the previous turn command.
+    // Dropouts while aligning measured ~0.19 s (p90 ~0.26 s) on the field logs.
+    private static final double ALIGN_HOLD_MS = 250;
     // Alliance selected during INIT; defaults to RED
     private String alliance = "RED";
+    // Align state: last commanded turn, deadband lock, and time of the last
+    // cluster detection. Only used while a bumper is held.
+    private double alignTurn = 0;
+    private boolean alignLocked = false;
+    private final ElapsedTime alignDetection = new ElapsedTime();
 
 
 
@@ -60,6 +72,7 @@ public class RobotTeleOp extends LinearOpMode {
         }
 
         if (isStopRequested()) {
+            alignLog.close();
             robot.close();
             return;
         }
@@ -96,16 +109,50 @@ public class RobotTeleOp extends LinearOpMode {
             boolean aligned = false;
 
             // Positive bearing = target LEFT; positive turn rotates RIGHT.
-            if (target != null && target.ftcPose != null) {
+            if (alignTarget == null) {
+
+                // Manual driving: drop all align state.
+                alignTurn = 0;
+                alignLocked = false;
+
+            } else if (target != null && target.ftcPose != null) {
+
                 double bearing = target.ftcPose.bearing;
-                if (Math.abs(bearing) < ALIGN_TOLERANCE_DEG) {
-                    turn = 0;
-                    aligned = true;
+                double magnitude = Math.abs(bearing);
+
+                // Hysteresis: lock inside the deadband, re-engage past the
+                // wider threshold, so bearing noise at the edge cannot
+                // chatter the command between 0 and ALIGN_MIN_TURN.
+                if (magnitude < ALIGN_TOLERANCE_DEG) {
+                    alignLocked = true;
+                } else if (magnitude > ALIGN_REENGAGE_DEG) {
+                    alignLocked = false;
+                }
+
+                if (alignLocked) {
+                    alignTurn = 0;
                 } else {
                     double power = Math.max(ALIGN_MIN_TURN,
                             Math.min(ALIGN_MAX_TURN, Math.abs(ALIGN_KP * bearing)));
-                    turn = -Math.signum(bearing) * power;
+                    alignTurn = -Math.signum(bearing) * power;
                 }
+
+                aligned = magnitude < ALIGN_TOLERANCE_DEG;
+                turn = alignTurn;
+                alignDetection.reset();
+
+            } else if (alignDetection.milliseconds() < ALIGN_HOLD_MS) {
+
+                // Cluster missing this frame: hold the last command so the
+                // chassis keeps turning instead of coasting until the next
+                // detection. Bounded by ALIGN_HOLD_MS so a lost target
+                // releases the turn axis back to the driver.
+                turn = alignTurn;
+
+            } else {
+
+                // Target gone: release the turn axis.
+                alignTurn = 0;
             }
 
             robot.drive(drive, turn);
