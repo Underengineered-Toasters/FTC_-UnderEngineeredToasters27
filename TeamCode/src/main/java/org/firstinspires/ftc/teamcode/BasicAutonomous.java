@@ -75,8 +75,11 @@ public class BasicAutonomous extends LinearOpMode {
             telemetry.addLine("Step 2: Backing away and turning toward Hive...");
             telemetry.update();
             driveBackward(0.4, 0.8);
-            turnRight(0.4, 0.6);
-
+            if ("BLUE".equals(alliance)) {
+                turnLeft(0.4, 1.1);
+            } else {
+                turnRight(0.4, 1.1);
+            }
             // STEP 3: Camera line up with Hive AprilTag cluster
             String targetCluster = "RED".equals(alliance) ? AprilTagVision.RED_SCORING : AprilTagVision.BLUE_SCORING;
             telemetry.addLine("Step 3: Aligning to Hive (" + targetCluster + ")...");
@@ -90,11 +93,15 @@ public class BasicAutonomous extends LinearOpMode {
             sleep(3000);
             robot.shooter.spinDown();
 
-            // STEP 5: Drive to parking space
+            // STEP 5: Turn and drive to parking space
             telemetry.addLine("Step 5: Driving to parking space...");
             telemetry.update();
-            driveForward(0.5, 1.5);
-
+            if ("BLUE".equals(alliance)) {
+                turnLeft(0.4, 0.8);
+            } else {
+                turnRight(0.4, 0.8);
+            }
+            driveForward(0.5, 1.3);
             // STEP 6: Stop the Robot
             telemetry.addLine("Step 6: Stopping Robot.");
             telemetry.update();
@@ -189,6 +196,7 @@ public class BasicAutonomous extends LinearOpMode {
      */
     private boolean alignToCluster(String clusterName, double timeoutSeconds) {
         ElapsedTime timer = new ElapsedTime();
+        double searchTurn = "BLUE".equals(alliance) ? -0.22 : 0.22;
         while (opModeIsActive() && timer.seconds() < timeoutSeconds) {
             Robot.AlignResult result = robot.calculateClusterAlign(clusterName);
             if (result.targetFound) {
@@ -198,7 +206,8 @@ public class BasicAutonomous extends LinearOpMode {
                 }
                 robot.drive(0, result.turnPower);
             } else {
-                robot.stopDrive();
+                // Sweep slowly until camera acquires the AprilTag cluster
+                robot.drive(0, searchTurn);
             }
             sleep(20);
         }
