@@ -25,10 +25,10 @@ public class AutoLog {
 
         File file = new File(dir, opModeName + "_" + System.currentTimeMillis() + ".csv");
         try {
-            writer = new PrintWriter(new FileWriter(file));
+            writer = new PrintWriter(new FileWriter(file), true);
             writer.println(
                     "time_ms,step,alliance,left_pwr,right_pwr,intake_pwr,shooter_pwr,"
-                            + "align_target,target_found,aligned,bearing_deg,range_in,turn_cmd"
+                            + "align_target,target_found,aligned,bearing_deg,range_in,turn_cmd,visible_detections"
             );
             timer.reset();
         } catch (IOException e) {
@@ -48,7 +48,8 @@ public class AutoLog {
             boolean aligned,
             Double bearing,
             Double range,
-            double turnCmd
+            double turnCmd,
+            int visibleDetections
     ) {
         if (writer == null) {
             return;
@@ -67,7 +68,8 @@ public class AutoLog {
         sb.append(aligned).append(',');
         sb.append(bearing != null ? String.format("%.2f", bearing) : "").append(',');
         sb.append(range != null ? String.format("%.2f", range) : "").append(',');
-        sb.append(String.format("%.3f", turnCmd));
+        sb.append(String.format("%.3f", turnCmd)).append(',');
+        sb.append(visibleDetections);
         writer.println(sb);
     }
 

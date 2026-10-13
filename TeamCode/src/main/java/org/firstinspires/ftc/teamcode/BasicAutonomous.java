@@ -24,6 +24,8 @@ public class BasicAutonomous extends LinearOpMode {
 
     // Alliance selected during init ("RED" or "BLUE")
     private String alliance = "RED";
+    private boolean xLast = false;
+    private boolean bLast = false;
     private final AutoLog logger = new AutoLog();
     private String currentStep = "INIT";
 
@@ -40,11 +42,16 @@ public class BasicAutonomous extends LinearOpMode {
         // Press X for BLUE, B for RED while in INIT.
         // ===============================================
         while (opModeInInit()) {
-            if (gamepad1.x) {
+            // Edge-detect so a held or bouncing button doesn't flip the choice back
+            boolean xNow = gamepad1.x;
+            boolean bNow = gamepad1.b;
+            if (xNow && !xLast) {
                 alliance = "BLUE";
-            } else if (gamepad1.b) {
+            } else if (bNow && !bLast) {
                 alliance = "RED";
             }
+            xLast = xNow;
+            bLast = bNow;
 
             telemetry.addData("Status", "Initialized - Ready for Start");
             telemetry.addData("Alliance", alliance);
@@ -242,7 +249,8 @@ public class BasicAutonomous extends LinearOpMode {
                 false,
                 null,
                 null,
-                0.0
+                0.0,
+                robot.getAprilTagDetections().size()
         );
     }
 
@@ -259,7 +267,8 @@ public class BasicAutonomous extends LinearOpMode {
                 res != null && res.aligned,
                 res != null && res.targetFound ? res.bearingDeg : null,
                 res != null && res.targetFound ? res.rangeInches : null,
-                turnCmd
+                turnCmd,
+                robot.getAprilTagDetections().size()
         );
     }
 
