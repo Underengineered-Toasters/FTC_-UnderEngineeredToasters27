@@ -55,7 +55,8 @@ public class Robot {
         try {
             vision.init(hardwareMap);
         } catch (Exception e) {
-            // Allows teleop to run if camera is disconnected
+            // Allows teleop to run if camera is disconnected; vision.isReady()
+            // stays false and telemetry/CSV report the camera as offline.
         }
     }
 
@@ -113,6 +114,14 @@ public class Robot {
 
     public double getRightPower() {
         return rightPower;
+    }
+
+    public String getCameraState() {
+        return vision.getCameraState();
+    }
+
+    public boolean isVisionReady() {
+        return vision.isReady();
     }
 
     public void close() {

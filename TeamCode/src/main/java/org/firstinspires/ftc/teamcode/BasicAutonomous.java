@@ -55,6 +55,7 @@ public class BasicAutonomous extends LinearOpMode {
 
             telemetry.addData("Status", "Initialized - Ready for Start");
             telemetry.addData("Alliance", alliance);
+            telemetry.addData("Camera", robot.getCameraState());
             telemetry.addLine("Press X for BLUE, B for RED");
             telemetry.update();
         }
@@ -214,6 +215,11 @@ public class BasicAutonomous extends LinearOpMode {
      * @return true if the robot aligned within tolerance, false otherwise
      */
     private boolean alignToCluster(String clusterName, double timeoutSeconds) {
+        if (!robot.isVisionReady()) {
+            telemetry.addLine("CAMERA OFFLINE - skipping alignment");
+            telemetry.update();
+            return false;
+        }
         ElapsedTime timer = new ElapsedTime();
         double searchTurn = "BLUE".equals(alliance) ? -0.22 : 0.22;
         while (opModeIsActive() && timer.seconds() < timeoutSeconds) {
