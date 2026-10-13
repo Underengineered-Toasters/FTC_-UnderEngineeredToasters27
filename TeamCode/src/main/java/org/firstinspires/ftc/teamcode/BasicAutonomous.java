@@ -24,6 +24,8 @@ public class BasicAutonomous extends LinearOpMode {
 
     // Alliance selected during init ("RED" or "BLUE")
     private String alliance = "RED";
+    private final AutoLog logger = new AutoLog();
+    private String currentStep = "INIT";
 
     @Override
     public void runOpMode() {
@@ -52,7 +54,7 @@ public class BasicAutonomous extends LinearOpMode {
 
         // Wait for the driver to press PLAY on the Driver Station
         waitForStart();
-
+        logger.open("auto_flower_hive");
         if (!opModeIsActive()) {
             robot.close();
             return;
@@ -64,6 +66,7 @@ public class BasicAutonomous extends LinearOpMode {
             // ===============================================
 
             // STEP 1: Start intake and lightly bump Flower to collect piece
+            currentStep = "Step 1: Bump Flower";
             telemetry.addLine("Step 1: Starting intake & approaching Flower...");
             telemetry.update();
             robot.intakeSystem.intakeIn();
@@ -72,6 +75,7 @@ public class BasicAutonomous extends LinearOpMode {
             robot.intakeSystem.stopIntake();
 
             // STEP 2: Back away from Flower and face towards Hive
+            currentStep = "Step 2: Back out & Turn";
             telemetry.addLine("Step 2: Backing away and turning toward Hive...");
             telemetry.update();
             driveBackward(0.4, 0.8);
@@ -81,12 +85,15 @@ public class BasicAutonomous extends LinearOpMode {
                 turnRight(0.4, 1.1);
             }
             // STEP 3: Camera line up with Hive AprilTag cluster
+            currentStep = "Step 3: Align Hive";
             String targetCluster = "RED".equals(alliance) ? AprilTagVision.RED_SCORING : AprilTagVision.BLUE_SCORING;
             telemetry.addLine("Step 3: Aligning to Hive (" + targetCluster + ")...");
             telemetry.update();
             alignToCluster(targetCluster, 4.0);
 
             // STEP 4: Pause 3s (pretend shoot)
+            currentStep = "Step 4: Pause Shoot";
+            logSnapshot();
             telemetry.addLine("Step 4: Pausing 3s (pretend shoot)...");
             telemetry.update();
             robot.shooter.setTargetPower(Shooter.POWER_MID_SHOT);
@@ -94,6 +101,7 @@ public class BasicAutonomous extends LinearOpMode {
             robot.shooter.spinDown();
 
             // STEP 5: Turn and drive to parking space
+            currentStep = "Step 5: Park";
             telemetry.addLine("Step 5: Driving to parking space...");
             telemetry.update();
             if ("BLUE".equals(alliance)) {
@@ -103,12 +111,15 @@ public class BasicAutonomous extends LinearOpMode {
             }
             driveForward(0.5, 1.3);
             // STEP 6: Stop the Robot
+            currentStep = "Step 6: Stopped";
+            logSnapshot();
             telemetry.addLine("Step 6: Stopping Robot.");
             telemetry.update();
             stopRobot();
             telemetry.addData("Status", "Autonomous Sequence Complete!");
             telemetry.update();
         } finally {
+            logger.close();
             robot.close();
         }
     }
@@ -174,6 +185,7 @@ public class BasicAutonomous extends LinearOpMode {
         ElapsedTime timer = new ElapsedTime();
         while (opModeIsActive() && timer.seconds() < seconds) {
             robot.drive(forward, turn);
+            logSnapshot();
 
             telemetry.addData("Time Elapsed", "%.1f / %.1f sec", timer.seconds(), seconds);
             telemetry.addData("Forward Power", "%.2f", forward);
@@ -202,17 +214,53 @@ public class BasicAutonomous extends LinearOpMode {
             if (result.targetFound) {
                 if (result.aligned) {
                     robot.stopDrive();
+                    logAlign(clusterName, result, 0.0);
                     return true;
                 }
                 robot.drive(0, result.turnPower);
+                logAlign(clusterName, result, result.turnPower);
             } else {
                 // Sweep slowly until camera acquires the AprilTag cluster
                 robot.drive(0, searchTurn);
+                logAlign(clusterName, result, searchTurn);
             }
             sleep(20);
         }
         robot.stopDrive();
         return false;
+    }
+    private void logSnapshot() {
+        logger.log(
+                currentStep,
+                alliance,
+                robot.getLeftPower(),
+                robot.getRightPower(),
+                robot.intakeSystem.getPower(),
+                robot.shooter.getCurrentPower(),
+                "none",
+                false,
+                false,
+                null,
+                null,
+                0.0
+        );
+    }
+
+    private void logAlign(String clusterName, Robot.AlignResult res, double turnCmd) {
+        logger.log(
+                currentStep,
+                alliance,
+                robot.getLeftPower(),
+                robot.getRightPower(),
+                robot.intakeSystem.getPower(),
+                robot.shooter.getCurrentPower(),
+                clusterName,
+                res != null && res.targetFound,
+                res != null && res.aligned,
+                res != null && res.targetFound ? res.bearingDeg : null,
+                res != null && res.targetFound ? res.rangeInches : null,
+                turnCmd
+        );
     }
 
     /**
