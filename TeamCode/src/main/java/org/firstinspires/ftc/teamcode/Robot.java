@@ -3,11 +3,31 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
-
+import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 import java.util.Collections;
 import java.util.List;
-
 public class Robot {
+
+    public static final double ALIGN_KP = 0.05;
+    public static final double ALIGN_MAX_TURN = 0.6;
+    public static final double ALIGN_MIN_TURN = 0.15;
+    public static final double ALIGN_TOLERANCE_DEG = 2.0;
+
+    public static class AlignResult {
+        public final boolean targetFound;
+        public final boolean aligned;
+        public final double turnPower;
+        public final double bearingDeg;
+        public final Double rangeInches;
+
+        public AlignResult(boolean targetFound, boolean aligned, double turnPower, double bearingDeg, Double rangeInches) {
+            this.targetFound = targetFound;
+            this.aligned = aligned;
+            this.turnPower = turnPower;
+            this.bearingDeg = bearingDeg;
+            this.rangeInches = rangeInches;
+        }
+    }
 
     public intake intakeSystem = new intake();
     public Shooter shooter = new Shooter();
@@ -23,8 +43,8 @@ public class Robot {
         leftDrive = hardwareMap.get(DcMotor.class, "left");
         rightDrive = hardwareMap.get(DcMotor.class, "right");
 
-        leftDrive.setDirection(DcMotor.Direction.REVERSE);
-        rightDrive.setDirection(DcMotor.Direction.FORWARD);
+        leftDrive.setDirection(DcMotor.Direction.FORWARD);
+        rightDrive.setDirection(DcMotor.Direction.REVERSE);
 
         leftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -47,6 +67,10 @@ public class Robot {
         rightDrive.setPower(rightPower);
     }
 
+    public void stopDrive() {
+        drive(0, 0);
+    }
+
     public void update() {
         shooter.update();
     }
@@ -56,6 +80,31 @@ public class Robot {
             return vision.getDetections();
         }
         return Collections.emptyList();
+    }
+
+    public AprilTagClusterDetection findAprilTagCluster(String name) {
+        if (vision != null) {
+            return vision.findCluster(name);
+        }
+        return null;
+    }
+
+    public AlignResult calculateClusterAlign(String clusterName) {
+        AprilTagClusterDetection target = findAprilTagCluster(clusterName);
+        if (target == null || target.ftcPose == null) {
+            return new AlignResult(false, false, 0.0, 0.0, null);
+        }
+
+        double bearing = target.ftcPose.bearing;
+        double range = target.ftcPose.range;
+
+        if (Math.abs(bearing) <= ALIGN_TOLERANCE_DEG) {
+            return new AlignResult(true, true, 0.0, bearing, range);
+        }
+
+        double power = Math.max(ALIGN_MIN_TURN, Math.min(ALIGN_MAX_TURN, Math.abs(ALIGN_KP * bearing)));
+        double turn = -Math.signum(bearing) * power;
+        return new AlignResult(true, false, turn, bearing, range);
     }
 
     public double getLeftPower() {

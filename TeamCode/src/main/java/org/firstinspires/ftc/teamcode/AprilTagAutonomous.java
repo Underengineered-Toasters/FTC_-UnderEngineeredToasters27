@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagSingleDetection;
 
 import java.util.List;
 
@@ -189,7 +190,7 @@ public class AprilTagAutonomous extends LinearOpMode {
     private AprilTagDetection findTagById(List<AprilTagDetection> detections, int id) {
         if (detections == null) return null;
         for (AprilTagDetection detection : detections) {
-            if (detection.id == id) {
+            if (detection instanceof AprilTagSingleDetection && ((AprilTagSingleDetection) detection).id == id) {
                 return detection;
             }
         }

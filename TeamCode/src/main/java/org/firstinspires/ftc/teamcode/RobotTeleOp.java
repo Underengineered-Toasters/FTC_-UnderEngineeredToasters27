@@ -18,6 +18,9 @@ public class RobotTeleOp extends LinearOpMode {
     // Edge detector for the Y toggle
     private boolean previousY = false;
 
+    // Selected alliance for AprilTag cluster alignment: "RED" or "BLUE"
+    private String alliance = "RED";
+
     @Override
     public void runOpMode() {
 
@@ -39,6 +42,27 @@ public class RobotTeleOp extends LinearOpMode {
         telemetry.addLine("Y             = Toggle Intake Direction");
         telemetry.update();
 
+        // =========================
+        // Alliance Selection (during init)
+        // =========================
+
+        while (!isStarted() && !isStopRequested()) {
+            if (gamepad1.x) {
+                alliance = "BLUE";
+            }
+            if (gamepad1.b) {
+                alliance = "RED";
+            }
+
+            telemetry.addLine("==============================");
+            telemetry.addData("Alliance", alliance);
+            telemetry.addLine("X  = Blue    B = Red");
+            telemetry.addLine("LB = Align Audience");
+            telemetry.addLine("RB = Align Scoring");
+            telemetry.addLine("==============================");
+            telemetry.update();
+        }
+
         waitForStart();
 
         if (isStopRequested()) {
@@ -53,11 +77,30 @@ public class RobotTeleOp extends LinearOpMode {
         while (opModeIsActive()) {
 
             // ==================================
-            // DRIVE (Inverted both signs to fix backward forward & swapped turns)
+            // DRIVE (standard FTC stick conventions)
             // ==================================
 
-            double drive = gamepad1.left_stick_y;
-            double turn  = -gamepad1.right_stick_x;
+            double drive = -gamepad1.left_stick_y;
+            double turn  = gamepad1.right_stick_x;
+
+            // ==================================
+            // APRILTAG ALIGNMENT (bumpers, hold)
+            // ==================================
+
+            String alignTarget = null;
+            if (gamepad1.left_bumper) {
+                alignTarget = "RED".equals(alliance) ? AprilTagVision.RED_AUDIENCE : AprilTagVision.BLUE_AUDIENCE;
+            } else if (gamepad1.right_bumper) {
+                alignTarget = "RED".equals(alliance) ? AprilTagVision.RED_SCORING : AprilTagVision.BLUE_SCORING;
+            }
+
+            Robot.AlignResult align = null;
+            if (alignTarget != null) {
+                align = robot.calculateClusterAlign(alignTarget);
+                if (align.targetFound) {
+                    turn = align.turnPower;
+                }
+            }
 
             robot.drive(drive, turn);
 
@@ -150,6 +193,14 @@ public class RobotTeleOp extends LinearOpMode {
 
             telemetry.addLine("------------------------------");
             telemetry.addData("AprilTags Visible", detections != null ? detections.size() : 0);
+
+            telemetry.addLine("------------------------------");
+            telemetry.addData("Alliance", alliance);
+            telemetry.addData("Align Target", alignTarget != null ? alignTarget : "None");
+            telemetry.addData("Align Bearing",
+                    align != null && align.targetFound ? String.format("%.1f deg", align.bearingDeg) : "N/A");
+            telemetry.addData("Aligned",
+                    align != null && align.targetFound ? (align.aligned ? "YES" : "NO") : "N/A");
 
             telemetry.update();
         }

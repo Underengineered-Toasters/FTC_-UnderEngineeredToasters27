@@ -16,6 +16,7 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 - Ensure actuators and sensors match hardware configuration names on the Control Hub.
 - `AprilTagVision` uses `AprilTagGameDatabase.getCurrentGameTagLibrary()` (Sample tags plus BIOBUZZ clusters 30-45). Do not register IDs 30-45 as single tags; cluster poses are relative targeting data since the tags move with the CELLs, not absolute field localization.
 - `Robot TeleOp` selects alliance in INIT (X = Blue, B = Red, default Red); hold LB or RB to align the chassis to the alliance audience or far CELL cluster using `ftcPose.bearing`.
+- `Basic Auto - Flower to Hive` selects alliance in INIT (X = Blue, B = Red, default Red), starts the intake to collect from the Flower, navigates toward the Hive, aligns to the scoring AprilTag cluster, pauses 3 seconds, and drives to park.
 - `org.firstinspires.ftc.teamcode.ds` hosts the driver station web UI backend (web handlers, `ds` websocket namespace, diagnostics poller); opmodes publish through the `DriverStation` facade.
 - `src/main/assets/ds/` holds the web UI assets served at `/ds`; `app.css` is generated output — edit `ds-ui/input.css` and rebuild with `cd TeamCode/ds-ui && ./build.sh` instead of editing it directly.
 
