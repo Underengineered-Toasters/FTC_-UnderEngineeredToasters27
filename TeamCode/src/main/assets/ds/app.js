@@ -27,6 +27,27 @@
  * with textContent; this file never assigns innerHTML. No network access
  * beyond the robot websocket and the MJPEG camera, no external dependencies.
  *
+ * Recovery rules that are easy to get wrong:
+ *   - The robot replays telemetry pairs on subscribe and never sends an empty
+ *     dump, so the client drops its telemetry snapshot on every disconnect. A
+ *     reconnect against an empty robot snapshot shows nothing instead of the
+ *     previous session's values.
+ *   - The command guard is released only by a robot snapshot that shows the
+ *     command took effect (for initOpMode: the requested name reported in
+ *     state INIT), by an error reply, by a disconnect, or by the bounded
+ *     PENDING_TIMEOUT_MS. The 500 ms diag poller alone is not proof that a
+ *     command finished, and neither is the name without the state.
+ *   - Only frames from the robot's own "ds" namespace drive the UI; the SDK
+ *     multiplexes other namespaces over the same socket.
+ *   - A disconnect drops the robot snapshot (state, telemetry, opmode list,
+ *     hardware rows) instead of leaving the lost session's values on screen.
+ *   - STOP is never gated on the guard, so a slow or unanswered command cannot
+ *     take the emergency stop away from the driver.
+ *   - Pause freezes the visible log; lines arriving while paused are queued
+ *     (bounded, oldest dropped) and flushed in order on Resume.
+ *   - Without WebSocket support the client reports it instead of sitting on
+ *     "Connecting" forever.
+ *
  * The pure helpers are exported for unit tests (see tests/app.test.js) and the
  * DOM layer only runs when a document exists.
  */
@@ -154,7 +175,9 @@
    * directly testable.
    *   INIT  : connected, a selection exists, not currently LOOPING, no pending cmd
    *   START : connected, robot is initialized (state INIT), no pending cmd
-   *   STOP  : connected, an opmode is active (state INIT or LOOPING), no pending cmd
+   *   STOP  : connected, an opmode is active (state INIT or LOOPING). Deliberately
+   *           NOT gated on `pending`: a slow or unanswered command must never
+   *           take the stop button away from the driver.
    */
   function controlsFor(input) {
     var connected = !!(input && input.connected);
@@ -165,8 +188,39 @@
     return {
       init: canAct && selection !== "" && state !== "LOOPING",
       start: canAct && state === "INIT",
-      stop: canAct && (state === "INIT" || state === "LOOPING"),
+      stop: connected && (state === "INIT" || state === "LOOPING"),
     };
+  }
+
+  /**
+   * Whether a robot snapshot (active opmode name + opmodeState) proves that a
+   * command already sent has taken effect. `command` is the object the DOM
+   * layer arms through setPending: { type, name? }.
+   *
+   * DsSocketHandler runs every control through OpModeManagerImpl and
+   * DriverStationServer's 500 ms poller reports `active` + `opmodeState`
+   * afterwards, so the effect is observable:
+   *   initOpMode  -> active becomes the requested opmode AND opmodeState INIT
+   *   startOpMode -> opmodeState becomes LOOPING
+   *   stopOpMode  -> active becomes null (onOpModePostStop)
+   *
+   * The reported state is null until DriverStationServer's opmode listener has
+   * recorded one, and the active name can appear before that, so a name on its
+   * own does not prove an init finished.
+   */
+  function commandSatisfied(command, active, state) {
+    if (!command) return true;
+    switch (command.type) {
+      case "initOpMode":
+        return state === "INIT" && active !== null && active !== undefined
+            && String(active) === String(command.name);
+      case "startOpMode":
+        return state === "LOOPING";
+      case "stopOpMode":
+        return active === null || active === undefined;
+      default:
+        return true;
+    }
   }
 
   /** Replace the whole telemetry map from a telemetryDump {entries} object. */
@@ -208,6 +262,8 @@
     stateTone: stateTone,
     reconnectDelay: reconnectDelay,
     controlsFor: controlsFor,
+    commandSatisfied: commandSatisfied,
+    PENDING_TIMEOUT_MS: PENDING_TIMEOUT_MS,
     mergeTelemetryDump: mergeTelemetryDump,
     applyTelemetryEntry: applyTelemetryEntry,
     cameraDecision: cameraDecision,
@@ -244,11 +300,13 @@
     var telemetryRows = new Map();
     var sparkData = new Map();
     var pending = false;
+    var pendingCommand = null;
     var reconnectAttempt = 0;
     var reconnectTimer = null;
     var pendingTimer = null;
     var logPinned = true;
     var logPaused = false;
+    var pendingLog = [];
     var camLastAttemptMs = 0;
     var camWatchdog = null;
 
@@ -274,6 +332,27 @@
 
     function setConnected(next) {
       connected = next;
+      if (!next) {
+        // Everything on screen came from the session we just lost, and the
+        // robot replays only the pairs it still holds (DsSocketHandler
+        // .onSubscribe sends no empty dump). Drop the snapshot so a reconnect
+        // against an empty robot snapshot shows nothing rather than stale rows.
+        resetTelemetry();
+        // The robot snapshot (active opmode, opmodeState, battery, hardware) is
+        // just as stale. Showing it as current would let the driver read a dead
+        // session's state as this one's, and the opmode list feeds the INIT
+        // gate, so the list goes too: a reconnect replays all of it.
+        resetOpModeList();
+        opState = null;
+        setActive(null, null);
+        setBattery(null);
+        setMotors([]);
+        setServos([]);
+        clearSpark(els.batterySpark);
+        // The in-flight command's outcome is unknowable now; a reconnect
+        // replays the authoritative state.
+        setPending(null);
+      }
       if (els.conn) {
         els.conn.textContent = next ? "Connected" : "Disconnected";
         els.conn.className = next ? CONN.on : CONN.off;
@@ -291,6 +370,17 @@
       }
     }
 
+    /**
+     * Replace the banner's copy. The banner markup (icon plus one text span)
+     * comes from index.html, so the text lives in that span; the shipped copy
+     * is only replaced when the situation it describes does not apply.
+     */
+    function setBannerText(text) {
+      if (!els.banner || typeof els.banner.querySelector !== "function") return;
+      var span = els.banner.querySelector("span");
+      if (span) span.textContent = text;
+    }
+
     function setActive(name, state) {
       if (els.active) els.active.textContent = name ? String(name) : "None";
       if (els.opstate) {
@@ -300,12 +390,21 @@
       }
     }
 
-    function setPending(next) {
-      pending = next;
+    /**
+     * Arm the command guard for `command` ({ type, name? }), or release it with
+     * null. The guard is released only by a robot snapshot that shows the
+     * command took effect (commandSatisfied), by an error reply, by a
+     * disconnect, or by the bounded PENDING_TIMEOUT_MS - never by the periodic
+     * diag alone, which says nothing about whether the command finished.
+     */
+    function setPending(command) {
+      pending = !!command;
+      pendingCommand = command || null;
       if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null; }
       if (pending) {
         pendingTimer = setTimeout(function () {
           pending = false;
+          pendingCommand = null;
           pendingTimer = null;
           updateControls();
         }, PENDING_TIMEOUT_MS);
@@ -313,16 +412,43 @@
       updateControls();
     }
 
+    /**
+     * Apply the robot's authoritative snapshot (from "state" or "diag") and
+     * release the guard only if it shows the in-flight command took effect.
+     */
+    function noteSnapshot(active, state) {
+      opState = state === null || state === undefined ? null : state;
+      if (pendingCommand && commandSatisfied(pendingCommand, active, opState)) setPending(null);
+    }
+
     // ---- opmode list ----
+    /**
+     * Show the empty-list placeholder and disable the select. Used when the
+     * robot reports no opmodes and on every disconnect, because the list is
+     * robot state that also feeds the INIT gate.
+     *
+     * The placeholder carries an explicit empty value: an <option> with no
+     * value attribute reports its own text ("No opmodes"), which reads back as
+     * a selected opmode name and would enable INIT for a list with nothing to
+     * init. index.html ships the same value="" placeholder.
+     */
+    function resetOpModeList() {
+      if (!els.opmode) return;
+      els.opmode.textContent = "";
+      var placeholder = el("option", "", "No opmodes");
+      placeholder.value = "";
+      els.opmode.append(placeholder);
+      els.opmode.disabled = true;
+    }
+
     function setOpmodes(names, active, state) {
       if (!els.opmode) return;
       var prev = els.opmode.value;
       var list = Array.isArray(names) ? names : [];
-      els.opmode.textContent = "";
       if (list.length === 0) {
-        els.opmode.append(el("option", "", "No opmodes"));
-        els.opmode.disabled = true;
+        resetOpModeList();
       } else {
+        els.opmode.textContent = "";
         for (var n of list) els.opmode.append(el("option", "", n));
         els.opmode.disabled = false;
         if (list.indexOf(prev) !== -1) els.opmode.value = prev;
@@ -356,6 +482,13 @@
         if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       });
       ctx.stroke();
+    }
+
+    /** Wipe a sparkline canvas so a lost session's trace is not read as current. */
+    function clearSpark(canvas) {
+      if (!canvas || typeof canvas.getContext !== "function") return;
+      var ctx = canvas.getContext("2d");
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
     function setBattery(v) {
@@ -451,14 +584,53 @@
       if (els.telemetryEmpty) els.telemetryEmpty.classList.toggle("hidden", telemetryRows.size > 0);
     }
 
+    /**
+     * Drop the replayed telemetry snapshot and re-render the empty state.
+     * Called on every disconnect; see setConnected for why.
+     */
+    function resetTelemetry() {
+      telemetry = new Map();
+      // The history belongs to the session that produced it: a new point must
+      // not be drawn as a continuation of the old trace (and the detached rows
+      // would otherwise be retained here for good).
+      sparkData.clear();
+      renderTelemetry();
+    }
+
     // ---- log ----
-    function addLog(text, isError) {
+    //
+    // Pause semantics: Pause freezes the visible log exactly as it stands.
+    // Lines arriving while paused are queued instead of rendered (bounded to
+    // MAX_LOG_LINES, oldest dropped); Resume flushes the queue in arrival
+    // order and re-enables auto-scroll. Clear empties the view and drops the
+    // queue, so a cleared log cannot be repopulated by a later Resume.
+    function appendLogLine(text, isError) {
       if (!els.log) return;
       els.log.append(el("div", isError ? "log-line--error" : "", text));
       while (els.log.childElementCount > MAX_LOG_LINES) {
         if (els.log.firstChild) els.log.firstChild.remove(); else break;
       }
-      if (logPinned && !logPaused) els.log.scrollTop = els.log.scrollHeight;
+      if (logPinned) els.log.scrollTop = els.log.scrollHeight;
+    }
+
+    function addLog(text, isError) {
+      if (logPaused) {
+        pendingLog.push({ text: text, isError: isError });
+        while (pendingLog.length > MAX_LOG_LINES) pendingLog.shift();
+        return;
+      }
+      appendLogLine(text, isError);
+    }
+
+    function setLogPaused(next) {
+      if (next === logPaused) return;
+      logPaused = next;
+      if (els.logPause) els.logPause.textContent = logPaused ? "Resume" : "Pause";
+      if (!logPaused) {
+        var queued = pendingLog;
+        pendingLog = [];
+        for (var entry of queued) appendLogLine(entry.text, entry.isError);
+      }
     }
 
     // ---- outbound ----
@@ -477,27 +649,46 @@
       return true;
     }
 
-    function sendControl(type, payloadStr) {
-      if (!sendCommand(type, payloadStr)) return;
-      setPending(true);
+    /**
+     * Send a control command and arm the guard for it. Returns false when the
+     * socket is not open: nothing was sent and nothing is armed.
+     */
+    function sendControl(command) {
+      if (!sendCommand(command.type, command.name === undefined ? "" : command.name)) return false;
+      setPending(command);
+      return true;
     }
 
     // ---- inbound dispatch ----
+    /**
+     * Only frames the robot's own namespace handler sent are authoritative.
+     * The SDK multiplexes other namespaces (e.g. "system") over the same
+     * socket, so a frame from anywhere else must never be read as robot state
+     * or be allowed to gate the controls. DsSocketHandler.send builds the
+     * envelope type and the JSON body's "type" from the same field, so a body
+     * that disagrees with its envelope is not a frame we recognise either.
+     */
+    function robotKind(frame) {
+      if (!frame || frame.namespace !== ROBOT_NAMESPACE) return null;
+      var data = frame.data;
+      var inner = data && typeof data.type === "string" ? data.type : null;
+      if (inner !== null && frame.type !== null && inner !== frame.type) return null;
+      return inner !== null ? inner : frame.type;
+    }
+
     function onMessage(raw) {
       var frame = parseRobotFrame(raw);
       if (!frame) return;
       var data = frame.data;
-      var kind = (data && typeof data.type === "string") ? data.type : frame.type;
+      var kind = robotKind(frame);
       switch (kind) {
         case "state":
-          opState = data && data.opmodeState ? data.opmodeState : null;
-          setPending(false);
+          noteSnapshot(data && data.active, data && data.opmodeState ? data.opmodeState : null);
           setOpmodes(data && data.opmodes, data && data.active, opState);
           break;
         case "diag":
           if (data) {
-            opState = data.opmodeState ? data.opmodeState : null;
-            setPending(false);
+            noteSnapshot(data.active, data.opmodeState ? data.opmodeState : null);
             setBattery(data.battery);
             setMotors(data.motors);
             setServos(data.servos);
@@ -521,6 +712,8 @@
           break;
         case "error":
           addLog("Error: " + (data && data.message !== undefined ? String(data.message) : "unknown"), true);
+          // A rejected command must not hold the controls until the timeout.
+          setPending(null);
           break;
         default:
           break;
@@ -552,7 +745,17 @@
     }
 
     function connect() {
-      if (typeof WebSocket === "undefined") return;
+      if (typeof WebSocket === "undefined") {
+        // No transport at all: report it instead of leaving "Connecting" on
+        // screen forever, and do not retry something that cannot appear later.
+        setConnected(false);
+        setStatus("Unsupported", "off");
+        // index.html's banner copy promises a reconnect; with no transport there
+        // is nothing to reconnect, so say what is actually wrong.
+        setBannerText("This browser has no WebSocket support, so the driver station cannot reach the robot.");
+        addLog("Error: this browser has no WebSocket support; the driver station cannot reach the robot", true);
+        return;
+      }
       if (ws && (ws.readyState === 0 /* CONNECTING */ || ws.readyState === 1 /* OPEN */)) return;
       clearReconnect();
       teardownSocket();
@@ -617,13 +820,13 @@
       });
     }
     if (els.logPause) {
-      els.logPause.addEventListener("click", function () {
-        logPaused = !logPaused;
-        els.logPause.textContent = logPaused ? "Resume" : "Pause";
-      });
+      els.logPause.addEventListener("click", function () { setLogPaused(!logPaused); });
     }
     if (els.logClear) {
-      els.logClear.addEventListener("click", function () { if (els.log) els.log.textContent = ""; });
+      els.logClear.addEventListener("click", function () {
+        if (els.log) els.log.textContent = "";
+        pendingLog = [];
+      });
     }
     if (els.logCopy) {
       els.logCopy.addEventListener("click", function () {
@@ -641,19 +844,19 @@
     if (els.btnInit) {
       els.btnInit.addEventListener("click", function () {
         if (els.btnInit.disabled) return;
-        sendControl("initOpMode", els.opmode ? els.opmode.value : "");
+        sendControl({ type: "initOpMode", name: els.opmode ? els.opmode.value : "" });
       });
     }
     if (els.btnStart) {
       els.btnStart.addEventListener("click", function () {
         if (els.btnStart.disabled) return;
-        sendControl("startOpMode", "");
+        sendControl({ type: "startOpMode" });
       });
     }
     if (els.btnStop) {
       els.btnStop.addEventListener("click", function () {
         if (els.btnStop.disabled) return;
-        sendControl("stopOpMode", "");
+        sendControl({ type: "stopOpMode" });
       });
     }
     window.addEventListener("beforeunload", function () {
