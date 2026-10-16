@@ -4,13 +4,14 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 
 import java.util.List;
 
 /**
  * Autonomous OpMode for FTC testing.
- * Navigates a hardcoded waypoint path, using AprilTag IDs (30-37)
- * to verify field position and perform closed-loop alignment (distance and heading).
+ * Navigates a hardcoded waypoint path and aligns to named CELL clusters.
+ * Range and bearing provide relative targeting, not absolute field localization.
  */
 @Autonomous(name = "AprilTag Autonomous Path", group = "Autonomous")
 public class AprilTagAutonomous extends LinearOpMode {
@@ -29,11 +30,9 @@ public class AprilTagAutonomous extends LinearOpMode {
     private static final double DISTANCE_TOLERANCE_INCHES = 1.5;
     private static final double BEARING_TOLERANCE_DEGREES = 2.0;
 
-    // Target Tag IDs based on Game Map
-    // Red Alliance: 30 & 31 (Audience), 32 & 33 (Scoring)
-    // Blue Alliance: 34 & 35 (Audience), 36 & 37 (Scoring)
-    private static final int TARGET_TAG_WAYPOINT_1 = 30; // Red Audience Tag
-    private static final int TARGET_TAG_WAYPOINT_2 = 32; // Red Scoring Tag
+    // Named CELL clusters from the current game library.
+    private static final String TARGET_CLUSTER_WAYPOINT_1 = AprilTagVision.RED_AUDIENCE;
+    private static final String TARGET_CLUSTER_WAYPOINT_2 = AprilTagVision.RED_SCORING;
 
     @Override
     public void runOpMode() {
@@ -43,8 +42,8 @@ public class AprilTagAutonomous extends LinearOpMode {
 
         telemetry.addLine("=================================");
         telemetry.addLine("  APRILTAG AUTONOMOUS INITIALIZED");
-        telemetry.addLine("  Target Tag 1: ID " + TARGET_TAG_WAYPOINT_1 + " (Red Audience)");
-        telemetry.addLine("  Target Tag 2: ID " + TARGET_TAG_WAYPOINT_2 + " (Red Scoring)");
+        telemetry.addLine("  Target Cluster 1: " + TARGET_CLUSTER_WAYPOINT_1 + " (Red Audience)");
+        telemetry.addLine("  Target Cluster 2: " + TARGET_CLUSTER_WAYPOINT_2 + " (Red Scoring)");
         telemetry.addLine("=================================");
         telemetry.update();
 
@@ -63,16 +62,16 @@ public class AprilTagAutonomous extends LinearOpMode {
         driveTime(0.4, 0.0, 1.5); // Drive forward 1.5 seconds
 
         // Turn towards Waypoint 1 (Red Audience Area)
-        telemetry.addLine("Step 1b: Turning toward Tag " + TARGET_TAG_WAYPOINT_1 + "...");
+        telemetry.addLine("Step 1b: Turning toward Cluster " + TARGET_CLUSTER_WAYPOINT_1 + "...");
         telemetry.update();
         driveTime(0.0, 0.3, 0.8); // Turn right ~45 degrees
 
         // ===============================================
-        // STEP 2: Verify Position & Align using Tag 30
+        // STEP 2: Align to the Red Audience CELL cluster
         // ===============================================
-        telemetry.addLine("Step 2: Searching & Aligning to AprilTag " + TARGET_TAG_WAYPOINT_1 + "...");
+        telemetry.addLine("Step 2: Searching & Aligning to Cluster " + TARGET_CLUSTER_WAYPOINT_1 + "...");
         telemetry.update();
-        alignToTag(TARGET_TAG_WAYPOINT_1, 4.0); // Try aligning for up to 4 seconds
+        alignToCluster(TARGET_CLUSTER_WAYPOINT_1, 4.0); // Try aligning for up to 4 seconds
 
         sleep(500); // Pause briefly to observe telemetry
 
@@ -81,19 +80,19 @@ public class AprilTagAutonomous extends LinearOpMode {
         // ===============================================
         telemetry.addLine("Step 3: Repositioning toward Waypoint 2...");
         telemetry.update();
-        // Back up slightly from Tag 1
+        // Back up slightly from the audience cluster
         driveTime(-0.3, 0.0, 1.0);
-        // Turn left toward Scoring Area (Tag 32)
+        // Turn left toward scoring cluster
         driveTime(0.0, -0.3, 1.2);
         // Drive forward across field
         driveTime(0.4, 0.0, 2.0);
 
         // ===============================================
-        // STEP 4: Verify Position & Align using Tag 32
+        // STEP 4: Align to the Red Scoring CELL cluster
         // ===============================================
-        telemetry.addLine("Step 4: Searching & Aligning to AprilTag " + TARGET_TAG_WAYPOINT_2 + "...");
+        telemetry.addLine("Step 4: Searching & Aligning to Cluster " + TARGET_CLUSTER_WAYPOINT_2 + "...");
         telemetry.update();
-        alignToTag(TARGET_TAG_WAYPOINT_2, 4.0); // Try aligning for up to 4 seconds
+        alignToCluster(TARGET_CLUSTER_WAYPOINT_2, 4.0); // Try aligning for up to 4 seconds
 
         sleep(500);
 
@@ -136,16 +135,15 @@ public class AprilTagAutonomous extends LinearOpMode {
     }
 
     /**
-     * Uses AprilTag feedback to verify robot position and dynamically align to a target tag.
+     * Uses relative AprilTag feedback to align to a named CELL cluster.
      * Adjusts heading (bearing) and distance (range) using proportional control.
      */
-    private void alignToTag(int targetTagId, double maxTimeoutSeconds) {
+    private void alignToCluster(String targetClusterName, double maxTimeoutSeconds) {
         timer.reset();
         boolean aligned = false;
 
         while (opModeIsActive() && timer.seconds() < maxTimeoutSeconds && !aligned) {
-            List<AprilTagDetection> detections = robot.getAprilTagDetections();
-            AprilTagDetection targetTag = findTagById(detections, targetTagId);
+            AprilTagClusterDetection targetTag = robot.vision.findCluster(targetClusterName);
 
             if (targetTag != null && targetTag.ftcPose != null) {
                 double rangeError = targetTag.ftcPose.range - DESIRED_DISTANCE_INCHES;
@@ -166,15 +164,15 @@ public class AprilTagAutonomous extends LinearOpMode {
                     Math.abs(bearingError) < BEARING_TOLERANCE_DEGREES) {
                     aligned = true;
                     robot.drive(0, 0);
-                    telemetry.addLine(">> VERIFIED & ALIGNED TO TAG " + targetTagId + " <<");
+                    telemetry.addLine(">> ALIGNED TO CLUSTER " + targetClusterName + " <<");
                 } else {
-                    telemetry.addData("Tag " + targetTagId + " Verified", "Range Error: %.1fin, Bearing Error: %.1fdeg",
+                    telemetry.addData("Cluster " + targetClusterName, "Range Error: %.1fin, Bearing Error: %.1fdeg",
                             rangeError, bearingError);
                 }
             } else {
                 // If tag is not in view yet, slowly rotate to search for it
                 robot.drive(0, 0.15);
-                telemetry.addData("Tag " + targetTagId, "Not in view - Scanning...");
+                telemetry.addData("Cluster " + targetClusterName, "Not in view - Scanning...");
             }
 
             telemetry.update();
@@ -183,16 +181,4 @@ public class AprilTagAutonomous extends LinearOpMode {
         robot.drive(0, 0);
     }
 
-    /**
-     * Helper to locate a specific AprilTag by ID from current detections.
-     */
-    private AprilTagDetection findTagById(List<AprilTagDetection> detections, int id) {
-        if (detections == null) return null;
-        for (AprilTagDetection detection : detections) {
-            if (detection.id == id) {
-                return detection;
-            }
-        }
-        return null;
-    }
 }
