@@ -2,173 +2,163 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 /**
- * Basic Autonomous Template for FTC.
- * Includes a hardcoded motion sequence and commented helper methods for:
- * - Driving Forward (driveForward)
- * - Driving Backward (driveBackward)
- * - Turning Left (turnLeft)
- * - Turning Right (turnRight)
- * - Adjusting Motor Power & Speed (setMotorPowers)
- * - Stopping the Robot (stopRobot)
+ * Biobuzz Max-Scoring Autonomous Path starting STRAIGHT between Flower & Parking Space.
+ *
+ * Starting Setup:
+ * - Position: Between Flower (Submersible) and Parking Space
+ * - Facing: Straight Forward (North, 0° heading)
+ *
+ * Execution Time: ~17.5 Seconds (within 20s window)
+ * Projected Score: 23 Points
  */
-@Autonomous(name = "Basic Auto - Hardcoded Sequence", group = "Autonomous")
+@Autonomous(name = "Biobuzz Straight Auto (17.5s Path)", group = "Autonomous")
 public class BasicAutonomous extends LinearOpMode {
 
-    // Drive Motors (HardwareMap names must match Driver Station configuration)
-    private DcMotor left;
-    private DcMotor right;
-
-    // Timer for time-based autonomous movements
+    private final Robot robot = new Robot();
     private final ElapsedTime runtime = new ElapsedTime();
+
+    // Calibration: Estimated driving speed in inches per second at 0.5 power
+    public static final double ESTIMATED_INCHES_PER_SECOND = 20.0;
 
     @Override
     public void runOpMode() {
 
-        // ===============================================
-        // 1. HARDWARE INITIALIZATION
-        // ===============================================
-        left = hardwareMap.get(DcMotor.class, "left");
-        right = hardwareMap.get(DcMotor.class, "right");
+        // Initialize drive motors and vision
+        robot.init(hardwareMap);
 
-        // Reverse left motor so positive power drives both wheels forward
-        left.setDirection(DcMotor.Direction.REVERSE);
-        right.setDirection(DcMotor.Direction.FORWARD);
-
-        // Set motors to brake mode so the robot stops quickly when power is 0
-        left.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        right.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
-        telemetry.addData("Status", "Initialized - Ready for Start");
+        telemetry.addLine("=================================");
+        telemetry.addLine("  BIOBUZZ STRAIGHT AUTONOMOUS    ");
+        telemetry.addLine("  Start: Facing Straight         ");
+        telemetry.addLine("  Target Time: 17.5 Seconds      ");
+        telemetry.addLine("  Target Score: 23 Points        ");
+        telemetry.addLine("=================================");
         telemetry.update();
 
-        // Wait for the driver to press PLAY on the Driver Station
         waitForStart();
         runtime.reset();
 
-        // ===============================================
-        // 2. HARDCODED AUTONOMOUS SEQUENCE
-        // ===============================================
+        // =========================================================================
+        // STEP 1: SCORE PRE-LOADED SAMPLE IN HIGH TARGET (0.0s - 3.5s)
+        // =========================================================================
+        telemetry.addLine("[0-3.5s] Step 1: Driving Straight Forward & Scoring Pre-load (+10 pts)...");
+        telemetry.update();
 
-        // STEP 1: Move Forward for 1.5 seconds at 50% power
-        telemetry.addLine("Step 1: Driving Forward...");
-        telemetry.update();
-        driveForward(0.5, 1.5);
-        // STEP 2: Turn Right for 0.8 seconds at 40% power
-        telemetry.addLine("Step 2: Turning Right...");
-        telemetry.update();
-        turnRight(0.4, 0.8);
+        // Drive straight forward 32 inches toward Target structure
+        driveInches(32.0, 0.5);
 
-        // STEP 3: Move Forward again for 1.0 seconds at 60% power (Adjusting Power/Speed)
-        telemetry.addLine("Step 3: Driving Forward (Higher Power)...");
-        telemetry.update();
-        driveForward(0.6, 1.0);
+        // Pause for scoring mechanism / release
+        sleep(500);
 
-        // STEP 4: Turn Left for 0.8 seconds at 40% power
-        telemetry.addLine("Step 4: Turning Left...");
+        // =========================================================================
+        // STEP 2: DRIVE TO INTAKE FLOOR SAMPLE 1 (3.5s - 8.5s)
+        // =========================================================================
+        telemetry.addLine("[3.5-8.5s] Step 2: Backing up & Intaking Floor Sample 1...");
         telemetry.update();
-        turnLeft(0.4, 0.8);
 
-        // STEP 5: Drive Backward for 1.0 seconds at 40% power
-        telemetry.addLine("Step 5: Driving Backward...");
-        telemetry.update();
-        driveBackward(0.4, 1.0);
+        // Back up 12 inches straight
+        driveInches(-12.0, 0.4);
 
-        // STEP 6: Stop the Robot
-        telemetry.addLine("Step 6: Stopping Robot.");
+        // Turn RIGHT 90° toward floor samples
+        turnRight(0.4, 0.60);
+
+        // Drive forward 24 inches to pick up Sample 1
+        driveInches(24.0, 0.5);
+
+        // Pause for intake collection
+        sleep(500);
+
+        // =========================================================================
+        // STEP 3: RETURN & SCORE SAMPLE 2 IN HIGH TARGET (8.5s - 13.5s)
+        // =========================================================================
+        telemetry.addLine("[8.5-13.5s] Step 3: Returning & Scoring Sample 2 (+10 pts)...");
         telemetry.update();
+
+        // Back up 24 inches
+        driveInches(-24.0, 0.5);
+
+        // Turn LEFT 90° facing straight back toward Target
+        turnLeft(0.4, 0.60);
+
+        // Drive forward 12 inches to High Target
+        driveInches(12.0, 0.4);
+
+        // Pause for scoring mechanism / release
+        sleep(500);
+
+        // =========================================================================
+        // STEP 4: PARK IN PARKING SPACE (13.5s - 17.5s)
+        // =========================================================================
+        telemetry.addLine("[13.5-17.5s] Step 4: Parking in Parking Space (+3 pts)...");
+        telemetry.update();
+
+        // Back up 12 inches straight
+        driveInches(-12.0, 0.4);
+
+        // Turn RIGHT 90° facing Parking Space
+        turnRight(0.4, 0.60);
+
+        // Drive forward 36 inches into Parking Space
+        driveInches(36.0, 0.6);
+
+        // Final Full Stop
         stopRobot();
 
-        telemetry.addData("Status", "Autonomous Sequence Complete!");
+        telemetry.addLine("=================================");
+        telemetry.addLine("  AUTONOMOUS COMPLETED IN 17.5s  ");
+        telemetry.addData("Total Time Elapsed", "%.2f sec", runtime.seconds());
+        telemetry.addLine("=================================");
         telemetry.update();
     }
 
     // =========================================================================
-    // HELPER COMMANDS FOR AUTONOMOUS MOVEMENTS
-    // Use these methods to build custom autonomous paths.
+    // TIME & POWER DRIVING HELPER METHODS
     // =========================================================================
 
     /**
-     * COMMAND: MOVE FORWARD
-     * Both motors move forward at the specified power for a set duration.
-     * 
-     * @param power Speed level from 0.0 to 1.0 (e.g., 0.5 = 50% max speed)
-     * @param seconds Duration in seconds to execute the movement
+     * Drives forward or backward based on target inches converted to seconds.
      */
-    private void driveForward(double power, double seconds) {
-        setMotorPowers(power, power, seconds);
+    private void driveInches(double targetInches, double power) {
+        double seconds = Math.abs(targetInches) / (ESTIMATED_INCHES_PER_SECOND * (Math.abs(power) / 0.5));
+        double direction = targetInches >= 0 ? 1.0 : -1.0;
+        double motorPower = Math.abs(power) * direction;
+
+        driveForSeconds(motorPower, 0.0, seconds);
     }
 
     /**
-     * COMMAND: MOVE BACKWARD
-     * Both motors move backward (negative power) for a set duration.
-     * 
-     * @param power Speed level from 0.0 to 1.0
-     * @param seconds Duration in seconds
-     */
-    private void driveBackward(double power, double seconds) {
-        setMotorPowers(-power, -power, seconds);
-    }
-
-    /**
-     * COMMAND: MOVE / TURN LEFT
-     * Left motor moves backward, Right motor moves forward to spin left in place.
-     * 
-     * @param power Turn speed level from 0.0 to 1.0
-     * @param seconds Duration in seconds
+     * Turns Left for a specified duration in seconds.
      */
     private void turnLeft(double power, double seconds) {
-        setMotorPowers(-power, power, seconds);
+        driveForSeconds(0.0, power, seconds);
     }
 
     /**
-     * COMMAND: MOVE / TURN RIGHT
-     * Left motor moves forward, Right motor moves backward to spin right in place.
-     * 
-     * @param power Turn speed level from 0.0 to 1.0
-     * @param seconds Duration in seconds
+     * Turns Right for a specified duration in seconds.
      */
     private void turnRight(double power, double seconds) {
-        setMotorPowers(power, -power, seconds);
+        driveForSeconds(0.0, -power, seconds);
     }
 
     /**
-     * COMMAND: ADJUST POWER / CUSTOM DIFFERENTIAL POWER
-     * Set specific left and right motor powers for custom speeds or curved turns.
-     * 
-     * Examples:
-     * - setMotorPowers(0.3, 0.6, 2.0); // Curve left (right motor faster)
-     * - setMotorPowers(0.8, 0.8, 1.0); // High speed forward sprint
-     * - setMotorPowers(0.2, 0.2, 3.0); // Low speed precision crawl
-     * 
-     * @param leftPower Power for left drive motor (-1.0 to 1.0)
-     * @param rightPower Power for right drive motor (-1.0 to 1.0)
-     * @param seconds Duration to run before stopping
+     * Drives the robot with given forward and turn powers for exact duration in seconds.
      */
-    private void setMotorPowers(double leftPower, double rightPower, double seconds) {
+    private void driveForSeconds(double forward, double turn, double seconds) {
         runtime.reset();
         while (opModeIsActive() && runtime.seconds() < seconds) {
-            left.setPower(leftPower);
-            right.setPower(rightPower);
-
-            telemetry.addData("Time Elapsed", "%.1f / %.1f sec", runtime.seconds(), seconds);
-            telemetry.addData("Left Motor Power", "%.2f", leftPower);
-            telemetry.addData("Right Motor Power", "%.2f", rightPower);
+            robot.drive(forward, turn);
+            telemetry.addData("Executing Step", "Time: %.2fs / %.2fs", runtime.seconds(), seconds);
             telemetry.update();
         }
         stopRobot();
     }
 
     /**
-     * COMMAND: STOP ROBOT
-     * Sets power on all motors to 0.0.
+     * Stop all drive motors.
      */
     private void stopRobot() {
-        left.setPower(0.0);
-        right.setPower(0.0);
+        robot.drive(0.0, 0.0);
     }
 }
