@@ -43,14 +43,7 @@ public class BasicAutonomous extends LinearOpMode {
         // =========================================================================
         // STEP 1: SCORE PRE-LOADED SAMPLE IN HIGH TARGET (0.0s - 3.5s)
         // =========================================================================
-        telemetry.addLine("[0-3.5s] Step 1: Driving Straight Forward & Scoring Pre-load (+10 pts)...");
-        telemetry.update();
 
-        // Drive straight forward 32 inches toward Target structure
-        driveInches(32.0, 0.5);
-
-        // Pause for scoring mechanism / release
-        sleep(500);
 
         // =========================================================================
         // STEP 2: DRIVE TO INTAKE FLOOR SAMPLE 1 (3.5s - 8.5s)
@@ -59,51 +52,21 @@ public class BasicAutonomous extends LinearOpMode {
         telemetry.update();
 
         // Back up 12 inches straight
-        driveInches(-12.0, 0.4);
+        sleep(500);
 
         // Turn RIGHT 90° toward floor samples
-        turnRight(0.4, 0.60);
-
+        driveInches(5, 0.3);
+        turnRight(0.565, 0.60);
+        sleep(50);
         // Drive forward 24 inches to pick up Sample 1
-        driveInches(24.0, 0.5);
-
+        driveInches(45, 0.6);
+        sleep(5000);
+        turnLeft(0.8, 0.7);
+        sleep(200);
+        driveInches(50, 0.5);
         // Pause for intake collection
         sleep(500);
 
-        // =========================================================================
-        // STEP 3: RETURN & SCORE SAMPLE 2 IN HIGH TARGET (8.5s - 13.5s)
-        // =========================================================================
-        telemetry.addLine("[8.5-13.5s] Step 3: Returning & Scoring Sample 2 (+10 pts)...");
-        telemetry.update();
-
-        // Back up 24 inches
-        driveInches(-24.0, 0.5);
-
-        // Turn LEFT 90° facing straight back toward Target
-        turnLeft(0.4, 0.60);
-
-        // Drive forward 12 inches to High Target
-        driveInches(12.0, 0.4);
-
-        // Pause for scoring mechanism / release
-        sleep(500);
-
-        // =========================================================================
-        // STEP 4: PARK IN PARKING SPACE (13.5s - 17.5s)
-        // =========================================================================
-        telemetry.addLine("[13.5-17.5s] Step 4: Parking in Parking Space (+3 pts)...");
-        telemetry.update();
-
-        // Back up 12 inches straight
-        driveInches(-12.0, 0.4);
-
-        // Turn RIGHT 90° facing Parking Space
-        turnRight(0.4, 0.60);
-
-        // Drive forward 36 inches into Parking Space
-        driveInches(36.0, 0.6);
-
-        // Final Full Stop
         stopRobot();
 
         telemetry.addLine("=================================");
