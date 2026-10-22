@@ -79,14 +79,14 @@ public class BasicAutonomous extends LinearOpMode {
      * Turns Left for a specified duration in seconds.
      */
     private void turnLeft(double power, double seconds) {
-        driveForSeconds(0.0, power, seconds);
+        driveForSeconds(0.0, -Math.abs(power), seconds);
     }
 
     /**
      * Turns Right for a specified duration in seconds.
      */
     private void turnRight(double power, double seconds) {
-        driveForSeconds(0.0, -power, seconds);
+        driveForSeconds(0.0, Math.abs(power), seconds);
     }
 
     /**

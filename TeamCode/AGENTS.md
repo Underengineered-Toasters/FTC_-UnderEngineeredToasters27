@@ -10,7 +10,7 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 
 ## Local Contracts
 
-- `BasicAutonomous.java` runs the out-and-back route and restores the initial heading. Driving and turning use time estimates; calibrate distance speed and turn duration on the robot before relying on endpoint accuracy.
+- `BasicAutonomous.java` runs the out-and-back route and restores the initial heading. `Robot.drive` uses positive turn for right and negative turn for left. Driving and turning use time estimates; calibrate distance speed and turn duration on the robot before relying on endpoint accuracy.
 - Keep OpModes organized under `org.firstinspires.ftc.teamcode`.
 - Annotate competition TeleOp classes with `@TeleOp(name = "...", group = "...")`.
 - Annotate competition Autonomous classes with `@Autonomous(name = "...", group = "...")`.
