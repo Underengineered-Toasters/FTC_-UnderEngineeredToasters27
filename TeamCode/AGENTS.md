@@ -10,7 +10,7 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 
 ## Local Contracts
 
-- `BasicAutonomous.java` runs an out-and-back route with 36-inch long legs and a 195-degree timed turnaround setting; the final turn remains 180 degrees. Returning to the starting pose depends on hardware calibration of the turnaround. `BasicAutonomous` negates forward and turn inputs at the `Robot.drive` boundary because positive drive power moves this chassis backward; its route uses positive distances for physical forward and left/right helpers for physical turns. Driving and turning use time estimates; calibrate distance speed and turn duration on the robot before relying on endpoint accuracy.
+- `BasicAutonomous.java` runs an out-and-back route with 6-inch initial/return short legs, 36-inch long legs and a 195-degree timed turnaround setting; the final turn remains 180 degrees. Returning to the starting pose depends on hardware calibration of the turnaround. `BasicAutonomous` negates forward and turn inputs at the `Robot.drive` boundary because positive drive power moves this chassis backward; its route uses positive distances for physical forward and left/right helpers for physical turns. Driving and turning use time estimates; calibrate distance speed and turn duration on the robot before relying on endpoint accuracy.
 - Keep OpModes organized under `org.firstinspires.ftc.teamcode`.
 - Annotate competition TeleOp classes with `@TeleOp(name = "...", group = "...")`.
 - Annotate competition Autonomous classes with `@Autonomous(name = "...", group = "...")`.

@@ -28,7 +28,7 @@ public class BasicAutonomous extends LinearOpMode {
         robot.init(hardwareMap);
 
         telemetry.addLine("Basic Out and Back Auto");
-        telemetry.addLine("Forward 1.5 in, left 90, forward 36 in, wait 2 sec, turn 195, return");
+        telemetry.addLine("Forward 6 in, left 90, forward 36 in, wait 2 sec, turn 195, return");
         telemetry.update();
 
         waitForStart();
@@ -37,7 +37,7 @@ public class BasicAutonomous extends LinearOpMode {
         }
         runtime.reset();
 
-        driveInches(1.5, 0.3);
+        driveInches(6, 0.3);
         turnLeft(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
         driveInches(36, 0.5);
         if (!opModeIsActive()) {
@@ -49,7 +49,7 @@ public class BasicAutonomous extends LinearOpMode {
         // Return legs; endpoint accuracy depends on turnaround calibration.
         driveInches(36, 0.5);
         turnRight(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
-        driveInches(1.5, 0.3);
+        driveInches(6, 0.3);
         turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
         stopRobot();
 
