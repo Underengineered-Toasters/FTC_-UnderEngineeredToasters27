@@ -95,7 +95,9 @@ public class BasicAutonomous extends LinearOpMode {
     private void driveForSeconds(double forward, double turn, double seconds) {
         stepTimer.reset();
         while (opModeIsActive() && stepTimer.seconds() < seconds) {
-            robot.drive(forward, turn);
+            // This chassis moves backward for positive drive power.
+            // Reverse both axes so route distances and turn names stay physical.
+            robot.drive(-forward, -turn);
             telemetry.addData("Executing Step", "Time: %.2fs / %.2fs", stepTimer.seconds(), seconds);
             telemetry.update();
         }
