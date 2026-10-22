@@ -196,6 +196,7 @@ public class BasicAutonomous extends LinearOpMode {
             logSnapshot();
 
             telemetry.addData("Time Elapsed", "%.1f / %.1f sec", timer.seconds(), seconds);
+            telemetry.addData("Camera", robot.getCameraState());
             telemetry.addData("Forward Power", "%.2f", forward);
             telemetry.addData("Turn Power", "%.2f", turn);
             telemetry.update();

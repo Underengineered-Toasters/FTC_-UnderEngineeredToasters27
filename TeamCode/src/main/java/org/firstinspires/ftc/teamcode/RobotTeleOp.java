@@ -56,6 +56,7 @@ public class RobotTeleOp extends LinearOpMode {
 
             telemetry.addLine("==============================");
             telemetry.addData("Alliance", alliance);
+            telemetry.addData("Camera", robot.getCameraState());
             telemetry.addLine("X  = Blue    B = Red");
             telemetry.addLine("LB = Align Audience");
             telemetry.addLine("RB = Align Scoring");
@@ -196,6 +197,7 @@ public class RobotTeleOp extends LinearOpMode {
 
             telemetry.addLine("------------------------------");
             telemetry.addData("Alliance", alliance);
+            telemetry.addData("Camera", robot.getCameraState());
             telemetry.addData("Align Target", alignTarget != null ? alignTarget : "None");
             telemetry.addData("Align Bearing",
                     align != null && align.targetFound ? String.format("%.1f deg", align.bearingDeg) : "N/A");
