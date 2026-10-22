@@ -5,7 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 /**
- * Timed out-and-back route that returns to the starting position and heading.
+ * Timed out-and-back route with a tuned turnaround duration.
  * Distances and turns are estimates and require calibration on the robot.
  */
 @Autonomous(name = "Basic Out and Back Auto", group = "Autonomous")
@@ -28,7 +28,7 @@ public class BasicAutonomous extends LinearOpMode {
         robot.init(hardwareMap);
 
         telemetry.addLine("Basic Out and Back Auto");
-        telemetry.addLine("Forward 1.5 in, left 90, forward 24 in, wait 2 sec, turn 180, return");
+        telemetry.addLine("Forward 1.5 in, left 90, forward 36 in, wait 2 sec, turn 195, return");
         telemetry.update();
 
         waitForStart();
@@ -39,15 +39,15 @@ public class BasicAutonomous extends LinearOpMode {
 
         driveInches(1.5, 0.3);
         turnLeft(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
-        driveInches(24, 0.5);
+        driveInches(36, 0.5);
         if (!opModeIsActive()) {
             return;
         }
         sleep(2000);
-        turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
+        turnLeft(TURN_POWER, (195.0 / 90.0) * ESTIMATED_SECONDS_PER_90_DEGREES);
 
-        // Retrace both legs, then restore the original heading.
-        driveInches(24, 0.5);
+        // Return legs; endpoint accuracy depends on turnaround calibration.
+        driveInches(36, 0.5);
         turnRight(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
         driveInches(1.5, 0.3);
         turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
