@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: read
+  # Needed by the prune step, which deletes stale artifacts.
+  actions: write
 
 concurrency:
   group: android-ci-${{ github.ref }}
@@ -45,6 +47,26 @@ jobs:
       - name: Run unit tests
         run: ./gradlew test
 
+      # The org's Actions artifact store is a shared ~1 GB quota on the Free plan and a single
+      # debug-apks artifact is ~50 MB, so a few days of runs exhausts it. When that happens every
+      # upload fails and the whole build is reported as failed even though the APKs built fine.
+      # Keep only the last 12 hours of CI artifacts. Best effort: a prune error must never hide
+      # the build verdict, and the upload steps below still fail loudly if storage is full.
+      - name: Prune CI artifacts older than 12 hours
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cutoff=$(date -u -d '12 hours ago' +%s)
+          ids=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" --paginate \
+                  --jq ".artifacts[] | select(.name == \"debug-apks\" or .name == \"build-reports\") | select((.created_at | fromdate) < $cutoff) | .id")
+          pruned=0
+          for id in $ids; do
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id" > /dev/null
+            pruned=$((pruned + 1))
+          done
+          echo "Pruned $pruned artifact(s) older than 12 hours."
+
       - name: Upload debug APKs
         uses: actions/upload-artifact@v4
         with:
@@ -53,6 +75,7 @@ jobs:
             TeamCode/build/outputs/apk/debug/*.apk
             FtcRobotController/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+          retention-days: 1
 
       - name: Upload build reports
         if: failure()
@@ -63,3 +86,4 @@ jobs:
             **/build/reports/**
             **/build/outputs/logs/**
           if-no-files-found: ignore
+          retention-days: 1
