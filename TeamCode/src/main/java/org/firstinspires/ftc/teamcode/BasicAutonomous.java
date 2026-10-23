@@ -46,11 +46,10 @@ public class BasicAutonomous extends LinearOpMode {
         sleep(2000);
         turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
 
-        // A half-turn retraces the 46-inch leg; turn right to retrace the 7-inch leg.
-        // The final half-turn restores the starting heading.
+        // A half-turn retraces the 46-inch leg.
+        // Turn left to restore the starting heading, then back up the final 7 inches.
         driveInches(46, 0.5);
-        turnRight(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
-        turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
+        turnLeft(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
         driveInches(-7, 0.3);
         stopRobot();
 
