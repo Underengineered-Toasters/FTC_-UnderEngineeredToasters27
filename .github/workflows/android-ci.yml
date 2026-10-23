@@ -49,9 +49,9 @@ jobs:
 
       # The org's Actions artifact store is a shared ~1 GB quota on the Free plan and a single
       # debug-apks artifact is ~50 MB, so a few days of runs exhausts it. When that happens every
-      # upload fails and the whole build is reported as failed even though the APKs built fine.
-      # Keep only the last 12 hours of CI artifacts. Best effort: a prune error must never hide
-      # the build verdict, and the upload steps below still fail loudly if storage is full.
+      # upload is rejected and the whole build was reported as failed even though the APKs built
+      # fine. Keep only the last 12 hours of CI artifacts. Best effort: a prune error must never
+      # hide the build verdict, and the upload steps below report their own outcome.
       - name: Prune CI artifacts older than 12 hours
         continue-on-error: true
         env:
@@ -67,7 +67,15 @@ jobs:
           done
           echo "Pruned $pruned artifact(s) older than 12 hours."
 
+      # Storing the APKs is a convenience for teammates, not the build verdict: the compile and the
+      # tests above already decided whether the code is good. Artifact storage is shared, org-wide
+      # infrastructure whose accounting can lag hours behind (GitHub recalculates usage every 6-12
+      # hours), and when it is exhausted the upload is rejected with "Artifact storage quota has been
+      # hit". That must not paint every PR red. The step still shows as failed in the run, and the
+      # "Report skipped artifact uploads" step below raises a warning annotation naming the cause.
       - name: Upload debug APKs
+        id: upload-apks
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: debug-apks
@@ -78,7 +86,9 @@ jobs:
           retention-days: 1
 
       - name: Upload build reports
+        id: upload-reports
         if: failure()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: build-reports
@@ -87,3 +97,8 @@ jobs:
             **/build/outputs/logs/**
           if-no-files-found: ignore
           retention-days: 1
+
+      - name: Report skipped artifact uploads
+        if: steps.upload-apks.outcome == 'failure' || steps.upload-reports.outcome == 'failure'
+        run: |
+          echo "::warning title=Artifacts were not stored::The build and the tests passed, but an artifact upload was rejected. The usual cause is a full Actions artifact store (the org shares a ~1 GB quota on the Free plan); see the failed upload step for the exact error, and note that GitHub recalculates storage usage every 6-12 hours, so it can still report 'quota hit' for a while after the store is emptied."
