@@ -83,8 +83,11 @@ public class CameraCalibrationCapture extends LinearOpMode {
             lastTry = now;
 
             MatOfPoint2f corners = new MatOfPoint2f();
+            // FAST_CHECK returns quickly when no board is in view. Without it a miss took about
+            // 780 ms on the Control Hub, which dropped the live view to 1.3 fps.
             boolean found = Calib3d.findChessboardCorners(gray, new org.opencv.core.Size(COLS, ROWS), corners,
-                    Calib3d.CALIB_CB_ADAPTIVE_THRESH | Calib3d.CALIB_CB_NORMALIZE_IMAGE);
+                    Calib3d.CALIB_CB_ADAPTIVE_THRESH | Calib3d.CALIB_CB_NORMALIZE_IMAGE
+                            | Calib3d.CALIB_CB_FAST_CHECK);
             boardFound = found;
             if (!found || !saving || saved >= MAX_FRAMES) {
                 return null;
