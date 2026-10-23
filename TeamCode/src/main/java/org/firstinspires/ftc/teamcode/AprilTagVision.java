@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import android.graphics.Canvas;
 import android.util.Size;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
@@ -12,7 +13,12 @@ import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagGameDatabase;
+import org.firstinspires.ftc.robotcore.internal.camera.calibration.CameraCalibration;
+import org.firstinspires.ftc.vision.VisionProcessor;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
+import org.opencv.core.Core;
+import org.opencv.core.Mat;
+import org.opencv.imgproc.Imgproc;
 
 import java.util.Collections;
 import java.util.List;
@@ -25,10 +31,19 @@ public class AprilTagVision {
     public static final String BLUE_AUDIENCE = "BLUE AUDIENCE";
     public static final String BLUE_SCORING = "BLUE SCORING";
 
-    // Starting values for the Arducam OV9281 (USB 0c45:6366); tune with a sweep at shooting range.
+    // Arducam OV9281 (USB 0c45:6366). Exposure and gain are adjusted at runtime to hold the
+    // frame brightness near BRIGHTNESS_TARGET, so tag detection survives different venue lighting.
     private static final Size CAMERA_RESOLUTION = new Size(640, 480);
-    private static final long EXPOSURE_MS = 6;
-    private static final int GAIN = 50;
+    private static final long EXPOSURE_START_MS = 6;
+    private static final long EXPOSURE_MIN_MS = 1;
+    private static final long EXPOSURE_MAX_MS = 10;   // longer blurs tags while the robot moves
+    private static final int GAIN_START = 50;
+    private static final int GAIN_MIN = 0;
+    private static final int GAIN_MAX = 200;
+    private static final double BRIGHTNESS_TARGET = 110;  // mean 8-bit gray
+    private static final double BRIGHTNESS_DEADBAND = 25;
+    private static final double STEP = 1.25;
+    private static final long ADJUST_INTERVAL_MS = 300;
 
     // Hardware configuration names. The Logitech C270 needs a "Webcam 2" entry to be used.
     private static final String PRIMARY_CAMERA = "Webcam 1";
@@ -39,6 +54,31 @@ public class AprilTagVision {
     private String initError = null;
     private String controlsError = null;
     private boolean controlsApplied = false;
+    private final BrightnessMeter brightness = new BrightnessMeter();
+    private long exposureMs = EXPOSURE_START_MS;
+    private int gainValue = GAIN_START;
+    private long lastAdjustMs = 0;
+
+    /** Measures the mean gray level of each frame on a small downscaled copy. */
+    private static class BrightnessMeter implements VisionProcessor {
+        private final Mat small = new Mat();
+        volatile double mean = -1;
+
+        @Override
+        public void init(int width, int height, CameraCalibration calibration) {}
+
+        @Override
+        public Object processFrame(Mat frame, long captureTimeNanos) {
+            Imgproc.resize(frame, small, new org.opencv.core.Size(80, 60), 0, 0, Imgproc.INTER_AREA);
+            mean = Core.mean(small).val[0];
+            return null;
+        }
+
+        @Override
+        public void onDrawFrame(Canvas canvas, int onscreenWidth, int onscreenHeight,
+                                float scaleBmpPxToCanvasPx, float scaleCanvasDensity, Object userContext) {}
+    }
+
     private boolean usingFallback = false;
 
     /** True when the vision portal was created without throwing. */
@@ -91,10 +131,12 @@ public class AprilTagVision {
             }
             long minMs = exposure.getMinExposure(TimeUnit.MILLISECONDS);
             long maxMs = exposure.getMaxExposure(TimeUnit.MILLISECONDS);
-            exposure.setExposure(Math.max(minMs, Math.min(maxMs, EXPOSURE_MS)), TimeUnit.MILLISECONDS);
+            exposureMs = Math.max(minMs, Math.min(maxMs, EXPOSURE_START_MS));
+            exposure.setExposure(exposureMs, TimeUnit.MILLISECONDS);
 
             GainControl gain = visionPortal.getCameraControl(GainControl.class);
-            gain.setGain(Math.max(gain.getMinGain(), Math.min(gain.getMaxGain(), GAIN)));
+            gainValue = Math.max(gain.getMinGain(), Math.min(gain.getMaxGain(), GAIN_START));
+            gain.setGain(gainValue);
         } catch (Exception e) {
             controlsError = e.getClass().getSimpleName();
             return;
@@ -104,6 +146,55 @@ public class AprilTagVision {
             visionPortal.getCameraControl(ExposureControl.class).setAePriority(false);
         } catch (Exception e) {
             // Not every camera exposes this control; exposure and gain are already locked.
+        }
+    }
+
+    /**
+     * Nudges exposure and gain toward BRIGHTNESS_TARGET. When dark it raises exposure to
+     * EXPOSURE_MAX_MS first, then gain; when bright it lowers gain first, then exposure.
+     * Throttled so each change takes effect before the next measurement.
+     */
+    private void adjustExposure() {
+        if (!controlsApplied || controlsError != null || usingFallback || brightness.mean < 0) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastAdjustMs < ADJUST_INTERVAL_MS) {
+            return;
+        }
+        lastAdjustMs = now;
+        double error = BRIGHTNESS_TARGET - brightness.mean;
+        if (Math.abs(error) < BRIGHTNESS_DEADBAND) {
+            return;
+        }
+        try {
+            ExposureControl exposure = visionPortal.getCameraControl(ExposureControl.class);
+            GainControl gain = visionPortal.getCameraControl(GainControl.class);
+            long maxMs = Math.min(EXPOSURE_MAX_MS, exposure.getMaxExposure(TimeUnit.MILLISECONDS));
+            long minMs = Math.max(EXPOSURE_MIN_MS, exposure.getMinExposure(TimeUnit.MILLISECONDS));
+            int maxGain = Math.min(GAIN_MAX, gain.getMaxGain());
+            int minGain = Math.max(GAIN_MIN, gain.getMinGain());
+            if (error > 0) {
+                if (exposureMs < maxMs) {
+                    exposureMs = Math.min(maxMs, Math.max(exposureMs + 1, Math.round(exposureMs * STEP)));
+                } else if (gainValue < maxGain) {
+                    gainValue = Math.min(maxGain, Math.max(gainValue + 1, (int) Math.round(gainValue * STEP)));
+                } else {
+                    return;
+                }
+            } else {
+                if (gainValue > minGain) {
+                    gainValue = Math.max(minGain, (int) Math.round(gainValue / STEP));
+                } else if (exposureMs > minMs) {
+                    exposureMs = Math.max(minMs, Math.min(exposureMs - 1, Math.round(exposureMs / STEP)));
+                } else {
+                    return;
+                }
+            }
+            exposure.setExposure(exposureMs, TimeUnit.MILLISECONDS);
+            gain.setGain(gainValue);
+        } catch (Exception e) {
+            controlsError = e.getClass().getSimpleName();
         }
     }
 
@@ -134,6 +225,7 @@ public class AprilTagVision {
                         .setStreamFormat(VisionPortal.StreamFormat.YUY2)
                         .setCameraResolution(CAMERA_RESOLUTION)
                         .addProcessor(aprilTag)
+                        .addProcessor(brightness)
                         .build();
                 return;
             } catch (Exception e) {
@@ -165,6 +257,7 @@ public class AprilTagVision {
     public List<AprilTagDetection> getDetections() {
         if (aprilTag == null || !isReady()) return Collections.emptyList();
         applyCameraControls();
+        adjustExposure();
         return aprilTag.getDetections();
     }
     public AprilTagClusterDetection findCluster(String name) {
