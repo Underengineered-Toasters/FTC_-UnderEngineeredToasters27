@@ -125,11 +125,13 @@ public class AprilTagVision {
         WebcamName primary = hardwareMap.tryGet(WebcamName.class, PRIMARY_CAMERA);
         if (primary != null && primary.isAttached()) {
             try {
-                // The Arducam OV9281 only exceeds 30 fps over MJPEG; the SDK default is YUY2.
+                // MJPEG would allow 120 fps, but on this robot the SDK delivers only black frames
+                // in MJPEG (measured brightness 0.0 vs about 210 in YUY2). Requesting YUY2
+                // explicitly also suppresses the SDK's "increase your FPS" warning.
                 aprilTag = newProcessor();
                 visionPortal = new VisionPortal.Builder()
                         .setCamera(primary)
-                        .setStreamFormat(VisionPortal.StreamFormat.MJPEG)
+                        .setStreamFormat(VisionPortal.StreamFormat.YUY2)
                         .setCameraResolution(CAMERA_RESOLUTION)
                         .addProcessor(aprilTag)
                         .build();
