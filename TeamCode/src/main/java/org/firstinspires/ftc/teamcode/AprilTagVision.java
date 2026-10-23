@@ -59,6 +59,7 @@ public class AprilTagVision {
             if (state != VisionPortal.CameraState.STREAMING) {
                 return state.toString();
             }
+            applyCameraControls();
             String text = String.format(Locale.US, "STREAMING %.0f fps", visionPortal.getFps());
             return controlsError == null ? text : text + " (controls: " + controlsError + ")";
         } catch (Exception e) {
@@ -68,7 +69,8 @@ public class AprilTagVision {
 
     /**
      * Locks exposure and gain once the camera is streaming. Exposure and gain can only be set
-     * on an open camera, so this runs from getDetections() instead of init(), which must not block.
+     * on an open camera, so this runs from getDetections() and getCameraState() instead of
+     * init(), which must not block.
      */
     private void applyCameraControls() {
         if (controlsApplied || visionPortal == null
