@@ -28,7 +28,7 @@ public class BasicAutonomous extends LinearOpMode {
         robot.init(hardwareMap);
 
         telemetry.addLine("Basic Out and Back Auto");
-        telemetry.addLine("Forward 7 in, left 90, forward 36 in, wait 2 sec, turn 180, return");
+        telemetry.addLine("Forward 7 in, left 90, forward 46 in, wait 2 sec, turn 180, return");
         telemetry.update();
 
         waitForStart();
@@ -39,19 +39,19 @@ public class BasicAutonomous extends LinearOpMode {
 
         driveInches(7, 0.3);
         turnLeft(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
-        driveInches(36, 0.5);
+        driveInches(46, 0.5);
         if (!opModeIsActive()) {
             return;
         }
         sleep(2000);
         turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
 
-        // A half-turn retraces the 36-inch leg; turn right to retrace the 7-inch leg.
+        // A half-turn retraces the 46-inch leg; turn right to retrace the 7-inch leg.
         // The final half-turn restores the starting heading.
-        driveInches(36, 0.5);
+        driveInches(46, 0.5);
         turnRight(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
-        driveInches(7, 0.3);
         turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
+        driveInches(-7, 0.3);
         stopRobot();
 
         if (opModeIsActive()) {
