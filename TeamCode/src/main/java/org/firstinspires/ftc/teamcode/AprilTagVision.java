@@ -30,11 +30,16 @@ public class AprilTagVision {
     private static final long EXPOSURE_MS = 6;
     private static final int GAIN = 50;
 
+    // Hardware configuration names. The Logitech C270 needs a "Webcam 2" entry to be used.
+    private static final String PRIMARY_CAMERA = "Webcam 1";
+    private static final String FALLBACK_CAMERA = "Webcam 2";
+
     private AprilTagProcessor aprilTag;
     private VisionPortal visionPortal;
     private String initError = null;
     private String controlsError = null;
     private boolean controlsApplied = false;
+    private boolean usingFallback = false;
 
     /** True when the vision portal was created without throwing. */
     public boolean isReady() {
@@ -60,7 +65,8 @@ public class AprilTagVision {
                 return state.toString();
             }
             applyCameraControls();
-            String text = String.format(Locale.US, "STREAMING %.0f fps", visionPortal.getFps());
+            String text = String.format(Locale.US, "%sSTREAMING %.0f fps",
+                    usingFallback ? "FALLBACK Logitech " : "", visionPortal.getFps());
             return controlsError == null ? text : text + " (controls: " + controlsError + ")";
         } catch (Exception e) {
             return "UNKNOWN";
@@ -73,7 +79,7 @@ public class AprilTagVision {
      * init(), which must not block.
      */
     private void applyCameraControls() {
-        if (controlsApplied || visionPortal == null
+        if (usingFallback || controlsApplied || visionPortal == null
                 || visionPortal.getCameraState() != VisionPortal.CameraState.STREAMING) {
             return;
         }
@@ -101,24 +107,54 @@ public class AprilTagVision {
         }
     }
 
-    public void init(HardwareMap hardwareMap) {
-        try {
-            // Current game library includes BIOBUZZ clusters (IDs 30-45, 3.25 in).
-            // Detections may be AprilTagClusterDetection or AprilTagSingleDetection.
-            // CELL tags move: robotPose is for relative targeting, not absolute field localization.
-            aprilTag = new AprilTagProcessor.Builder()
-                    .setTagLibrary(AprilTagGameDatabase.getCurrentGameTagLibrary())
-                    .setOutputUnits(DistanceUnit.INCH, AngleUnit.DEGREES)
-                    .build();
+    private AprilTagProcessor newProcessor() {
+        // Current game library includes BIOBUZZ clusters (IDs 30-45, 3.25 in).
+        // Detections may be AprilTagClusterDetection or AprilTagSingleDetection.
+        // CELL tags move: robotPose is for relative targeting, not absolute field localization.
+        return new AprilTagProcessor.Builder()
+                .setTagLibrary(AprilTagGameDatabase.getCurrentGameTagLibrary())
+                .setOutputUnits(DistanceUnit.INCH, AngleUnit.DEGREES)
+                .build();
+    }
 
-            // "Webcam 1" must match the name in the robot configuration.
-            // The Arducam OV9281 only exceeds 30 fps over MJPEG; the SDK default is YUY2.
+    /**
+     * Opens the Arducam, or the Logitech C270 when the Arducam is not configured, not plugged in,
+     * or fails to open. Both names must match the robot configuration.
+     */
+    public void init(HardwareMap hardwareMap) {
+        WebcamName primary = hardwareMap.tryGet(WebcamName.class, PRIMARY_CAMERA);
+        if (primary != null && primary.isAttached()) {
+            try {
+                // The Arducam OV9281 only exceeds 30 fps over MJPEG; the SDK default is YUY2.
+                aprilTag = newProcessor();
+                visionPortal = new VisionPortal.Builder()
+                        .setCamera(primary)
+                        .setStreamFormat(VisionPortal.StreamFormat.MJPEG)
+                        .setCameraResolution(CAMERA_RESOLUTION)
+                        .addProcessor(aprilTag)
+                        .build();
+                return;
+            } catch (Exception e) {
+                initError = e.getClass().getSimpleName();
+            }
+        }
+
+        WebcamName fallback = hardwareMap.tryGet(WebcamName.class, FALLBACK_CAMERA);
+        if (fallback == null || !fallback.isAttached()) {
+            if (initError == null) {
+                initError = "NoCamera";
+            }
+            return;
+        }
+        try {
+            // The Logitech has a built-in SDK calibration and works at the SDK defaults.
+            aprilTag = newProcessor();
             visionPortal = new VisionPortal.Builder()
-                    .setCamera(hardwareMap.get(WebcamName.class, "Webcam 1"))
-                    .setStreamFormat(VisionPortal.StreamFormat.MJPEG)
-                    .setCameraResolution(CAMERA_RESOLUTION)
+                    .setCamera(fallback)
                     .addProcessor(aprilTag)
                     .build();
+            usingFallback = true;
+            initError = null;
         } catch (Exception e) {
             initError = e.getClass().getSimpleName();
         }
