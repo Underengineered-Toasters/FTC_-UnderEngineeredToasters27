@@ -13,6 +13,7 @@ public class BasicAutonomous extends LinearOpMode {
 
     private final Robot robot = new Robot();
     private String shootingStatus = "Not started";
+    private String targetCluster = AprilTagVision.RED_SCORING;
     private final ElapsedTime runtime = new ElapsedTime();
     private final ElapsedTime stepTimer = new ElapsedTime();
 
@@ -36,82 +37,114 @@ public class BasicAutonomous extends LinearOpMode {
         robot.init(hardwareMap);
 
         telemetry.addLine("Basic Out and Back Auto");
-        telemetry.addLine("Forward 7 in, left 90, forward 46 in, wait 2 sec, turn 180, return");
+        telemetry.addLine("Forward 7 in, right turn, forward 8 in, left turn, align then shoot");
         telemetry.addLine("Shoot four pollen after movement four (timed feeder cycles).");
         telemetry.update();
 
+        while (opModeInInit()) {
+            if (gamepad1.x) targetCluster = AprilTagVision.BLUE_SCORING;
+            if (gamepad1.b) targetCluster = AprilTagVision.RED_SCORING;
+            telemetry.addLine("X = Blue, B = Red. Camera must align before shooting.");
+            telemetry.addData("Scoring target", targetCluster);
+            telemetry.addData("Camera", robot.vision.getCameraState());
+            telemetry.update();
+            sleep(20);
+        }
         waitForStart();
-        if (!opModeIsActive()) {
-            return;
-        }
-        runtime.reset();
-
-        driveInches(7, 0.3);
-        turnLeft(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
-        driveInches(46, 0.5);
-        if (!opModeIsActive()) {
-            return;
-        }
-        sleep(2000);
-        turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
-        shootPollen();
         if (!opModeIsActive()) {
             robot.close();
             return;
         }
+        try {
+            runtime.reset();
 
-        // A half-turn retraces the 46-inch leg; turn right to retrace the 7-inch leg.
-        // The final half-turn restores the starting heading.
-        driveInches(46, 0.5);
-        turnRight(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
-        turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
-        driveInches(-7, 0.3);
-        stopRobot();
+            driveInches(7, 0.5);
+            turnRight(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
+            driveInches(8, 0.5);
+            if (!opModeIsActive()) {
+                return;
+            }
+            sleep(2000);
+            turnLeft(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
+            if (!alignForShooting()) return;
+            if (!shootPollen()) return;
+            if (!opModeIsActive()) {
+                return;
+            }
 
-        if (opModeIsActive()) {
-            telemetry.addLine("Out and back route completed");
-            telemetry.addData("Total Time Elapsed", "%.2f sec", runtime.seconds());
+            // Continue the team-written return sequence after successful shooting.
+            driveInches(46, 0.5);
+            turnRight(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
+            turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
+            driveInches(-7, 0.3);
+            stopRobot();
+
+            if (opModeIsActive()) {
+                telemetry.addLine("Out and back route completed");
+                telemetry.addData("Total Time Elapsed", "%.2f sec", runtime.seconds());
+                telemetry.addData("Shooting status", shootingStatus);
+                telemetry.update();
+            }
+        } finally {
+            stopRobot();
+            robot.shooter.spinDown();
+            robot.intakeSystem.restFeeder();
+            robot.intakeSystem.stopIntake();
             telemetry.addData("Shooting status", shootingStatus);
             telemetry.update();
+            robot.close();
         }
     }
 
-    private void shootPollen() {
+    private boolean alignForShooting() {
+        boolean aligned = AutonomousCameraAligner.align(this, robot, targetCluster);
+        if (!aligned) {
+            shootingStatus = "Alignment failed; shooting skipped";
+            telemetry.addData("Shooting status", shootingStatus);
+            telemetry.update();
+        }
+        return aligned;
+    }
+
+    private boolean shootPollen() {
         stopRobot();
         if (!opModeIsActive()) {
-            return;
+            return false;
         }
         if (Double.isNaN(robot.intakeSystem.getFeederPosition())) {
             shootingStatus = "Skipped: feeder servo is missing from hardware configuration";
-            return;
+            return false;
         }
         robot.intakeSystem.stopIntake();
         robot.intakeSystem.restFeeder();
         try {
             robot.shooter.setTargetPower(AUTONOMOUS_SHOOTER_POWER);
-            if (!waitForShootingPhase("Spinning up shooter", SHOOTER_SPINUP_MS)) {
-                shootingStatus = "Stopped during spin-up";
-                return;
+            if (!waitForShootingPhase("Spinning up shooter", SHOOTER_SPINUP_MS, false)) {
+                if (isStopRequested()) shootingStatus = "Stopped during spin-up";
+                return false;
             }
             for (int pollen = 1; pollen <= POLLEN_COUNT; pollen++) {
                 if (!opModeIsActive()) {
                     shootingStatus = "Stopped before feeder cycle " + pollen;
-                    return;
+                    return false;
                 }
+                // Reacquire a stable lock after spin-up and before each feed.
+                if (!alignForShooting()) return false;
                 robot.intakeSystem.pushBall();
                 if (!waitForShootingPhase("Pushing pollen " + pollen + "/" + POLLEN_COUNT,
-                        FEEDER_PUSH_MS)) {
-                    shootingStatus = "Stopped during feeder push";
-                    return;
+                        FEEDER_PUSH_MS, true)) {
+                    if (isStopRequested()) shootingStatus = "Stopped during feeder push";
+                    return false;
                 }
                 robot.intakeSystem.restFeeder();
                 if (!waitForShootingPhase("Returning feeder " + pollen + "/" + POLLEN_COUNT,
-                        FEEDER_RETURN_MS)) {
-                    shootingStatus = "Stopped during feeder return";
-                    return;
+                        FEEDER_RETURN_MS, false)) {
+                    if (isStopRequested()) shootingStatus = "Stopped during feeder return";
+                    return false;
                 }
             }
             shootingStatus = POLLEN_COUNT + " timed feeder cycles complete";
+            return true;
         } finally {
             robot.shooter.spinDown();
             robot.intakeSystem.restFeeder();
@@ -120,10 +153,18 @@ public class BasicAutonomous extends LinearOpMode {
         }
     }
 
-    private boolean waitForShootingPhase(String phase, long milliseconds) {
+    private boolean waitForShootingPhase(String phase, long milliseconds, boolean feeding) {
         shootingStatus = phase;
         ElapsedTime phaseTimer = new ElapsedTime();
         while (opModeIsActive() && phaseTimer.milliseconds() < milliseconds) {
+            if (robot.vision.hasFailed() || !robot.vision.isReady()) {
+                shootingStatus = "Camera lost during shooting";
+                return false;
+            }
+            if (feeding && !AutonomousCameraAligner.hasFreshAim(robot, targetCluster)) {
+                shootingStatus = "Target lost or aim changed; feeding aborted";
+                return false;
+            }
             telemetry.addData("Shooting status", phase);
             telemetry.addData("Shooter power", "%.2f", robot.shooter.getCurrentPower());
             telemetry.update();
