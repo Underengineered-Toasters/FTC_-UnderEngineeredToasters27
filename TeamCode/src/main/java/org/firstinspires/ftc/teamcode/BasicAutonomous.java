@@ -25,6 +25,7 @@ public class BasicAutonomous extends LinearOpMode {
     public static final double STRAIGHT_TEST_INCHES = 24.0;
     public static final double STRAIGHT_TEST_POWER = 0.35;
     public static final double HEADING_GAIN = 0.03;
+    public static final double HEADING_RATE_GAIN = 0.002;
     public static final double MAX_HEADING_CORRECTION = 0.12;
 
     // Calibration: Estimated driving speed in inches per second at 0.5 power
@@ -133,17 +134,21 @@ public class BasicAutonomous extends LinearOpMode {
             while (opModeIsActive() && stepTimer.seconds() < seconds) {
                 double currentHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
                 double error = AngleUnit.normalizeDegrees(targetHeading - currentHeading);
+                double yawRate = imu.getRobotAngularVelocity(AngleUnit.DEGREES).zRotationRate;
                 // Raw positive turn is physical left on this reversed-drive chassis.
                 // Steering responds to heading error with the same sign in reverse.
                 double correctionLimit = Math.min(MAX_HEADING_CORRECTION, Math.abs(motorPower));
+                // Oppose angular velocity to reduce repeated overshoot of the target.
+                double requestedCorrection = error * HEADING_GAIN - yawRate * HEADING_RATE_GAIN;
                 double correction = Math.max(-correctionLimit,
-                        Math.min(correctionLimit, error * HEADING_GAIN));
+                        Math.min(correctionLimit, requestedCorrection));
                 double scale = Math.max(1.0, Math.abs(motorPower) + Math.abs(correction));
                 robot.drive(-motorPower / scale, correction / scale);
                 addAngleTelemetry();
                 telemetry.addData("Target heading", "%.1f deg", targetHeading);
                 telemetry.addData("Current heading", "%.1f deg", currentHeading);
                 telemetry.addData("Heading error", "%.1f deg", error);
+                telemetry.addData("Yaw rate", "%.1f deg/sec", yawRate);
                 telemetry.addData("Steering correction", "%.3f", correction / scale);
                 telemetry.addData("Drive powers", "Left %.3f / Right %.3f",
                         robot.getLeftPower(), robot.getRightPower());
