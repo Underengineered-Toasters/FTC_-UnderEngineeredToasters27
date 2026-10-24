@@ -67,8 +67,8 @@ def solve(frames_dir):
     print(f"free solve: fx={k[0, 0]:.3f} fy={k[1, 1]:.3f} cx={k[0, 2]:.3f} cy={k[1, 2]:.3f}")
     inside = 0 <= k[0, 2] < size[0] and 0 <= k[1, 2] < size[1]
     if not inside:
-        print("principal point is outside the image. That happens when every frame shows the")
-        print("board on one side, and it makes bearing wrong by the offset. Tighten it:")
+        print("principal point is outside the image. That usually means the board sat on one")
+        print("side in every frame, which leaves the offset poorly determined. Tighten it:")
         flags = cv2.CALIB_FIX_PRINCIPAL_POINT | cv2.CALIB_ZERO_TANGENT_DIST
         rms2, k2, dist2, _, _ = cv2.calibrateCamera(
             obj_pts, img_pts, size, None, None, flags=flags)

@@ -186,7 +186,8 @@ public class AprilTagVision {
                 }
             } else {
                 if (gainValue > minGain) {
-                    gainValue = Math.max(minGain, (int) Math.round(gainValue / STEP));
+                    // The -1 keeps every step moving: at small values rounding 2/1.25 lands back on 2.
+                    gainValue = Math.max(minGain, Math.min(gainValue - 1, (int) Math.round(gainValue / STEP)));
                 } else if (exposureMs > minMs) {
                     exposureMs = Math.max(minMs, Math.min(exposureMs - 1, Math.round(exposureMs / STEP)));
                 } else {
