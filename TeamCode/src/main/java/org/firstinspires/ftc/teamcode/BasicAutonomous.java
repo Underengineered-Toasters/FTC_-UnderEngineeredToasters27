@@ -8,7 +8,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 /**
- * Timed autonomous route with live IMU angle telemetry.
+ * Straight-drive heading-hold test with live IMU angle telemetry.
  * Distances and turns are estimates and require calibration on the robot.
  */
 @Autonomous(name = "Basic Out and Back Auto", group = "Autonomous")
@@ -21,12 +21,18 @@ public class BasicAutonomous extends LinearOpMode {
     private final ElapsedTime runtime = new ElapsedTime();
     private final ElapsedTime stepTimer = new ElapsedTime();
 
+    // Initial heading-hold settings; tune on the robot.
+    public static final double STRAIGHT_TEST_INCHES = 24.0;
+    public static final double STRAIGHT_TEST_POWER = 0.35;
+    public static final double HEADING_GAIN = 0.02;
+    public static final double MAX_HEADING_CORRECTION = 0.12;
+
     // Calibration: Estimated driving speed in inches per second at 0.5 power
     public static final double ESTIMATED_INCHES_PER_SECOND = 20.0;
     // Starting estimate from the previous right turn; calibrate both directions.
     public static final double TURN_POWER = 0.565;
-    public static final double ESTIMATED_SECONDS_PER_90_DEGREES = 0.60;
-    public static final double RIGHT_SECONDS_PER_90_DEGREES = 0.56;
+    public static final double ESTIMATED_LEFT_SECONDS_PER_90_DEGREES = 0.60;
+    public static final double ESTIMATED_RIGHT_SECONDS_PER_90_DEGREES = 0.56;
 
     @Override
     public void runOpMode() {
@@ -44,7 +50,7 @@ public class BasicAutonomous extends LinearOpMode {
         }
 
         telemetry.addLine("Basic Out and Back Auto");
-        telemetry.addLine("Full autonomous route; yaw resets at START.");
+        telemetry.addLine("Straight test: forward 24 inches at 0.35 power; no planned turns.");
         telemetry.addLine("Hub mounting: logo UP, USB FORWARD.");
         telemetry.update();
 
@@ -56,35 +62,40 @@ public class BasicAutonomous extends LinearOpMode {
         previousYaw = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
         turnAngle = 0.0;
         runtime.reset();
-        driveInches(12, 1);
-        turnLeft(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
-        driveInches(20, 1);
-        turnRight(TURN_POWER, RIGHT_SECONDS_PER_90_DEGREES);
+        driveInches(STRAIGHT_TEST_INCHES, STRAIGHT_TEST_POWER);
+
+        // Full route retained for restoration after heading-hold calibration.
+        /*
+        driveInches(12, 0.5);
+        turnLeft(TURN_POWER, ESTIMATED_LEFT_SECONDS_PER_90_DEGREES);
+        driveInches(20, 0.5);
+        turnRight(TURN_POWER, ESTIMATED_RIGHT_SECONDS_PER_90_DEGREES);
         if (!opModeIsActive()) {
             return;
         }
         sleep(2000);
-        turnLeft(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
-        driveInches(46,1);
+        turnLeft(TURN_POWER, ESTIMATED_LEFT_SECONDS_PER_90_DEGREES);
+        driveInches(30,0.5);
         sleep(1000);
-        turnRight(TURN_POWER, 2 * RIGHT_SECONDS_PER_90_DEGREES);
+        turnRight(TURN_POWER, 2 * ESTIMATED_RIGHT_SECONDS_PER_90_DEGREES);
 
         // A half-turn retraces the 46-inch leg; turn right to retrace the 7-inch leg.
         // The final half-turn restores the starting heading.
-        driveInches(30, 1);
-        turnLeft(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
-        driveInches(80, 1);
-        turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
+        driveInches(30, 0.5);
+        turnLeft(TURN_POWER, ESTIMATED_LEFT_SECONDS_PER_90_DEGREES);
+        driveInches(80, 0.5);
+        turnLeft(TURN_POWER, 2 * ESTIMATED_LEFT_SECONDS_PER_90_DEGREES);
         sleep(2000);
-        turnLeft(TURN_POWER, 1.6 * ESTIMATED_SECONDS_PER_90_DEGREES);
+        turnLeft(TURN_POWER, ESTIMATED_LEFT_SECONDS_PER_90_DEGREES);
         driveInches(-80, 0.5);
-        turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
+        turnLeft(TURN_POWER, 2 * ESTIMATED_LEFT_SECONDS_PER_90_DEGREES);
         driveInches(-7, 0.3);
+        */
         stopRobot();
 
         // Continue measuring after motor stop so coasting/overshoot is visible.
         while (opModeIsActive()) {
-            telemetry.addLine("Route complete. Motors stopped. Press STOP when finished.");
+            telemetry.addLine("Straight test complete. Motors stopped. Press STOP when finished.");
             addAngleTelemetry();
             telemetry.update();
             sleep(50);
@@ -112,7 +123,37 @@ public class BasicAutonomous extends LinearOpMode {
         double direction = targetInches >= 0 ? 1.0 : -1.0;
         double motorPower = Math.abs(power) * direction;
 
-        driveForSeconds(motorPower, 0.0, seconds);
+        if (targetInches == 0 || !opModeIsActive()) {
+            stopRobot();
+            return;
+        }
+        double targetHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
+        stepTimer.reset();
+        try {
+            while (opModeIsActive() && stepTimer.seconds() < seconds) {
+                double currentHeading = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
+                double error = AngleUnit.normalizeDegrees(targetHeading - currentHeading);
+                // Raw positive turn is physical left on this reversed-drive chassis.
+                // Steering responds to heading error with the same sign in reverse.
+                double correctionLimit = Math.min(MAX_HEADING_CORRECTION, Math.abs(motorPower));
+                double correction = Math.max(-correctionLimit,
+                        Math.min(correctionLimit, error * HEADING_GAIN));
+                double scale = Math.max(1.0, Math.abs(motorPower) + Math.abs(correction));
+                robot.drive(-motorPower / scale, correction / scale);
+                addAngleTelemetry();
+                telemetry.addData("Target heading", "%.1f deg", targetHeading);
+                telemetry.addData("Current heading", "%.1f deg", currentHeading);
+                telemetry.addData("Heading error", "%.1f deg", error);
+                telemetry.addData("Steering correction", "%.3f", correction / scale);
+                telemetry.addData("Drive powers", "Left %.3f / Right %.3f",
+                        robot.getLeftPower(), robot.getRightPower());
+                telemetry.addData("Drive time", "%.2f / %.2f sec", stepTimer.seconds(), seconds);
+                telemetry.update();
+                idle();
+            }
+        } finally {
+            stopRobot();
+        }
     }
 
     /**
