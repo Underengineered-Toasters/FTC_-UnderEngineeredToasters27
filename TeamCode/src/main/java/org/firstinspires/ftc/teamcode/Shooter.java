@@ -1,3 +1,4 @@
+
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -8,49 +9,85 @@ public class Shooter {
 
     private DcMotorEx flywheel;
 
-    // Direct power targets (0.0 to 1.0)
-    public static final double POWER_OFF        = 0.0;
-    public static final double POWER_CLOSE_SHOT = 0.25;
-    public static final double POWER_MID_SHOT   = 0.55;
-    public static final double POWER_FAR_SHOT   = 0.55;
-
-    private double targetPower = POWER_OFF;
+    private static final double POWER_OFF = 0.0;
+    private static final double POWER_MAX = 1.0;
 
     public void init(HardwareMap hardwareMap) {
         flywheel = hardwareMap.get(DcMotorEx.class, "shooter");
-        flywheel.setDirection(DcMotor.Direction.REVERSE);
-        flywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
+        flywheel.setMotorEnable();
         flywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        flywheel.setZeroPowerBehavior(
+                DcMotor.ZeroPowerBehavior.FLOAT);
+        flywheel.setDirection(DcMotor.Direction.FORWARD);
         flywheel.setPower(POWER_OFF);
     }
 
-    public void update() {
+    public void spinForwardMaxSpeed() {
         if (flywheel != null) {
-            flywheel.setPower(targetPower);
+            flywheel.setPower(POWER_MAX);
+        }
+    }
+
+    public void spinReverseMaxSpeed() {
+        if (flywheel != null) {
+            flywheel.setPower(-POWER_MAX);
+        }
+    }
+
+    public void spinUpFullSpeed() {
+        spinForwardMaxSpeed();
+    }
+
+    public void spinUp6000RPM() {
+        // Maximum power command; actual RPM depends on load.
+        spinForwardMaxSpeed();
+    }
+
+    public void setDirection(boolean reverse) {
+        if (flywheel != null) {
+            flywheel.setDirection(
+                    reverse
+                            ? DcMotor.Direction.REVERSE
+                            : DcMotor.Direction.FORWARD);
         }
     }
 
     public void setTargetPower(double power) {
-        targetPower = power;
         if (flywheel != null) {
-            flywheel.setPower(targetPower);
+            double clippedPower = Math.max(
+                    -POWER_MAX,
+                    Math.min(POWER_MAX, power));
+
+            flywheel.setPower(clippedPower);
         }
     }
 
     public void spinDown() {
-        setTargetPower(POWER_OFF);
+        if (flywheel != null) {
+            flywheel.setPower(POWER_OFF);
+        }
+    }
+
+    public void update() {
+        // RUN_WITHOUT_ENCODER requires no periodic update.
     }
 
     public double getCurrentPower() {
-        return (flywheel != null) ? flywheel.getPower() : 0.0;
+        return flywheel != null ? flywheel.getPower() : 0.0;
     }
 
-    public double getCurrentVelocity() {
-        return (flywheel != null) ? flywheel.getVelocity() : 0.0;
+    public double getCurrentVelocityRPM() {
+        if (flywheel != null) {
+            // Assumes 28 encoder ticks per output revolution.
+            return flywheel.getVelocity() * 60.0 / 28.0;
+        }
+
+        return 0.0;
     }
 
     public boolean isSpinning() {
-        return targetPower > 0.05;
+        return flywheel != null
+                && Math.abs(flywheel.getVelocity()) > 1.0;
     }
 }
