@@ -63,8 +63,25 @@ def solve(frames_dir):
     d = np.zeros(8)
     d[:5] = dist.ravel()[:5]  # OpenCV order k1 k2 p1 p2 k3, which is the FTC file's order
     print(f"{len(obj_pts)} of {len(paths)} frames used, image {size[0]}x{size[1]}")
-    print(f"reprojection RMS {rms:.3f} px (below 0.5 is good, above 1.0 means retake)")
-    print(f"fx={k[0, 0]:.3f} fy={k[1, 1]:.3f} cx={k[0, 2]:.3f} cy={k[1, 2]:.3f}")
+    print(f"free solve: reprojection RMS {rms:.3f} px")
+    print(f"free solve: fx={k[0, 0]:.3f} fy={k[1, 1]:.3f} cx={k[0, 2]:.3f} cy={k[1, 2]:.3f}")
+    inside = 0 <= k[0, 2] < size[0] and 0 <= k[1, 2] < size[1]
+    if not inside:
+        print("principal point is outside the image. That happens when every frame shows the")
+        print("board on one side, and it makes bearing wrong by the offset. Tighten it:")
+        flags = cv2.CALIB_FIX_PRINCIPAL_POINT | cv2.CALIB_ZERO_TANGENT_DIST
+        rms2, k2, dist2, _, _ = cv2.calibrateCamera(
+            obj_pts, img_pts, size, None, None, flags=flags)
+        print(f"constrained: reprojection RMS {rms2:.3f} px")
+        print(f"constrained: fx={k2[0, 0]:.3f} fy={k2[1, 1]:.3f} cx={k2[0, 2]:.3f} cy={k2[1, 2]:.3f}")
+        if rms2 <= max(rms * 1.5, rms + 0.4):
+            print("The constrained fit costs little accuracy, so use it:")
+            k, d = k2, np.zeros(8)
+            d[:5] = dist2.ravel()[:5]
+        else:
+            print("The constrained fit is much worse, which means the board really is off to")
+            print("one side; recapture with the board near the centre of the view.")
+    print(f"horizontal field of view {2 * np.degrees(np.arctan(size[0] / 2 / k[0, 0])):.1f} deg")
     print()
     print(f'<Camera vid="{VID}" pid="{PID}">')
     print("    <Calibration")
