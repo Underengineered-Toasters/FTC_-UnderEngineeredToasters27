@@ -105,6 +105,7 @@ public class AprilTagVision {
                 return state.toString();
             }
             applyCameraControls();
+            adjustExposure();
             String text = String.format(Locale.US, "%sSTREAMING %.0f fps exp=%d ms gain=%d lum=%.0f",
                     usingFallback ? "FALLBACK Logitech " : "", visionPortal.getFps(),
                     exposureMs, gainValue, brightness.mean);
