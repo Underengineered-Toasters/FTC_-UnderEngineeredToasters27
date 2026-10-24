@@ -105,8 +105,9 @@ public class AprilTagVision {
                 return state.toString();
             }
             applyCameraControls();
-            String text = String.format(Locale.US, "%sSTREAMING %.0f fps",
-                    usingFallback ? "FALLBACK Logitech " : "", visionPortal.getFps());
+            String text = String.format(Locale.US, "%sSTREAMING %.0f fps exp=%d ms gain=%d lum=%.0f",
+                    usingFallback ? "FALLBACK Logitech " : "", visionPortal.getFps(),
+                    exposureMs, gainValue, brightness.mean);
             return controlsError == null ? text : text + " (controls: " + controlsError + ")";
         } catch (Exception e) {
             return "UNKNOWN";
