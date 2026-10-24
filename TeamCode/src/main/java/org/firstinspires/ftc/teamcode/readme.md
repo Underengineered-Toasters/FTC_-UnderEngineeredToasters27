@@ -51,8 +51,8 @@ After the prefix, other conventions will apply:
 * Concept class names are constructed as:   Concept - Topic - OpModetype
 
 Once you are familiar with the range of samples available, you can choose one to be the
-basis for your own robot.  In all cases, the desired sample(s) needs to be copied into
-your TeamCode module to be used.
+basis for your own robot.  In all cases, the desired sample(s) needs to be c`opied into
+your TeamCode module to be used.`
 
 This is done inside Android Studio directly, using the following steps:
 

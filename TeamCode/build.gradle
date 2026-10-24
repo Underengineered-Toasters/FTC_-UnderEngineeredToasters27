@@ -1,3 +1,6 @@
+// Register dummy task for Android Studio / Kotlin plugin sync if Kotlin Gradle Plugin is not applied
+tasks.register('prepareKotlinBuildScriptModel') {}
+
 apply plugin: 'com.android.application'
 
 //

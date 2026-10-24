@@ -1,0 +1,214 @@
+[1mdiff --git a/src/main/java/org/firstinspires/ftc/teamcode/BasicAutonomous.java b/src/main/java/org/firstinspires/ftc/teamcode/BasicAutonomous.java[m
+[1mnew file mode 100644[m
+[1mindex 0000000..45473fe[m
+[1m--- /dev/null[m
+[1m+++ b/src/main/java/org/firstinspires/ftc/teamcode/BasicAutonomous.java[m
+[36m@@ -0,0 +1,207 @@[m
+[32m+[m[32m﻿[m
+[32m+[m[32mpackage org.firstinspires.ftc.teamcode;[m
+[32m+[m
+[32m+[m[32mimport com.qualcomm.robotcore.eventloop.opmode.Autonomous;[m
+[32m+[m[32mimport com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;[m
+[32m+[m[32mimport com.qualcomm.robotcore.util.ElapsedTime;[m
+[32m+[m
+[32m+[m[32m/**[m
+[32m+[m[32m * Biobuzz autonomous path starting straight between Flower and Parking Space.[m
+[32m+[m[32m *[m
+[32m+[m[32m * Uses timed drivetrain movement. Distances and turns must be calibrated[m
+[32m+[m[32m * on the actual robot before competition use.[m
+[32m+[m[32m */[m
+[32m+[m[32m@Autonomous(name = "Biobuzz Straight Auto", group = "Autonomous")[m
+[32m+[m[32mpublic class BasicAutonomous extends LinearOpMode {[m
+[32m+[m
+[32m+[m[32m    private final Robot robot = new Robot();[m
+[32m+[m[32m    private final ElapsedTime runtime = new ElapsedTime();[m
+[32m+[m
+[32m+[m[32m    // Initial estimate; calibrate on the actual robot.[m
+[32m+[m[32m    public static final double ESTIMATED_INCHES_PER_SECOND = 20.0;[m
+[32m+[m
+[32m+[m[32m    private static final double REFERENCE_POWER = 0.5;[m
+[32m+[m
+[32m+[m[32m    @Override[m
+[32m+[m[32m    public void runOpMode() {[m
+[32m+[m[32m        robot.init(hardwareMap);[m
+[32m+[m
+[32m+[m[32m        telemetry.addLine("BIOBUZZ STRAIGHT AUTONOMOUS");[m
+[32m+[m[32m        telemetry.addLine("Timed movement - calibrate before use");[m
+[32m+[m[32m        telemetry.update();[m
+[32m+[m
+[32m+[m[32m        // Keep the drivetrain stopped while waiting for the start signal.[m
+[32m+[m[32m        stopRobot();[m
+[32m+[m[32m        waitForStart();[m
+[32m+[m
+[32m+[m[32m        if (isStopRequested()) {[m
+[32m+[m[32m            stopRobot();[m
+[32m+[m[32m            return;[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        runtime.reset();[m
+[32m+[m
+[32m+[m[32m        try {[m
+[32m+[m[32m            // STEP 1: Approach the scoring target.[m
+[32m+[m[32m            telemetry.addLine("Step 1: Approach target");[m
+[32m+[m[32m            telemetry.update();[m
+[32m+[m
+[32m+[m[32m            driveInches(32.0, 0.5);[m
+[32m+[m[32m            if (!opModeIsActive()) return;[m
+[32m+[m[32m            sleep(500);[m
+[32m+[m
+[32m+[m[32m            // STEP 2: Back up and approach the floor sample.[m
+[32m+[m[32m            telemetry.addLine("Step 2: Approach floor sample");[m
+[32m+[m[32m            telemetry.update();[m
+[32m+[m
+[32m+[m[32m            driveInches(-12.0, 0.4);[m
+[32m+[m[32m            if (!opModeIsActive()) return;[m
+[32m+[m
+[32m+[m[32m            turnRight(0.4, 0.60);[m
+[32m+[m[32m            if (!opModeIsActive()) return;[m
+[32m+[m
+[32m+[m[32m            driveInches(24.0, 0.5);[m
+[32m+[m[32m            if (!opModeIsActive()) return;[m
+[32m+[m[32m            sleep(500);[m
+[32m+[m
+[32m+[m[32m            // STEP 3: Return toward the scoring target.[m
+[32m+[m[32m            telemetry.addLine("Step 3: Return toward target");[m
+[32m+[m[32m            telemetry.update();[m
+[32m+[m
+[32m+[m[32m            driveInches(-24.0, 0.5);[m
+[32m+[m[32m            if (!opModeIsActive()) return;[m
+[32m+[m
+[32m+[m[32m            turnLeft(0.4, 0.60);[m
+[32m+[m[32m            if (!opModeIsActive()) return;[m
+[32m+[m
+[32m+[m[32m            driveInches(12.0, 0.4);[m
+[32m+[m[32m            if (!opModeIsActive()) return;[m
+[32m+[m[32m            sleep(500);[m
+[32m+[m
+[32m+[m[32m            // STEP 4: Move toward the parking area.[m
+[32m+[m[32m            telemetry.addLine("Step 4: Park");[m
+[32m+[m[32m            telemetry.update();[m
+[32m+[m
+[32m+[m[32m            driveInches(-12.0, 0.4);[m
+[32m+[m[32m            if (!opModeIsActive()) return;[m
+[32m+[m
+[32m+[m[32m            turnRight(0.4, 0.60);[m
+[32m+[m[32m            if (!opModeIsActive()) return;[m
+[32m+[m
+[32m+[m[32m            driveInches(36.0, 0.6);[m
+[32m+[m
+[32m+[m[32m            if (opModeIsActive()) {[m
+[32m+[m[32m                telemetry.addLine("Autonomous sequence completed");[m
+[32m+[m[32m                telemetry.addData("Elapsed time", "%.2f seconds",[m
+[32m+[m[32m                        runtime.seconds());[m
+[32m+[m[32m                telemetry.update();[m
+[32m+[m[32m            }[m
+[32m+[m
+[32m+[m[32m        } finally {[m
+[32m+[m[32m            // Stop the drivetrain if the routine completes or is interrupted.[m
+[32m+[m[32m            stopRobot();[m
+[32m+[m[32m        }[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    /**[m
+[32m+[m[32m     * Drives a signed estimated distance:[m
+[32m+[m[32m     * positive inches = forward; negative inches = backward.[m
+[32m+[m[32m     */[m
+[32m+[m[32m    private void driveInches(double targetInches, double power) {[m
+[32m+[m[32m        if (!Double.isFinite(targetInches)[m
+[32m+[m[32m                || !Double.isFinite(power)[m
+[32m+[m[32m                || power <= 0.0[m
+[32m+[m[32m                || power > 1.0) {[m
+[32m+[m[32m            telemetry.addLine("Invalid drive distance or power");[m
+[32m+[m[32m            telemetry.update();[m
+[32m+[m[32m            stopRobot();[m
+[32m+[m[32m            return;[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        if (Math.abs(targetInches) < 0.01) {[m
+[32m+[m[32m            stopRobot();[m
+[32m+[m[32m            return;[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        if (ESTIMATED_INCHES_PER_SECOND <= 0.0) {[m
+[32m+[m[32m            telemetry.addLine("Invalid speed calibration");[m
+[32m+[m[32m            telemetry.update();[m
+[32m+[m[32m            stopRobot();[m
+[32m+[m[32m            return;[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        double direction = Math.signum(targetInches);[m
+[32m+[m[32m        double seconds = Math.abs(targetInches)[m
+[32m+[m[32m                / (ESTIMATED_INCHES_PER_SECOND[m
+[32m+[m[32m                * (power / REFERENCE_POWER));[m
+[32m+[m
+[32m+[m[32m        double forwardPower = direction * power;[m
+[32m+[m
+[32m+[m[32m        driveForSeconds(forwardPower, 0.0, seconds);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    /** Turns left for the specified duration. */[m
+[32m+[m[32m    private void turnLeft(double power, double seconds) {[m
+[32m+[m[32m        if (!validTurn(power, seconds)) {[m
+[32m+[m[32m            stopRobot();[m
+[32m+[m[32m            return;[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        driveForSeconds(0.0, power, seconds);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    /** Turns right for the specified duration. */[m
+[32m+[m[32m    private void turnRight(double power, double seconds) {[m
+[32m+[m[32m        if (!validTurn(power, seconds)) {[m
+[32m+[m[32m            stopRobot();[m
+[32m+[m[32m            return;[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        driveForSeconds(0.0, -power, seconds);[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    private boolean validTurn(double power, double seconds) {[m
+[32m+[m[32m        return Double.isFinite(power)[m
+[32m+[m[32m                && Double.isFinite(seconds)[m
+[32m+[m[32m                && power > 0.0[m
+[32m+[m[32m                && power <= 1.0[m
+[32m+[m[32m                && seconds >= 0.0;[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    /**[m
+[32m+[m[32m     * Applies forward and turn commands for a bounded duration.[m
+[32m+[m[32m     * The Robot.drive() implementation must support signed forward power.[m
+[32m+[m[32m     */[m
+[32m+[m[32m    private void driveForSeconds([m
+[32m+[m[32m            double forward, double turn, double seconds) {[m
+[32m+[m
+[32m+[m[32m        if (!Double.isFinite(seconds) || seconds < 0.0) {[m
+[32m+[m[32m            stopRobot();[m
+[32m+[m[32m            return;[m
+[32m+[m[32m        }[m
+[32m+[m
+[32m+[m[32m        runtime.reset();[m
+[32m+[m
+[32m+[m[32m        try {[m
+[32m+[m[32m            while (opModeIsActive() && runtime.seconds() < seconds) {[m
+[32m+[m[32m                robot.drive(forward, turn);[m
+[32m+[m
+[32m+[m[32m                telemetry.addData("Direction",[m
+[32m+[m[32m                        forward < 0.0 ? "Backward"[m
+[32m+[m[32m                                : forward > 0.0 ? "Forward" : "Turning");[m
+[32m+[m[32m                telemetry.addData("Elapsed", "%.2f s", runtime.seconds());[m
+[32m+[m[32m                telemetry.addData("Target duration", "%.2f s", seconds);[m
+[32m+[m[32m                telemetry.update();[m
+[32m+[m
+[32m+[m[32m                idle();[m
+[32m+[m[32m            }[m
+[32m+[m[32m        } finally {[m
+[32m+[m[32m            stopRobot();[m
+[32m+[m[32m        }[m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32m    /** Stops the drivetrain. */[m
+[32m+[m[32m    private void stopRobot() {[m
+[32m+[m[32m        robot.drive(0.0, 0.0);[m
+[32m+[m[32m    }[m
+[32m+[m[32m}[m
+\ No newline at end of file[m
