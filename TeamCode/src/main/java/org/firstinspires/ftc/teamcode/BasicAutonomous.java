@@ -24,7 +24,7 @@ public class BasicAutonomous extends LinearOpMode {
     // Initial heading-hold settings; tune on the robot.
     public static final double STRAIGHT_TEST_INCHES = 24.0;
     public static final double STRAIGHT_TEST_POWER = 0.35;
-    public static final double HEADING_GAIN = 0.02;
+    public static final double HEADING_GAIN = 0.03;
     public static final double MAX_HEADING_CORRECTION = 0.12;
 
     // Calibration: Estimated driving speed in inches per second at 0.5 power
