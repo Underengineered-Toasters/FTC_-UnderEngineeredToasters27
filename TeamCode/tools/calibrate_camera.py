@@ -3,10 +3,15 @@
 
   calibrate_camera.py board board.png          write a checkerboard to show on a screen
   calibrate_camera.py solve FRAMES_DIR         solve intrinsics from captured frames
+  calibrate_camera.py crop BIG.png SMALL.png   locate a small mode inside a big mode
 
 Requires python-opencv. The solve step prints a <Camera> element ready to paste into
 TeamCode/src/main/res/xml/teamwebcamcalibrations.xml. Intrinsics do not depend on the physical
 square size, so any checkerboard size works as long as the inner-corner counts below match.
+
+The crop step answers whether a low resolution is a centre crop of a higher one. If it is, the
+principal point of the low mode equals the high mode's minus the reported offset, which is a
+cheap way to check a principal point that landed outside the image.
 """
 import glob
 import os
@@ -93,10 +98,51 @@ def solve(frames_dir):
     print("</Camera>")
 
 
+def locate_crop(big_path, small_path):
+    big = cv2.imread(big_path, cv2.IMREAD_GRAYSCALE)
+    small = cv2.imread(small_path, cv2.IMREAD_GRAYSCALE)
+    if big is None or small is None:
+        sys.exit(f"cannot read {big_path if big is None else small_path}")
+    orb = cv2.ORB_create(nfeatures=4000)
+    kb, db = orb.detectAndCompute(big, None)
+    ks, ds = orb.detectAndCompute(small, None)
+    if db is None or ds is None or len(kb) < 10 or len(ks) < 10:
+        print("too few features to compare; use a scene with texture")
+        return
+    matches = cv2.BFMatcher(cv2.NORM_HAMMING).knnMatch(ds, db, k=2)
+    good = [m for m, n in (pair for pair in matches if len(pair) == 2) if m.distance < 0.75 * n.distance]
+    if len(good) < 8:
+        print(f"only {len(good)} consistent matches; the two images probably show different scenes")
+        return
+    src = np.float32([ks[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+    dst = np.float32([kb[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
+    matrix, inliers = cv2.estimateAffinePartial2D(src, dst, method=cv2.RANSAC, ransacReprojThreshold=3)
+    if matrix is None:
+        print("could not fit the two views together")
+        return
+    scale = (matrix[0, 0] ** 2 + matrix[1, 0] ** 2) ** 0.5
+    ox, oy = matrix[0, 2], matrix[1, 2]
+    inlier_count = int(inliers.sum()) if inliers is not None else 0
+    print(f"{small.shape[1]}x{small.shape[0]} sits in {big.shape[1]}x{big.shape[0]} "
+          f"at ({ox:.1f}, {oy:.1f}) with scale {scale:.4f}, {inlier_count} of {len(good)} matches agreed")
+    # The small image's origin maps to (ox, oy) in big pixels; a centred crop starts at
+    # (big - small*scale) / 2.
+    cx_expected = (big.shape[1] - small.shape[1] * scale) / 2
+    cy_expected = (big.shape[0] - small.shape[0] * scale) / 2
+    print(f"a centred crop would start at ({cx_expected:.1f}, {cy_expected:.1f})")
+    if abs(ox - cx_expected) < 4 and abs(oy - cy_expected) < 4:
+        print("the low resolution is a centred crop, so its principal point is the high one scaled")
+    else:
+        print("the low resolution is off centre: shift its principal point by "
+              f"(-{ox:.1f}, -{oy:.1f}) relative to the high mode's scaled value")
+
+
 if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "board":
         make_board(sys.argv[2])
     elif len(sys.argv) == 3 and sys.argv[1] == "solve":
         solve(sys.argv[2])
+    elif len(sys.argv) == 4 and sys.argv[1] == "crop":
+        locate_crop(sys.argv[2], sys.argv[3])
     else:
         sys.exit(__doc__)
