@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Underengineered Toasters 36424 · Driver Station</title>
+<link rel="stylesheet" href="/ds/app.css">
+</head>
+<body class="bg-background font-sans text-foreground antialiased">
+
+<div id="banner" role="alert" class="hidden border-b border-destructive/30 bg-destructive/10 px-4 py-2 text-center text-sm text-destructive">
+  Disconnected from the robot. Reconnecting…
+</div>
+
+<div class="flex min-h-screen flex-col lg:h-screen">
+
+  <header class="flex items-center justify-between gap-4 border-b border-border px-4 py-3">
+    <h1 class="truncate text-base font-semibold tracking-tight text-foreground">
+      Underengineered Toasters <span class="text-yellow-400">36424</span>
+      <span class="font-normal text-muted-foreground">· Driver Station</span>
+    </h1>
+    <span id="conn" data-slot="badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap bg-secondary text-secondary-foreground">Connecting</span>
+  </header>
+
+  <main class="grid flex-1 grid-cols-1 gap-4 p-4 lg:min-h-0 lg:grid-cols-2">
+
+    <!-- Left: control + diagnostics -->
+    <section class="flex flex-col gap-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+
+      <div data-slot="card" class="flex flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground shadow-sm">
+        <div data-slot="card-header" class="@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto]">
+          <h2 data-slot="card-title" class="leading-none font-semibold">OpMode</h2>
+          <div data-slot="card-action" class="col-start-2 row-span-2 row-start-1 self-start justify-self-end">
+            <span id="opstate" data-slot="badge" class="inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap bg-secondary text-secondary-foreground">Idle</span>
+          </div>
+        </div>
+        <div data-slot="card-content" class="px-6">
+          <div class="group/native-select relative w-full has-[select:disabled]:opacity-50" data-slot="native-select-wrapper">
+            <select id="opmode" aria-label="OpMode" data-slot="native-select"
+              class="h-9 w-full min-w-0 appearance-none rounded-md border border-input px-3 py-2 pr-9 text-sm shadow-xs transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed bg-input/30 hover:bg-input/50 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
+              <option value="">No opmodes</option>
+            </select>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              class="pointer-events-none absolute top-1/2 right-3.5 size-4 -translate-y-1/2 text-muted-foreground opacity-50 select-none" aria-hidden="true" data-slot="native-select-icon">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </div>
+          <div class="mt-3 grid grid-cols-3 gap-2">
+            <button id="btnInit" type="button" data-slot="button" data-variant="secondary"
+              class="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80">INIT</button>
+            <button id="btnStart" type="button" data-slot="button" data-variant="default"
+              class="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90">START</button>
+            <button id="btnStop" type="button" data-slot="button" data-variant="destructive"
+              class="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:ring-[3px] focus-visible:ring-destructive/40 disabled:pointer-events-none disabled:opacity-50 bg-destructive/60 text-white hover:bg-destructive/90">STOP</button>
+          </div>
+          <div data-slot="separator" data-orientation="horizontal" role="separator"
+            class="my-4 shrink-0 bg-border data-[orientation=horizontal]:h-px data-[orientation=horizontal]:w-full"></div>
+          <p class="text-xs text-muted-foreground">Active: <span id="active" class="font-medium text-foreground">None</span></p>
+        </div>
+      </div>
+
+      <div data-slot="card" class="flex flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground shadow-sm">
+        <div data-slot="card-header" class="px-6">
+          <h2 data-slot="card-title" class="leading-none font-semibold">Battery</h2>
+        </div>
+        <div data-slot="card-content" class="flex items-center gap-3 px-6">
+          <p class="text-3xl font-semibold tabular-nums tracking-tight"><span id="battery">n/a</span><span class="text-base font-normal text-muted-foreground"> V</span></p>
+          <canvas id="batterySpark" width="96" height="24" class="h-6 w-24" aria-hidden="true"></canvas>
+        </div>
+      </div>
+
+      <div data-slot="card" class="flex flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground shadow-sm">
+        <div data-slot="card-header" class="px-6">
+          <h2 data-slot="card-title" class="leading-none font-semibold">Motors</h2>
+        </div>
+        <div data-slot="card-content" class="px-6">
+          <div data-slot="table-container" class="relative w-full overflow-x-auto">
+            <table data-slot="table" class="w-full caption-bottom text-sm">
+              <thead data-slot="table-header" class="[&_tr]:border-b">
+                <tr data-slot="table-row" class="border-b">
+                  <th scope="col" data-slot="table-head" class="h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground">Name</th>
+                  <th scope="col" data-slot="table-head" class="h-10 px-2 text-right align-middle font-medium whitespace-nowrap text-foreground">Power</th>
+                  <th scope="col" data-slot="table-head" class="h-10 px-2 text-right align-middle font-medium whitespace-nowrap text-foreground">Position</th>
+                  <th scope="col" data-slot="table-head" class="h-10 px-2 text-right align-middle font-medium whitespace-nowrap text-foreground">mA</th>
+                  <th scope="col" data-slot="table-head" class="h-10 px-2 text-right align-middle font-medium whitespace-nowrap text-foreground">Busy</th>
+                </tr>
+              </thead>
+              <tbody id="motors" data-slot="table-body" class="tabular-nums [&_tr:last-child]:border-0"></tbody>
+            </table>
+          </div>
+          <p id="motorsEmpty" class="pt-2 text-sm text-muted-foreground">No motors on the hardware map.</p>
+        </div>
+      </div>
+
+      <div data-slot="card" class="flex flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground shadow-sm">
+        <div data-slot="card-header" class="px-6">
+          <h2 data-slot="card-title" class="leading-none font-semibold">Servos</h2>
+        </div>
+        <div data-slot="card-content" class="px-6">
+          <div data-slot="table-container" class="relative w-full overflow-x-auto">
+            <table data-slot="table" class="w-full caption-bottom text-sm">
+              <tbody id="servos" data-slot="table-body" class="tabular-nums [&_tr:last-child]:border-0"></tbody>
+            </table>
+          </div>
+          <p id="servosEmpty" class="pt-2 text-sm text-muted-foreground">No servos on the hardware map.</p>
+        </div>
+      </div>
+
+      <div data-slot="card" class="flex flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground shadow-sm">
+        <div data-slot="card-header" class="px-6">
+          <h2 data-slot="card-title" class="leading-none font-semibold">Telemetry</h2>
+        </div>
+        <div data-slot="card-content" class="px-6">
+          <div data-slot="table-container" class="relative w-full overflow-x-auto">
+            <table data-slot="table" class="w-full caption-bottom text-sm">
+              <tbody id="telemetry" data-slot="table-body" class="[&_tr:last-child]:border-0"></tbody>
+            </table>
+          </div>
+          <p id="telemetryEmpty" class="pt-2 text-sm text-muted-foreground">Waiting for telemetry…</p>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Right: camera + log -->
+    <section class="flex min-h-0 flex-col gap-4">
+
+      <div class="relative overflow-hidden rounded-xl border border-border bg-black shadow-sm">
+        <img id="cam" src="/ds/camera.mjpeg" alt="Camera feed" class="hidden aspect-video w-full object-contain">
+        <div id="camEmpty" class="flex aspect-video w-full flex-col items-center justify-center gap-2 text-muted-foreground">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="h-8 w-8" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+            <path stroke-linecap="round" d="M3 3l18 18" />
+          </svg>
+          <p class="text-sm">No camera feed</p>
+          <p class="text-xs text-muted-foreground/60">Start an opmode that enables the camera.</p>
+        </div>
+      </div>
+
+      <div data-slot="card" class="flex min-h-0 flex-1 flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground shadow-sm">
+        <div data-slot="card-header" class="@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto]">
+          <h2 data-slot="card-title" class="leading-none font-semibold">Log</h2>
+          <div data-slot="card-action" class="col-start-2 row-span-2 row-start-1 flex gap-1 self-start justify-self-end">
+            <button id="logPause" type="button" data-slot="button" data-variant="ghost" data-size="sm"
+              class="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 text-muted-foreground hover:bg-accent hover:text-accent-foreground">Pause</button>
+            <button id="logClear" type="button" data-slot="button" data-variant="ghost" data-size="sm"
+              class="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 text-muted-foreground hover:bg-accent hover:text-accent-foreground">Clear</button>
+            <button id="logCopy" type="button" data-slot="button" data-variant="ghost" data-size="sm"
+              class="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 text-muted-foreground hover:bg-accent hover:text-accent-foreground">Copy</button>
+          </div>
+        </div>
+        <div id="log" class="mx-6 mb-6 h-64 min-h-0 flex-1 overflow-y-auto rounded-md border border-border bg-black px-3 py-2 font-mono text-xs leading-5 text-muted-foreground lg:h-auto"></div>
+      </div>
+
+    </section>
+  </main>
+</div>
+
+<script src="/ds/app.js"></script>
+</body>
+</html>

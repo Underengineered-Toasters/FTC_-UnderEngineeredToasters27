@@ -1,0 +1,3 @@
+interface:
+  name: robot-wifi-setup
+  description: "Configure dual-station Wi-Fi and wireless ADB connections to the REV Control Hub and Driver Hub without losing internet."
