@@ -1,3 +1,4 @@
+
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -9,52 +10,83 @@ public class ShooterTeleOp extends LinearOpMode {
 
     private DcMotor left;
     private DcMotor right;
-    private Shooter shooter = new Shooter();
+    private final Shooter shooter = new Shooter();
+
+    private boolean shooterReversed = false;
+    private boolean previousY = false;
 
     @Override
     public void runOpMode() {
 
         left = hardwareMap.get(DcMotor.class, "left");
         right = hardwareMap.get(DcMotor.class, "right");
+
         left.setDirection(DcMotor.Direction.REVERSE);
         right.setDirection(DcMotor.Direction.FORWARD);
+
         left.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         right.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         shooter.init(hardwareMap);
 
         telemetry.addLine("Ready.");
+        telemetry.addLine("Left Stick Y = Drive");
+        telemetry.addLine("Right Stick X = Turn");
+        telemetry.addLine("Right Trigger = Run Shooter");
+        telemetry.addLine("Y = Toggle Shooter Direction");
         telemetry.update();
 
         waitForStart();
 
         while (opModeIsActive()) {
-            double drive = -gamepad1.left_stick_y;
-            double turn  =  gamepad1.right_stick_x;
 
-            double leftPower  = Math.max(-1.0, Math.min(1.0, drive + turn));
-            double rightPower = Math.max(-1.0, Math.min(1.0, drive - turn));
+            double drive = -gamepad1.left_stick_y;
+            double turn = gamepad1.right_stick_x;
+
+            double leftPower = Math.max(
+                    -1.0, Math.min(1.0, drive + turn));
+
+            double rightPower = Math.max(
+                    -1.0, Math.min(1.0, drive - turn));
 
             left.setPower(leftPower);
             right.setPower(rightPower);
 
-            // Use setTargetPower and POWER_* constants
-            if (gamepad1.y) {
-                shooter.setTargetPower(Shooter.POWER_FAR_SHOT);
-            } else if (gamepad1.b) {
-                shooter.setTargetPower(Shooter.POWER_MID_SHOT);
-            } else if (gamepad1.a) {
-                shooter.setTargetPower(Shooter.POWER_CLOSE_SHOT);
-            } else if (gamepad1.x) {
+            // Toggle direction on a new Y press.
+            boolean yPressed = gamepad1.y;
+
+            if (yPressed && !previousY) {
+                shooterReversed = !shooterReversed;
+            }
+
+            previousY = yPressed;
+
+            if (gamepad1.right_trigger > 0.05) {
+                if (shooterReversed) {
+                    shooter.spinReverseMaxSpeed();
+                } else {
+                    shooter.spinForwardMaxSpeed();
+                }
+            } else {
                 shooter.spinDown();
             }
 
             shooter.update();
 
-            telemetry.addData("Shooter Power", "%.2f", shooter.getCurrentPower());
+            telemetry.addData("Shooter Direction",
+                    shooterReversed ? "REVERSE" : "FORWARD");
+            telemetry.addData("Shooter Power", "%.2f",
+                    shooter.getCurrentPower());
+            telemetry.addData("Shooter Velocity", "%.0f RPM",
+                    shooter.getCurrentVelocityRPM());
+            telemetry.addData("Shooter Spinning",
+                    shooter.isSpinning());
             telemetry.addData("Drive Left", "%.2f", leftPower);
             telemetry.addData("Drive Right", "%.2f", rightPower);
+
             telemetry.update();
         }
+
+        shooter.spinDown();
     }
 }
