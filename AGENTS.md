@@ -60,6 +60,8 @@ Small edits that do not change behavior or contracts may leave docs unchanged, b
 - CD runs on `v*` tags (`.github/workflows/android-release.yml`): `./gradlew assembleRelease` and the APKs are published to a GitHub Release named after the tag. It can also be started manually, which uploads the APKs as an artifact without creating a release.
 - Release builds are signed with `libs/ftc.debug.keystore` unless `APK_SIGNING_STORE_FILE` and its companion variables are set, so no signing secrets are required.
 - `open-code-review.yml` is separate: it only runs when `0xhis` comments `/code-review` on a pull request, on the self-hosted `ftc-review` runner.
+- The APK only packages `arm64-v8a` native libraries (`build.common.gradle`, both build types). Control Hubs and Driver Hubs are 64-bit, and this takes the debug APK from 49 MB to 41 MB. Do not add `armeabi-v7a` back.
+- Getting a build onto the robot costs about 40 s over Wi-Fi because the APK is 41 MB. A USB-C data cable from the laptop to the Control Hub is several times faster and works alongside wireless ADB. For throwaway probes only, the hub's own web UI on `http://192.168.43.1:8080` compiles Java on the robot and skips the download, but that source is not in this repository.
 
 ## Wireless ADB and Hub Setup
 

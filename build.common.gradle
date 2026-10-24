@@ -86,15 +86,17 @@ android {
         release {
             signingConfig signingConfigs.release
 
+            // Control Hubs and Driver Hubs are arm64 only. The 32-bit libraries only made the
+            // APK bigger to transfer: dropping them takes the debug APK from 49 MB to 41 MB.
             ndk {
-                abiFilters "armeabi-v7a", "arm64-v8a"
+                abiFilters "arm64-v8a"
             }
         }
         debug {
             debuggable true
             jniDebuggable true
             ndk {
-                abiFilters "armeabi-v7a", "arm64-v8a"
+                abiFilters "arm64-v8a"
             }
         }
     }
