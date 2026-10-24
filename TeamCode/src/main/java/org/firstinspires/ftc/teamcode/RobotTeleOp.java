@@ -1,3 +1,4 @@
+
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -12,31 +13,27 @@ public class RobotTeleOp extends LinearOpMode {
 
     private final Robot robot = new Robot();
 
-    // Tracks intake direction: true = IN, false = OUT
-    private boolean intakeInDirection = true;
+    private static final double DESIRED_DISTANCE_INCHES = 12.0;
+    private static final double P_DRIVE_GAIN = 0.03;
+    private static final double P_TURN_GAIN = 0.02;
 
-    // Edge detector for the Y toggle
+    private boolean shooterReversed = false;
     private boolean previousY = false;
 
     @Override
     public void runOpMode() {
-
-        // =========================
-        // Initialize Robot
-        // =========================
 
         robot.init(hardwareMap);
 
         telemetry.addLine("==============================");
         telemetry.addLine("       ROBOT INITIALIZED");
         telemetry.addLine("==============================");
-        telemetry.addLine("");
-        telemetry.addLine("Left Stick Y  = Drive");
-        telemetry.addLine("Right Stick X = Turn");
-        telemetry.addLine("");
-        telemetry.addLine("Left Trigger  = Run Intake System");
-        telemetry.addLine("Right Trigger = Spin Shooter & Feed");
-        telemetry.addLine("Y             = Toggle Intake Direction");
+        telemetry.addLine("Left Stick Y  = Manual Drive");
+        telemetry.addLine("Right Stick X = Manual Turn");
+        telemetry.addLine("LB (Hold)     = Align Audience Tag");
+        telemetry.addLine("RB (Hold)     = Align Scoring Tag");
+        telemetry.addLine("Right Trigger = Run Shooter");
+        telemetry.addLine("Y             = Toggle Shooter Direction");
         telemetry.update();
 
         waitForStart();
@@ -46,117 +43,138 @@ public class RobotTeleOp extends LinearOpMode {
             return;
         }
 
-        // =========================
-        // Main Loop
-        // =========================
-
         while (opModeIsActive()) {
 
-            // ==================================
-            // DRIVE (Inverted both signs to fix backward forward & swapped turns)
-            // ==================================
+            List<AprilTagDetection> detections =
+                    robot.getAprilTagDetections();
 
-            double drive = gamepad1.left_stick_y;
-            double turn  = -gamepad1.right_stick_x;
+            double drive = -gamepad1.left_stick_y;
+            double turn = -gamepad1.right_stick_x;
+
+            boolean leftBumper = gamepad1.left_bumper;
+            boolean rightBumper = gamepad1.right_bumper;
+
+            if (leftBumper || rightBumper) {
+
+                String targetTagGroup = leftBumper
+                        ? AprilTagVision.RED_AUDIENCE
+                        : AprilTagVision.RED_SCORING;
+
+                AprilTagDetection targetTag =
+                        robot.vision.findTagByName(targetTagGroup);
+
+                if (targetTag == null
+                        && detections != null
+                        && !detections.isEmpty()) {
+                    targetTag = detections.get(0);
+                }
+
+                if (targetTag != null
+                        && targetTag.ftcPose != null) {
+
+                    double rangeError =
+                            targetTag.ftcPose.range
+                                    - DESIRED_DISTANCE_INCHES;
+
+                    double bearingError =
+                            targetTag.ftcPose.bearing;
+
+                    drive = rangeError * P_DRIVE_GAIN;
+                    turn = bearingError * P_TURN_GAIN;
+
+                    drive = Math.max(
+                            -0.4, Math.min(0.4, drive));
+
+                    turn = Math.max(
+                            -0.3, Math.min(0.3, turn));
+
+                    telemetry.addData(
+                            "Auto-Align Target",
+                            targetTag.metadata != null
+                                    ? targetTag.metadata.name
+                                    : "Tag " + targetTag.id);
+
+                    telemetry.addData(
+                            "Align Distance Error",
+                            "%.1f in", rangeError);
+
+                    telemetry.addData(
+                            "Align Heading Error",
+                            "%.1f deg", bearingError);
+
+                } else {
+                    drive = 0.0;
+                    turn = 0.0;
+
+                    telemetry.addData(
+                            "Auto-Align Status",
+                            "Target tag not in view!");
+                }
+            }
 
             robot.drive(drive, turn);
 
-
-            // ==================================
-            // INTAKE DIRECTION TOGGLE
-            // ==================================
-
-            boolean currentY = gamepad1.y;
-
-            if (currentY && !previousY) {
-                intakeInDirection = !intakeInDirection;
-            }
-
-            previousY = currentY;
-
-
-            // ==================================
-            // TRIGGERS
-            // ==================================
-
-            double intakeTrigger = gamepad1.left_trigger;
-            double shooterTrigger = gamepad1.right_trigger;
-
-
             // ==================================
             // SHOOTER CONTROL
+            // Y toggles direction.
+            // Right trigger runs at maximum power.
             // ==================================
 
-            boolean isShooting = shooterTrigger > 0.05;
+            boolean yPressed = gamepad1.y || gamepad2.y;
 
-            if (isShooting) {
-                robot.shooter.setTargetPower(Shooter.POWER_MID_SHOT);
+            if (yPressed && !previousY) {
+                shooterReversed = !shooterReversed;
+            }
+
+            previousY = yPressed;
+
+            double rightTrigger = Math.max(
+                    gamepad1.right_trigger,
+                    gamepad2.right_trigger);
+
+            if (rightTrigger > 0.05) {
+                robot.shooter.setTargetPower(
+                        shooterReversed ? -1.0 : 1.0
+                );
             } else {
                 robot.shooter.spinDown();
             }
 
-
-            // ==================================
-            // INTAKE & FEEDER CONTROL
-            // ==================================
-
-            if (isShooting) {
-                robot.intakeSystem.stopIntake();
-                robot.intakeSystem.pushBall();
-
-            } else if (intakeTrigger > 0.05) {
-                if (intakeInDirection) {
-                    robot.intakeSystem.intakeIn();
-                } else {
-                    robot.intakeSystem.intakeOut();
-                }
-
-            } else {
-                robot.intakeSystem.stopIntake();
-                robot.intakeSystem.restFeeder();
-            }
-
-
-            // ==================================
-            // UPDATE SUBSYSTEMS
-            // ==================================
-
             robot.update();
-
-
-            // ==================================
-            // APRILTAG VISION
-            // ==================================
-
-            List<AprilTagDetection> detections = robot.getAprilTagDetections();
-
 
             // ==================================
             // TELEMETRY
             // ==================================
 
             telemetry.addLine("------------------------------");
-            telemetry.addData("Drive Left", "%.2f", robot.getLeftPower());
-            telemetry.addData("Drive Right", "%.2f", robot.getRightPower());
+            telemetry.addData("Drive Left Power",
+                    "%.2f", robot.getLeftPower());
+            telemetry.addData("Drive Right Power",
+                    "%.2f", robot.getRightPower());
 
             telemetry.addLine("------------------------------");
-            telemetry.addData("Intake Direction", intakeInDirection ? "IN" : "OUT");
-            telemetry.addData("Intake Power", "%.2f", robot.intakeSystem.getPower());
-            telemetry.addData("Feeder Position", "%.2f", robot.intakeSystem.getFeederPosition());
+            telemetry.addData("Shooter Direction",
+                    shooterReversed ? "REVERSE" : "FORWARD");
+            telemetry.addData("Shooter Power", "%.2f",
+                    robot.shooter.getCurrentPower());
+            telemetry.addData("Shooter Velocity",
+                    "%.0f RPM",
+                    robot.shooter.getCurrentVelocityRPM());
+            telemetry.addData("Shooter Spinning",
+                    robot.shooter.isSpinning());
 
             telemetry.addLine("------------------------------");
-            telemetry.addData("Shooter Power", "%.2f", robot.shooter.getCurrentPower());
-            telemetry.addData("Shooter Spinning", robot.shooter.isSpinning());
+            telemetry.addData("Parallel Odom Ticks",
+                    robot.getParallelEncoderTicks());
+            telemetry.addData("Perpendicular Odom Ticks",
+                    robot.getPerpendicularEncoderTicks());
 
             telemetry.addLine("------------------------------");
-            telemetry.addData("AprilTags Visible", detections != null ? detections.size() : 0);
+            telemetry.addData("AprilTags Visible",
+                    detections != null ? detections.size() : 0);
 
             telemetry.update();
         }
-
-        // =========================
-        // Cleanup
-        // =========================
 
         robot.close();
     }
