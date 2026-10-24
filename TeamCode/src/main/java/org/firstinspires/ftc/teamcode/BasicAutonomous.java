@@ -8,7 +8,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 /**
- * Single timed right-turn calibration with measured IMU angle telemetry.
+ * Timed autonomous route with live IMU angle telemetry.
  * Distances and turns are estimates and require calibration on the robot.
  */
 @Autonomous(name = "Basic Out and Back Auto", group = "Autonomous")
@@ -26,6 +26,7 @@ public class BasicAutonomous extends LinearOpMode {
     // Starting estimate from the previous right turn; calibrate both directions.
     public static final double TURN_POWER = 0.565;
     public static final double ESTIMATED_SECONDS_PER_90_DEGREES = 0.60;
+    public static final double RIGHT_SECONDS_PER_90_DEGREES = 0.56;
 
     @Override
     public void runOpMode() {
@@ -36,14 +37,14 @@ public class BasicAutonomous extends LinearOpMode {
         if (!imu.initialize(new IMU.Parameters(new RevHubOrientationOnRobot(
                 RevHubOrientationOnRobot.LogoFacingDirection.UP,
                 RevHubOrientationOnRobot.UsbFacingDirection.FORWARD)))) {
-            telemetry.addLine("IMU initialization failed; turn test cancelled.");
+            telemetry.addLine("IMU initialization failed; autonomous cancelled.");
             telemetry.update();
             robot.close();
             return;
         }
 
         telemetry.addLine("Basic Out and Back Auto");
-        telemetry.addLine("Right-turn angle test; yaw resets at START.");
+        telemetry.addLine("Full autonomous route; yaw resets at START.");
         telemetry.addLine("Hub mounting: logo UP, USB FORWARD.");
         telemetry.update();
 
@@ -55,11 +56,10 @@ public class BasicAutonomous extends LinearOpMode {
         previousYaw = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES);
         turnAngle = 0.0;
         runtime.reset();
-        turnRight(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
-        /*driveInches(12, 1);
+        driveInches(12, 1);
         turnLeft(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
         driveInches(20, 1);
-        turnRight(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
+        turnRight(TURN_POWER, RIGHT_SECONDS_PER_90_DEGREES);
         if (!opModeIsActive()) {
             return;
         }
@@ -67,7 +67,7 @@ public class BasicAutonomous extends LinearOpMode {
         turnLeft(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
         driveInches(46,1);
         sleep(1000);
-        turnRight(TURN_POWER, 2*ESTIMATED_SECONDS_PER_90_DEGREES);
+        turnRight(TURN_POWER, 2 * RIGHT_SECONDS_PER_90_DEGREES);
 
         // A half-turn retraces the 46-inch leg; turn right to retrace the 7-inch leg.
         // The final half-turn restores the starting heading.
@@ -79,12 +79,12 @@ public class BasicAutonomous extends LinearOpMode {
         turnLeft(TURN_POWER, 1.6 * ESTIMATED_SECONDS_PER_90_DEGREES);
         driveInches(-80, 0.5);
         turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
-        driveInches(-7, 0.3);*/
+        driveInches(-7, 0.3);
         stopRobot();
 
         // Continue measuring after motor stop so coasting/overshoot is visible.
         while (opModeIsActive()) {
-            telemetry.addLine("Turn complete. Motors stopped. Press STOP when finished.");
+            telemetry.addLine("Route complete. Motors stopped. Press STOP when finished.");
             addAngleTelemetry();
             telemetry.update();
             sleep(50);
