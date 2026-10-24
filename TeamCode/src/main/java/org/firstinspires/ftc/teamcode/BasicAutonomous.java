@@ -18,6 +18,7 @@ public class BasicAutonomous extends LinearOpMode {
     private IMU imu;
     private double previousYaw;
     private double turnAngle;
+    private String shootingStatus = "Not started";
     private final ElapsedTime runtime = new ElapsedTime();
     private final ElapsedTime stepTimer = new ElapsedTime();
 
@@ -26,6 +27,13 @@ public class BasicAutonomous extends LinearOpMode {
     public static final double HEADING_GAIN = 0.03;
     public static final double HEADING_RATE_GAIN = 0.002;
     public static final double MAX_HEADING_CORRECTION = 0.12;
+
+    // Hardcoded four-pollen shooting sequence; tune these timings on hardware.
+    public static final int POLLEN_COUNT = 4;
+    public static final double AUTONOMOUS_SHOOTER_POWER = 1.0;
+    public static final long SHOOTER_SPINUP_MS = 2000;
+    public static final long FEEDER_PUSH_MS = 400;
+    public static final long FEEDER_RETURN_MS = 600;
 
     // Calibration: Estimated driving speed in inches per second at 0.5 power
     public static final double ESTIMATED_INCHES_PER_SECOND = 20.0;
@@ -52,6 +60,7 @@ public class BasicAutonomous extends LinearOpMode {
         telemetry.addLine("Basic Out and Back Auto");
         telemetry.addLine("Full autonomous route with heading hold; yaw resets at START.");
         telemetry.addLine("Hub mounting: logo UP, USB FORWARD.");
+        telemetry.addLine("Shoot 4 pollen after movement 4 (timed feeder cycles).");
         telemetry.update();
 
         waitForStart();
@@ -64,37 +73,95 @@ public class BasicAutonomous extends LinearOpMode {
         runtime.reset();
         // Optional calibration runs: driveInches(48, 0.35) or driveInches(-48, 0.35).
         driveInches(12, 0.5);
-        turnLeft(TURN_POWER, ESTIMATED_LEFT_SECONDS_PER_90_DEGREES);
-        driveInches(20, 0.5);
         turnRight(TURN_POWER, ESTIMATED_RIGHT_SECONDS_PER_90_DEGREES);
+        driveInches(8, 0.5);
+        turnLeft(TURN_POWER, ESTIMATED_LEFT_SECONDS_PER_90_DEGREES);
         if (!opModeIsActive()) {
             return;
         }
-        sleep(2000);
-        turnLeft(TURN_POWER, ESTIMATED_LEFT_SECONDS_PER_90_DEGREES);
-        driveInches(30,0.5);
+        shootPollen();
+        /*turnLeft(TURN_POWER, ESTIMATED_LEFT_SECONDS_PER_90_DEGREES);
+        driveInches(40,0.5);
         sleep(1000);
         turnRight(TURN_POWER, 2 * ESTIMATED_RIGHT_SECONDS_PER_90_DEGREES);
 
-        driveInches(30, 0.5);
+        driveInches(40, 0.5);
         turnLeft(TURN_POWER, ESTIMATED_LEFT_SECONDS_PER_90_DEGREES);
-        driveInches(80, 0.5);
+        driveInches(70, 0.5);
         turnLeft(TURN_POWER, 2 * ESTIMATED_LEFT_SECONDS_PER_90_DEGREES);
         sleep(2000);
-        turnLeft(TURN_POWER, ESTIMATED_LEFT_SECONDS_PER_90_DEGREES);
-        driveInches(-80, 0.5);
         turnLeft(TURN_POWER, 2 * ESTIMATED_LEFT_SECONDS_PER_90_DEGREES);
-        driveInches(-7, 0.3);
+        driveInches(-70, 0.5);
+        turnLeft(TURN_POWER, ESTIMATED_RIGHT_SECONDS_PER_90_DEGREES);
+        driveInches(-8, 0.5);*/
         stopRobot();
 
         // Continue measuring after motor stop so coasting/overshoot is visible.
         while (opModeIsActive()) {
             telemetry.addLine("Route complete. Motors stopped. Press STOP when finished.");
+            telemetry.addData("Shooting status", shootingStatus);
             addAngleTelemetry();
             telemetry.update();
             sleep(50);
         }
         robot.close();
+    }
+
+    private void shootPollen() {
+        stopRobot();
+        if (!opModeIsActive()) {
+            return;
+        }
+        if (Double.isNaN(robot.intakeSystem.getFeederPosition())) {
+            shootingStatus = "Skipped: feeder servo is missing from hardware configuration";
+            return;
+        }
+        robot.intakeSystem.stopIntake();
+        robot.intakeSystem.restFeeder();
+        try {
+            robot.shooter.setTargetPower(AUTONOMOUS_SHOOTER_POWER);
+            if (!waitForShootingPhase("Spinning up shooter", SHOOTER_SPINUP_MS)) {
+                shootingStatus = "Stopped during spin-up";
+                return;
+            }
+            for (int pollen = 1; pollen <= POLLEN_COUNT; pollen++) {
+                if (!opModeIsActive()) {
+                    shootingStatus = "Stopped before feeder cycle " + pollen;
+                    return;
+                }
+                robot.intakeSystem.pushBall();
+                if (!waitForShootingPhase("Pushing pollen " + pollen + "/" + POLLEN_COUNT,
+                        FEEDER_PUSH_MS)) {
+                    shootingStatus = "Stopped during feeder push";
+                    return;
+                }
+                robot.intakeSystem.restFeeder();
+                if (!waitForShootingPhase("Returning feeder " + pollen + "/" + POLLEN_COUNT,
+                        FEEDER_RETURN_MS)) {
+                    shootingStatus = "Stopped during feeder return";
+                    return;
+                }
+            }
+            shootingStatus = POLLEN_COUNT + " timed feeder cycles complete";
+        } finally {
+            robot.shooter.spinDown();
+            robot.intakeSystem.restFeeder();
+            robot.intakeSystem.stopIntake();
+            stopRobot();
+        }
+    }
+
+    private boolean waitForShootingPhase(String phase, long milliseconds) {
+        shootingStatus = phase;
+        ElapsedTime phaseTimer = new ElapsedTime();
+        while (opModeIsActive() && phaseTimer.milliseconds() < milliseconds) {
+            telemetry.addData("Shooting status", phase);
+            telemetry.addData("Shooter power", "%.2f", robot.shooter.getCurrentPower());
+            addAngleTelemetry();
+            telemetry.update();
+            sleep(20);
+        }
+        return opModeIsActive();
     }
 
     private void addAngleTelemetry() {
