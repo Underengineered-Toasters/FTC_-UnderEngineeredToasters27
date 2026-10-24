@@ -12,8 +12,16 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 public class BasicAutonomous extends LinearOpMode {
 
     private final Robot robot = new Robot();
+    private String shootingStatus = "Not started";
     private final ElapsedTime runtime = new ElapsedTime();
     private final ElapsedTime stepTimer = new ElapsedTime();
+
+    // Hardcoded four-pollen sequence; tune feeder timings on the robot.
+    public static final int POLLEN_COUNT = 4;
+    public static final double AUTONOMOUS_SHOOTER_POWER = 1.0;
+    public static final long SHOOTER_SPINUP_MS = 2000;
+    public static final long FEEDER_PUSH_MS = 400;
+    public static final long FEEDER_RETURN_MS = 600;
 
     // Calibration: Estimated driving speed in inches per second at 0.5 power
     public static final double ESTIMATED_INCHES_PER_SECOND = 20.0;
@@ -29,6 +37,7 @@ public class BasicAutonomous extends LinearOpMode {
 
         telemetry.addLine("Basic Out and Back Auto");
         telemetry.addLine("Forward 7 in, left 90, forward 46 in, wait 2 sec, turn 180, return");
+        telemetry.addLine("Shoot four pollen after movement four (timed feeder cycles).");
         telemetry.update();
 
         waitForStart();
@@ -45,6 +54,11 @@ public class BasicAutonomous extends LinearOpMode {
         }
         sleep(2000);
         turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
+        shootPollen();
+        if (!opModeIsActive()) {
+            robot.close();
+            return;
+        }
 
         // A half-turn retraces the 46-inch leg; turn right to retrace the 7-inch leg.
         // The final half-turn restores the starting heading.
@@ -57,8 +71,65 @@ public class BasicAutonomous extends LinearOpMode {
         if (opModeIsActive()) {
             telemetry.addLine("Out and back route completed");
             telemetry.addData("Total Time Elapsed", "%.2f sec", runtime.seconds());
+            telemetry.addData("Shooting status", shootingStatus);
             telemetry.update();
         }
+    }
+
+    private void shootPollen() {
+        stopRobot();
+        if (!opModeIsActive()) {
+            return;
+        }
+        if (Double.isNaN(robot.intakeSystem.getFeederPosition())) {
+            shootingStatus = "Skipped: feeder servo is missing from hardware configuration";
+            return;
+        }
+        robot.intakeSystem.stopIntake();
+        robot.intakeSystem.restFeeder();
+        try {
+            robot.shooter.setTargetPower(AUTONOMOUS_SHOOTER_POWER);
+            if (!waitForShootingPhase("Spinning up shooter", SHOOTER_SPINUP_MS)) {
+                shootingStatus = "Stopped during spin-up";
+                return;
+            }
+            for (int pollen = 1; pollen <= POLLEN_COUNT; pollen++) {
+                if (!opModeIsActive()) {
+                    shootingStatus = "Stopped before feeder cycle " + pollen;
+                    return;
+                }
+                robot.intakeSystem.pushBall();
+                if (!waitForShootingPhase("Pushing pollen " + pollen + "/" + POLLEN_COUNT,
+                        FEEDER_PUSH_MS)) {
+                    shootingStatus = "Stopped during feeder push";
+                    return;
+                }
+                robot.intakeSystem.restFeeder();
+                if (!waitForShootingPhase("Returning feeder " + pollen + "/" + POLLEN_COUNT,
+                        FEEDER_RETURN_MS)) {
+                    shootingStatus = "Stopped during feeder return";
+                    return;
+                }
+            }
+            shootingStatus = POLLEN_COUNT + " timed feeder cycles complete";
+        } finally {
+            robot.shooter.spinDown();
+            robot.intakeSystem.restFeeder();
+            robot.intakeSystem.stopIntake();
+            stopRobot();
+        }
+    }
+
+    private boolean waitForShootingPhase(String phase, long milliseconds) {
+        shootingStatus = phase;
+        ElapsedTime phaseTimer = new ElapsedTime();
+        while (opModeIsActive() && phaseTimer.milliseconds() < milliseconds) {
+            telemetry.addData("Shooting status", phase);
+            telemetry.addData("Shooter power", "%.2f", robot.shooter.getCurrentPower());
+            telemetry.update();
+            sleep(20);
+        }
+        return opModeIsActive();
     }
 
     // =========================================================================

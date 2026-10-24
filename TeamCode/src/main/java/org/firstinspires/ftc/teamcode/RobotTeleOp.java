@@ -5,6 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 
 import java.util.List;
 
@@ -60,13 +61,17 @@ public class RobotTeleOp extends LinearOpMode {
                         ? AprilTagVision.RED_AUDIENCE
                         : AprilTagVision.RED_SCORING;
 
-                AprilTagDetection targetTag =
-                        robot.vision.findTagByName(targetTagGroup);
+                AprilTagClusterDetection targetTag =
+                        robot.vision.findCluster(targetTagGroup);
 
-                if (targetTag == null
-                        && detections != null
-                        && !detections.isEmpty()) {
-                    targetTag = detections.get(0);
+                if (targetTag == null && detections != null) {
+                    for (AprilTagDetection detection : detections) {
+                        if (detection instanceof AprilTagClusterDetection
+                                && detection.ftcPose != null) {
+                            targetTag = (AprilTagClusterDetection) detection;
+                            break;
+                        }
+                    }
                 }
 
                 if (targetTag != null
@@ -92,7 +97,7 @@ public class RobotTeleOp extends LinearOpMode {
                             "Auto-Align Target",
                             targetTag.metadata != null
                                     ? targetTag.metadata.name
-                                    : "Tag " + targetTag.id);
+                                    : "Visible cluster");
 
                     telemetry.addData(
                             "Align Distance Error",
@@ -162,12 +167,6 @@ public class RobotTeleOp extends LinearOpMode {
                     robot.shooter.getCurrentVelocityRPM());
             telemetry.addData("Shooter Spinning",
                     robot.shooter.isSpinning());
-
-            telemetry.addLine("------------------------------");
-            telemetry.addData("Parallel Odom Ticks",
-                    robot.getParallelEncoderTicks());
-            telemetry.addData("Perpendicular Odom Ticks",
-                    robot.getPerpendicularEncoderTicks());
 
             telemetry.addLine("------------------------------");
             telemetry.addData("AprilTags Visible",

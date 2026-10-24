@@ -11,6 +11,8 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 ## Local Contracts
 
 - `BasicAutonomous.java` runs an out-and-back route with 7-inch initial/return short legs, 46-inch long legs and 180-degree turnaround/final turns. After the long return leg, the robot restores its initial heading and backs up 7 inches to the nominal starting position. Returning to the starting pose depends on hardware calibration of the turnaround. `BasicAutonomous` negates forward and turn inputs at the `Robot.drive` boundary because positive drive power moves this chassis backward; its route uses positive distances for physical forward and left/right helpers for physical turns. Driving and turning use time estimates; calibrate distance speed and turn duration on the robot before relying on endpoint accuracy.
+- `BasicAutonomous` attempts four pollen immediately after movement four (the first 180-degree left turn). The chassis stops, shooter runs at full power with 2000 ms spin-up, then four 400 ms feeder pushes/600 ms returns. These are timed attempts, not measured RPM or counted balls. Missing feeder configuration skips shooting with telemetry. STOP or shooting exceptions stop shooter/intake and return feeder to rest.
+- `RobotTeleOp` uses `AprilTagVision.findCluster` and `AprilTagClusterDetection` for cluster metadata. Odometry readouts require real encoder accessors in `Robot`; do not add placeholder readings.
 - Keep OpModes organized under `org.firstinspires.ftc.teamcode`.
 - Annotate competition TeleOp classes with `@TeleOp(name = "...", group = "...")`.
 - Annotate competition Autonomous classes with `@Autonomous(name = "...", group = "...")`.
