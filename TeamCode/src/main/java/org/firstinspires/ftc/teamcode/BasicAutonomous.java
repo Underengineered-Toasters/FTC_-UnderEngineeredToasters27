@@ -12,8 +12,16 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 public class BasicAutonomous extends LinearOpMode {
 
     private final Robot robot = new Robot();
+    private String shootingStatus = "Not started";
     private final ElapsedTime runtime = new ElapsedTime();
     private final ElapsedTime stepTimer = new ElapsedTime();
+
+    // Hardcoded four-pollen sequence; tune feeder timings on the robot.
+    public static final int POLLEN_COUNT = 4;
+    public static final double AUTONOMOUS_SHOOTER_POWER = 1.0;
+    public static final long SHOOTER_SPINUP_MS = 2000;
+    public static final long FEEDER_PUSH_MS = 400;
+    public static final long FEEDER_RETURN_MS = 600;
 
     // Calibration: Estimated driving speed in inches per second at 0.5 power
     public static final double ESTIMATED_INCHES_PER_SECOND = 20.0;
@@ -28,37 +36,109 @@ public class BasicAutonomous extends LinearOpMode {
         robot.init(hardwareMap);
 
         telemetry.addLine("Basic Out and Back Auto");
+        telemetry.addLine("FIRST: spin up shooter and attempt four pollen, then drive.");
         telemetry.addLine("Forward 7 in, left 90, forward 46 in, wait 2 sec, turn 180, return");
         telemetry.update();
 
         waitForStart();
         if (!opModeIsActive()) {
+            robot.close();
             return;
         }
-        runtime.reset();
+        try {
+            runtime.reset();
+            // First active action after START: shoot while the chassis stays stopped.
+            if (!shootPollen()) return;
 
-        driveInches(7, 0.3);
-        turnLeft(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
-        driveInches(46, 0.5);
-        if (!opModeIsActive()) {
-            return;
-        }
-        sleep(2000);
-        turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
+            driveInches(7, 0.3);
+            turnLeft(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
+            driveInches(46, 0.5);
+            if (!opModeIsActive()) {
+                return;
+            }
+            sleep(2000);
+            turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
 
-        // A half-turn retraces the 46-inch leg; turn right to retrace the 7-inch leg.
-        // The final half-turn restores the starting heading.
-        driveInches(46, 0.5);
-        turnRight(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
-        turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
-        driveInches(-7, 0.3);
-        stopRobot();
+            // A half-turn retraces the 46-inch leg; turn right to retrace the 7-inch leg.
+            // The final half-turn restores the starting heading.
+            driveInches(46, 0.5);
+            turnRight(TURN_POWER, ESTIMATED_SECONDS_PER_90_DEGREES);
+            turnLeft(TURN_POWER, 2 * ESTIMATED_SECONDS_PER_90_DEGREES);
+            driveInches(-7, 0.3);
+            stopRobot();
 
-        if (opModeIsActive()) {
-            telemetry.addLine("Out and back route completed");
-            telemetry.addData("Total Time Elapsed", "%.2f sec", runtime.seconds());
+            if (opModeIsActive()) {
+                telemetry.addLine("Out and back route completed");
+                telemetry.addData("Total Time Elapsed", "%.2f sec", runtime.seconds());
+                telemetry.addData("Shooting status", shootingStatus);
+                telemetry.update();
+            }
+        } finally {
+            stopRobot();
+            robot.shooter.spinDown();
+            robot.intakeSystem.restFeeder();
+            robot.intakeSystem.stopIntake();
+            telemetry.addData("Shooting status", shootingStatus);
             telemetry.update();
+            robot.close();
         }
+    }
+
+    private boolean shootPollen() {
+        stopRobot();
+        if (!opModeIsActive()) {
+            return false;
+        }
+        if (Double.isNaN(robot.intakeSystem.getFeederPosition())) {
+            shootingStatus = "Skipped: feeder servo is missing from hardware configuration";
+            return false;
+        }
+        robot.intakeSystem.stopIntake();
+        robot.intakeSystem.restFeeder();
+        try {
+            robot.shooter.setTargetPower(AUTONOMOUS_SHOOTER_POWER);
+            if (!waitForShootingPhase("Spinning up shooter", SHOOTER_SPINUP_MS)) {
+                shootingStatus = "Stopped during spin-up";
+                return false;
+            }
+            for (int pollen = 1; pollen <= POLLEN_COUNT; pollen++) {
+                if (!opModeIsActive()) {
+                    shootingStatus = "Stopped before feeder cycle " + pollen;
+                    return false;
+                }
+                robot.intakeSystem.pushBall();
+                if (!waitForShootingPhase("Pushing pollen " + pollen + "/" + POLLEN_COUNT,
+                        FEEDER_PUSH_MS)) {
+                    shootingStatus = "Stopped during feeder push";
+                    return false;
+                }
+                robot.intakeSystem.restFeeder();
+                if (!waitForShootingPhase("Returning feeder " + pollen + "/" + POLLEN_COUNT,
+                        FEEDER_RETURN_MS)) {
+                    shootingStatus = "Stopped during feeder return";
+                    return false;
+                }
+            }
+            shootingStatus = POLLEN_COUNT + " timed feeder cycles complete";
+            return true;
+        } finally {
+            robot.shooter.spinDown();
+            robot.intakeSystem.restFeeder();
+            robot.intakeSystem.stopIntake();
+            stopRobot();
+        }
+    }
+
+    private boolean waitForShootingPhase(String phase, long milliseconds) {
+        shootingStatus = phase;
+        ElapsedTime phaseTimer = new ElapsedTime();
+        while (opModeIsActive() && phaseTimer.milliseconds() < milliseconds) {
+            telemetry.addData("Shooting status", phase);
+            telemetry.addData("Shooter power", "%.2f", robot.shooter.getCurrentPower());
+            telemetry.update();
+            sleep(20);
+        }
+        return opModeIsActive();
     }
 
     // =========================================================================
