@@ -7,8 +7,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 /**
  * Controller for Secondary Flywheel Motor ("shooter2" on Motor Port 3).
- * Direction: REVERSE (Opposite Direction to shooter1).
- * Mode: 100% Maximum Voltage (RUN_WITHOUT_ENCODER).
+ * Includes Soft-Start Inrush Voltage Protection to prevent battery sag (from 8.9V back to 12V+).
  */
 public class shooter2 {
 
@@ -16,6 +15,8 @@ public class shooter2 {
 
     public static final double POWER_OFF = 0.0;
     public static final double POWER_MAX = 1.00;
+
+    private double currentPower = POWER_OFF;
 
     public void init(HardwareMap hardwareMap) {
         try {
@@ -35,17 +36,33 @@ public class shooter2 {
 
     public void spinForwardMaxSpeed() {
         if (flywheel != null) {
-            flywheel.setPower(POWER_MAX);
+            // Soft-Start Ramping prevents current spikes and protects battery voltage from dropping to 8.9V
+            if (currentPower < 0.50) {
+                currentPower = 0.50;
+            } else if (currentPower < 0.80) {
+                currentPower = 0.80;
+            } else {
+                currentPower = POWER_MAX;
+            }
+            flywheel.setPower(currentPower);
         }
     }
 
     public void spinReverseMaxSpeed() {
         if (flywheel != null) {
-            flywheel.setPower(-POWER_MAX);
+            if (currentPower > -0.50) {
+                currentPower = -0.50;
+            } else if (currentPower > -0.80) {
+                currentPower = -0.80;
+            } else {
+                currentPower = -POWER_MAX;
+            }
+            flywheel.setPower(currentPower);
         }
     }
 
     public void spinDown() {
+        currentPower = POWER_OFF;
         if (flywheel != null) {
             flywheel.setPower(POWER_OFF);
         }
