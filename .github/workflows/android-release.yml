@@ -1,0 +1,68 @@
+name: Android Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install required SDK platform
+        run: sdkmanager --install "platforms;android-30"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease
+
+      - name: Read app version from the manifest
+        id: version
+        run: |
+          version=$(grep -oP 'android:versionName="\K[^"]+' FtcRobotController/src/main/AndroidManifest.xml | head -1)
+          echo "name=${version:-unknown}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk-${{ steps.version.outputs.name }}
+          path: |
+            TeamCode/build/outputs/apk/release/*.apk
+            FtcRobotController/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "Robot app ${GITHUB_REF_NAME} (versionName ${{ steps.version.outputs.name }})" \
+            --notes "Signed release build of the FTC 36424 robot app, produced by the Android Release workflow. Install the APK on the Control Hub to update the robot." \
+            TeamCode/build/outputs/apk/release/*.apk \
+            FtcRobotController/build/outputs/apk/release/*.apk
