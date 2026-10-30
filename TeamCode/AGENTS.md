@@ -11,8 +11,11 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 ## Local Contracts
 
 - `BasicAutonomous.java` runs an out-and-back route with 7-inch initial/return short legs, 46-inch long legs and 180-degree turnaround/final turns. After the long return leg, the robot restores its initial heading and backs up 7 inches to the nominal starting position. Returning to the starting pose depends on hardware calibration of the turnaround. `BasicAutonomous` negates forward and turn inputs at the `Robot.drive` boundary because positive drive power moves this chassis backward; its route uses positive distances for physical forward and left/right helpers for physical turns. Driving and turning use time estimates; calibrate distance speed and turn duration on the robot before relying on endpoint accuracy.
-- `BasicAutonomous` first attempts four pollen after START, before any chassis movement: full shooter power, 2000 ms spin-up, then four 400 ms push/600 ms rest feeder cycles. Missing feeder or STOP aborts the route. Shooter/intake stop and feeder returns to rest in cleanup. This is timed power/feeding, not regulated RPM or ball detection; tune on hardware.
+- `BasicAutonomous` first aligns the chassis to the selected scoring cluster after START (X = Blue, B = Red during INIT; default Red), then attempts four pollen before route driving: full shooter power, 2000 ms spin-up, then four 400 ms push/600 ms rest feeder cycles. Missing feeder, alignment failure, lost aim before/during feeding, camera failure, or STOP aborts the route. Shooter/intake stop and feeder returns to rest in cleanup. This is timed power/feeding, not regulated RPM or ball detection; tune on hardware.
 - `RobotTeleOp` uses `findCluster` and `AprilTagClusterDetection` with current SDK APIs; odometry telemetry requires real accessors in `Robot`.
+- `AutonomousCameraAligner` only turns in place; range is telemetry, not a shooting-distance controller. Aim defaults to 0-degree bearing; calibrate camera-to-shooter offset on hardware. Raw positive turn is physical left on the current drivetrain.
+- Alignment requires five distinct fresh frames over 200 ms, within 2 degrees and at most 8 deg/sec bearing change. Frames older than 250 ms, target loss, or non-streaming cameras stop turning; camera failure and a 5-second timeout abort. `Camera Alignment Test` selects alliance and tests this without shooting.
+- `AprilTagVision` uses the existing 640x480 YUY2 Arducam setup with exposure/gain controls and startup Logitech fallback (`Webcam 2`). Runtime loss reports failure instead of reopening. Imported lens calibration needs physical bearing verification; its principal point is outside the image.
 - Keep OpModes organized under `org.firstinspires.ftc.teamcode`.
 - Annotate competition TeleOp classes with `@TeleOp(name = "...", group = "...")`.
 - Annotate competition Autonomous classes with `@Autonomous(name = "...", group = "...")`.
@@ -37,4 +40,5 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 
 ## Child DOX Index
 
-No nested child indexes. All team code resides in `src/main/java/org/firstinspires/ftc/teamcode/`.
+- `src/test/`: deterministic JVM alignment tests and their verification contract.
+- Production sources, resources, and hardware verification remain owned here.

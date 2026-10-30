@@ -13,6 +13,7 @@ public class BasicAutonomous extends LinearOpMode {
 
     private final Robot robot = new Robot();
     private String shootingStatus = "Not started";
+    private String targetCluster = AprilTagVision.RED_SCORING;
     private final ElapsedTime runtime = new ElapsedTime();
     private final ElapsedTime stepTimer = new ElapsedTime();
 
@@ -36,10 +37,19 @@ public class BasicAutonomous extends LinearOpMode {
         robot.init(hardwareMap);
 
         telemetry.addLine("Basic Out and Back Auto");
-        telemetry.addLine("FIRST: spin up shooter and attempt four pollen, then drive.");
+        telemetry.addLine("FIRST: camera align, shoot four pollen, then drive.");
         telemetry.addLine("Forward 7 in, left 90, forward 46 in, wait 2 sec, turn 180, return");
         telemetry.update();
 
+        while (opModeInInit()) {
+            if (gamepad1.x) targetCluster = AprilTagVision.BLUE_SCORING;
+            if (gamepad1.b) targetCluster = AprilTagVision.RED_SCORING;
+            telemetry.addLine("X = Blue, B = Red. Align first, then shoot, then drive.");
+            telemetry.addData("Scoring target", targetCluster);
+            telemetry.addData("Camera", robot.vision.getCameraState());
+            telemetry.update();
+            sleep(20);
+        }
         waitForStart();
         if (!opModeIsActive()) {
             robot.close();
@@ -47,7 +57,11 @@ public class BasicAutonomous extends LinearOpMode {
         }
         try {
             runtime.reset();
-            // First active action after START: shoot while the chassis stays stopped.
+            // Align in place before starting the unchanged timed shooting sequence.
+            if (!AutonomousCameraAligner.align(this, robot, targetCluster)) {
+                shootingStatus = "Alignment failed; shooting and route skipped";
+                return;
+            }
             if (!shootPollen()) return;
 
             driveInches(7, 0.3);
@@ -98,7 +112,7 @@ public class BasicAutonomous extends LinearOpMode {
         try {
             robot.shooter.setTargetPower(AUTONOMOUS_SHOOTER_POWER);
             if (!waitForShootingPhase("Spinning up shooter", SHOOTER_SPINUP_MS)) {
-                shootingStatus = "Stopped during spin-up";
+                if (isStopRequested()) shootingStatus = "Stopped during spin-up";
                 return false;
             }
             for (int pollen = 1; pollen <= POLLEN_COUNT; pollen++) {
@@ -106,16 +120,20 @@ public class BasicAutonomous extends LinearOpMode {
                     shootingStatus = "Stopped before feeder cycle " + pollen;
                     return false;
                 }
+                if (!AutonomousCameraAligner.hasFreshAim(robot, targetCluster)) {
+                    shootingStatus = "Aim lost; remaining pollen skipped";
+                    return false;
+                }
                 robot.intakeSystem.pushBall();
                 if (!waitForShootingPhase("Pushing pollen " + pollen + "/" + POLLEN_COUNT,
-                        FEEDER_PUSH_MS)) {
-                    shootingStatus = "Stopped during feeder push";
+                        FEEDER_PUSH_MS, true)) {
+                    if (isStopRequested()) shootingStatus = "Stopped during feeder push";
                     return false;
                 }
                 robot.intakeSystem.restFeeder();
                 if (!waitForShootingPhase("Returning feeder " + pollen + "/" + POLLEN_COUNT,
                         FEEDER_RETURN_MS)) {
-                    shootingStatus = "Stopped during feeder return";
+                    if (isStopRequested()) shootingStatus = "Stopped during feeder return";
                     return false;
                 }
             }
@@ -130,9 +148,18 @@ public class BasicAutonomous extends LinearOpMode {
     }
 
     private boolean waitForShootingPhase(String phase, long milliseconds) {
+        return waitForShootingPhase(phase, milliseconds, false);
+    }
+
+    private boolean waitForShootingPhase(String phase, long milliseconds, boolean feeding) {
         shootingStatus = phase;
         ElapsedTime phaseTimer = new ElapsedTime();
         while (opModeIsActive() && phaseTimer.milliseconds() < milliseconds) {
+            if (robot.vision.hasFailed() || !robot.vision.isReady()
+                    || (feeding && !AutonomousCameraAligner.hasFreshAim(robot, targetCluster))) {
+                shootingStatus = "Camera/aim lost; shooting aborted";
+                return false;
+            }
             telemetry.addData("Shooting status", phase);
             telemetry.addData("Shooter power", "%.2f", robot.shooter.getCurrentPower());
             telemetry.update();

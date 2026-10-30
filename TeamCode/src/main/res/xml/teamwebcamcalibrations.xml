@@ -158,4 +158,19 @@
 
     <!-- ======================================================================================= -->
 
+    <!-- Arducam OV9281 (USB 0c45:6366) at 640x480 YUY2. Calibrated on the Control Hub with the
+         Camera Calibration Capture OpMode and TeamCode/tools/calibrate_camera.py: 30 checkerboard
+         poses, 0.61 px reprojection RMS. The principal point lies outside the 640x480 frame, the cause is not yet validated. Check bearing against a centred target before trusting aim.
+         Valid only at this resolution. -->
+    <Camera vid="0x0C45" pid="0x6366">
+        <Calibration
+            size="640 480"
+            focalLength="704.966f, 712.258f"
+            principalPoint="667.421f, 454.766f"
+            distortionCoefficients="-0.270868f, 0.082002f, 0.003833f, 0.013244f, -0.010792f, 0f, 0f, 0f"
+            />
+    </Camera>
+
+    <!-- ======================================================================================= -->
+
 </Calibrations>
