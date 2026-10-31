@@ -8,9 +8,9 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import java.util.List;
 
 /**
- * BLUE ALLIANCE AUTONOMOUS PATH (High-Speed Performance)
+ * BLUE ALLIANCE AUTONOMOUS PATH (High-Speed Chassis AprilTag Alignment)
  *
- * Includes blueTagAlign(), deployRamp(), pullRamp(), intake(seconds), and shoot(seconds).
+ * Uses quick chassis blueTagAlign() for lightning-fast autonomous positioning.
  */
 @Autonomous(name = "Blue Alliance Autonomous", group = "Blue")
 public class BlueAutonomous extends LinearOpMode {
@@ -18,18 +18,16 @@ public class BlueAutonomous extends LinearOpMode {
     private final Robot robot = new Robot();
     private final ElapsedTime runtime = new ElapsedTime();
 
-    // Calibration: Estimated driving speed in inches per second at 0.5 power
     public static final double ESTIMATED_INCHES_PER_SECOND = 28.0;
 
     @Override
     public void runOpMode() {
 
-        // Initialize drive motors and vision
         robot.init(hardwareMap);
 
         telemetry.addLine("=================================");
         telemetry.addLine("  BLUE ALLIANCE AUTONOMOUS READY ");
-        telemetry.addLine("  blueTagAlign() Vision Active   ");
+        telemetry.addLine("  Quick Chassis blueTagAlign()  ");
         telemetry.addLine("=================================");
         telemetry.update();
 
@@ -37,25 +35,25 @@ public class BlueAutonomous extends LinearOpMode {
         runtime.reset();
 
         // =========================================================================
-        // BLUE ALLIANCE AUTONOMOUS PATH EXAMPLE
+        // BLUE ALLIANCE AUTONOMOUS PATH
         // =========================================================================
 
-        // STEP 1: Align to Blue AprilTags (38-41 / 42-45)
-        telemetry.addLine("Auto-Aligning to Blue AprilTags...");
+        // STEP 1: Quick Chassis Alignment to Blue AprilTags
+        telemetry.addLine("Quick Chassis Aligning to Blue AprilTags...");
         telemetry.update();
-        blueTagAlign();
+        blueTagAlign(12.0, 2.0); // Fast 2.0 second max timeout
 
         // STEP 2: Deploy Ramp & Shoot for 2.5 seconds
         deployRamp();
         shoot(2.5);
         pullRamp();
 
-        // STEP 3: Drive forward & Intake for 3.0 seconds
+        // STEP 3: Drive forward & Intake
         driveInches(25, 0.60);
         intake(3.0);
 
-        // STEP 4: Secondary Alignment & Final Shoot
-        blueTagAlign(12.0, 3.0);
+        // STEP 4: Secondary Quick Alignment & Final Shoot
+        blueTagAlign(12.0, 2.0);
         deployRamp();
         shoot(2.0);
         pullRamp();
@@ -70,15 +68,11 @@ public class BlueAutonomous extends LinearOpMode {
     }
 
     // =========================================================================
-    // BLUE ALLIANCE AUTONOMOUS APRILTAG ALIGNMENT
+    // QUICK CHASSIS BLUE ALLIANCE APRILTAG ALIGNMENT
     // =========================================================================
 
-    /**
-     * Automatically locks onto target Blue AprilTags (38-41 primary / 42-45 secondary).
-     * Usage: blueTagAlign();
-     */
     public boolean blueTagAlign() {
-        return blueTagAlign(12.0, 3.5);
+        return blueTagAlign(12.0, 2.0); // Fast 2.0s timeout by default
     }
 
     public boolean blueTagAlign(double targetDistanceInches, double maxTimeoutSeconds) {
@@ -105,40 +99,32 @@ public class BlueAutonomous extends LinearOpMode {
                 double adjustedBearing = rawBearing + 45.0; 
                 double rangeError = targetTag.ftcPose.range - targetDistanceInches;
 
-                // Turret alignment power
-                double turretPower = adjustedBearing * 0.020;
-                turretPower = Math.max(-0.45, Math.min(0.45, turretPower));
-                robot.turretSystem.setPower(turretPower);
-
-                // Chassis drive correction
-                double drivePower = rangeError * 0.03;
-                double turnPower = adjustedBearing * 0.02;
-                drivePower = Math.max(-0.35, Math.min(0.35, drivePower));
-                turnPower = Math.max(-0.25, Math.min(0.25, turnPower));
+                // Quick, snappy chassis drive & turn alignment
+                double drivePower = rangeError * 0.05;
+                double turnPower = adjustedBearing * 0.035;
+                drivePower = Math.max(-0.50, Math.min(0.50, drivePower));
+                turnPower = Math.max(-0.40, Math.min(0.40, turnPower));
 
                 robot.drive(drivePower, turnPower);
 
-                // Check alignment tolerance (1.5 inches range, 2.0 degrees bearing)
-                if (Math.abs(rangeError) < 1.5 && Math.abs(adjustedBearing) < 2.0) {
+                // Quick tolerance check (2.0 inches range, 3.0 degrees bearing)
+                if (Math.abs(rangeError) < 2.0 && Math.abs(adjustedBearing) < 3.0) {
                     aligned = true;
                     robot.drive(0, 0);
-                    robot.turretSystem.stopTurret();
-                    telemetry.addData("blueTagAlign()", "ALIGNED to Blue Tag " + targetTag.id);
+                    telemetry.addData("blueTagAlign()", "QUICK ALIGNED to Blue Tag " + targetTag.id);
                 } else {
-                    telemetry.addData("blueTagAlign()", "Aligning Blue Tag %d (Range Err: %.1fin, Bearing: %.1fdeg)",
+                    telemetry.addData("blueTagAlign()", "Quick Aligning Tag %d (Err: %.1fin, Turn: %.1fdeg)",
                             targetTag.id, rangeError, adjustedBearing);
                 }
             } else {
-                robot.drive(0.0, 0.15); // Scan slowly for tag
-                robot.turretSystem.stopTurret();
-                telemetry.addData("blueTagAlign()", "Searching for Blue AprilTags...");
+                robot.drive(0.0, 0.25); // Fast scan speed
+                telemetry.addData("blueTagAlign()", "Scanning for Blue AprilTags...");
             }
 
             telemetry.update();
         }
 
         robot.drive(0, 0);
-        robot.turretSystem.stopTurret();
         return aligned;
     }
 
