@@ -31,6 +31,8 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 
 - `FlowerArmDiagnostic` provides `Flower Arm Test`: runs the production positional arm controller without Robot, drive, shooter, intake, or vision initialization. Displays controller 1 D-pad inputs, commanded target, SDK command, servo port, PWM controller status, and touch input. INIT still commands raised target 0.0; controls require START. Test UP first because DOWN is clamped at the initial command limit. No physical position feedback is available.
 
+- During current camera-alignment diagnosis, RobotTeleOp emits temporary [DEBUG-camera-align] records every 500 ms with L2 input, state, selected target, camera status, observed clusters/pose and turn command. Read via Control Hub ADB after a short reproduction. Remove tagged logs once diagnosis is complete; streaming has been confirmed but failed alignment has not yet been isolated.
+
 ## Work Guidance
 
 - Follow Java conventions used in existing OpModes and subsystems.

@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.util.RobotLog;
 
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
@@ -22,6 +23,7 @@ public class RobotTeleOp extends LinearOpMode {
     private boolean previousY = false;
     private boolean previousPowerDown = false;
     private boolean previousPowerUp = false;
+    private long nextAlignmentLog;
 
     @Override
     public void runOpMode() {
@@ -109,6 +111,26 @@ public class RobotTeleOp extends LinearOpMode {
                 }
                 telemetry.addData("Aim target", alignmentTarget);
                 telemetry.addData("Camera", robot.vision.getCameraState());
+
+                if (System.nanoTime() >= nextAlignmentLog) {
+                    StringBuilder observed = new StringBuilder();
+                    for (AprilTagDetection detection : detections) {
+                        if (detection instanceof AprilTagClusterDetection) {
+                            AprilTagClusterDetection cluster = (AprilTagClusterDetection) detection;
+                            observed.append(cluster.metadata == null ? "unknown-cluster" : cluster.metadata.name);
+                            observed.append(cluster.ftcPose == null ? ":no-pose;" :
+                                    String.format(java.util.Locale.US, ":bearing=%.1f,range=%.1f;",
+                                            cluster.ftcPose.bearing, cluster.ftcPose.range));
+                        } else {
+                            observed.append(detection.getClass().getSimpleName()).append(';');
+                        }
+                    }
+                    RobotLog.ii("[DEBUG-camera-align]",
+                            "L2=%.2f state=%s selected=%s camera=%s observed=%s turn=%.3f",
+                            gamepad1.left_trigger, aim == null ? "MANUAL" : aim.state,
+                            alignmentTarget, robot.vision.getCameraState(), observed.toString(), turn);
+                    nextAlignmentLog = System.nanoTime() + 500_000_000L;
+                }
 
                 robot.drive(drive, turn);
                 flowerArm.update(gamepad1.dpad_up, gamepad1.dpad_down);
