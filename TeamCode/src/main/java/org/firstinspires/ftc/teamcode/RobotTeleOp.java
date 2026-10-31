@@ -47,7 +47,7 @@ public abstract class RobotTeleOp extends LinearOpMode {
             telemetry.addLine("Controller 1 D-pad Up/Down = Flower Arm (hold)");
             telemetry.addLine("R2 (Hold) = Intake In + Both Shooters");
             telemetry.addLine("Y             = Toggle Shooter Direction");
-            telemetry.addLine("Hold L2 = Turret Camera Aim");
+            telemetry.addLine("Hold L2 = Turret Search + Camera Aim");
             telemetry.addLine("D-pad Left/Right = Shooter Power -/+ 1 percentage point");
             telemetry.update();
 
@@ -118,6 +118,9 @@ public abstract class RobotTeleOp extends LinearOpMode {
                     drive = 0;
                     turn = 0;
                     telemetry.addData("Alignment", aim.state);
+                    if (aim.state == ClusterAlignmentController.State.SEARCHING) {
+                        telemetry.addLine("Searching side-to-side for hive tags; release L2 to stop");
+                    }
                     telemetry.addData("Stable frames", "%d / %d", aim.stableFrames,
                             ClusterAlignmentController.REQUIRED_FRAMES);
                     if (aim.target != null) {

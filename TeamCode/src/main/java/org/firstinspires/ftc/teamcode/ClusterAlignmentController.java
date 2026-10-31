@@ -12,7 +12,7 @@ public final class ClusterAlignmentController {
     private static final double MIN_POWER = 0.08;
     private static final double MAX_POWER = 0.25;
 
-    public enum State { WAITING_FOR_CAMERA, TARGET_MISSING, ALIGNING, SETTLING,
+    public enum State { WAITING_FOR_CAMERA, TARGET_MISSING, SEARCHING, ALIGNING, SETTLING,
         ALIGNED, STALE_FRAME, CAMERA_FAILED, TIMED_OUT }
 
     public static final class Sample {

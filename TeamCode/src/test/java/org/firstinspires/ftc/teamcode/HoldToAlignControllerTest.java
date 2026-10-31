@@ -42,11 +42,36 @@ public class HoldToAlignControllerTest {
                 controller.update(true, 9_000_000_000L, true, false, false, null).state);
     }
 
-    @Test public void cameraFailureAndTargetLossStopTheChassisWhileHeld() {
+    @Test public void targetLossSearchesButCameraFailureStopsTurret() {
         HoldToAlignController controller = new HoldToAlignController();
         controller.update(true, 100, true, false, true,
                 new ClusterAlignmentController.Sample(-10, 24, 100));
-        assertEquals(0, controller.update(true, 200, true, false, true, null).turnPower, 0);
+        assertEquals(0.10, controller.update(true, 200, true, false, true, null).turnPower, 0);
         assertEquals(0, controller.update(true, 300, false, true, false, null).turnPower, 0);
+    }
+
+    @Test public void missingTargetSearchesBothDirectionsThenSwitchesToFeedback() {
+        HoldToAlignController controller = new HoldToAlignController();
+        ClusterAlignmentController.Output output = controller.update(true, 0, true, false, true, null);
+        assertEquals(ClusterAlignmentController.State.SEARCHING, output.state);
+        assertEquals(0.10, output.turnPower, 0);
+        assertEquals(-0.10, controller.update(true, 400_000_000L, true, false, true, null).turnPower, 0);
+        assertEquals(0.10, controller.update(true, 1_200_000_000L, true, false, true, null).turnPower, 0);
+        output = controller.update(true, 1_300_000_000L, true, false, true,
+                new ClusterAlignmentController.Sample(-10, 72, 1_300_000_000L));
+        assertEquals(ClusterAlignmentController.State.ALIGNING, output.state);
+        assertTrue(output.turnPower < 0);
+        assertNull(controller.update(false, 1_400_000_000L, true, false, false, null));
+    }
+
+    @Test public void searchRequiresFreshFramesAndStopsAtHoldTimeout() {
+        HoldToAlignController controller = new HoldToAlignController();
+        assertEquals(0, controller.update(true, 0, true, false, false, null).turnPower, 0);
+        assertEquals(0.10, controller.update(true, 100, true, false, true, null).turnPower, 0);
+        assertEquals(0, controller.update(true, 300_000_000L, true, false, false, null).turnPower, 0);
+        assertEquals(0, controller.update(true, 400_000_000L, false, false, false, null).turnPower, 0);
+        ClusterAlignmentController.Output output = controller.update(true, 5_000_000_000L, true, false, true, null);
+        assertEquals(ClusterAlignmentController.State.TIMED_OUT, output.state);
+        assertEquals(0, output.turnPower, 0);
     }
 }

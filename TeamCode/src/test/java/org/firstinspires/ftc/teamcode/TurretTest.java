@@ -43,7 +43,7 @@ public class TurretTest {
                 new ClusterAlignmentController.Sample(10, 72, 300)));
         assertEquals(-0.15, power, 0);
         turret.applyAlignment(controller.update(true, 400, true, false, true, null));
-        assertEquals(0, power, 0);
+        assertEquals(0.10, power, 0);
     }
 
     @Test public void cameraFailureAndTimeoutStopMotor() {

@@ -12,10 +12,10 @@ Owns tests under `src/test/java`; production behavior remains owned by TeamCode.
 
 - Use JUnit 4, fake timestamps/observations for alignment, and lightweight SDK-interface proxies for shooter and flower arm actuator commands.
 - Exercise actual production controller logic; do not substitute Android hardware behavior.
-- Cover fresh versus repeated/stale frames, target loss, stable lock, timeout, and motor-command sign/bounds. HoldToAlignController tests exercise release returning manual control, fresh attempts without retained steering, timeout requiring release, and zero steering on camera failure/target loss, learned nonzero bearing references, and invalid reference rejection.
+- Cover fresh versus repeated/stale frames, target loss, stable lock, timeout, and motor-command sign/bounds. HoldToAlignController tests exercise release returning manual control, fresh attempts without retained steering, timeout requiring release, and zero steering on camera failure and stale frames, fresh-frame target-loss search with direction reversal and target reacquisition, learned nonzero bearing references, and invalid reference rejection.
 - Shooter tests cover dual shooter1/shooter2 servo setup, partial/missing hardware, both direction/power commands, live tuning with shared adjustment and bounded gap, initialization reset, stopping, unavailable servo RPM, and legacy motor compatibility. Flower arm tests cover retained positional targets on release/stop, upper switch blocking upward targets with downward escape, conflicting inputs, time-step/range bounds, and missing-switch initialization without movement.
 
-- Turret tests connect actual held-alignment outputs to a fake DcMotor, verifying bounded directional commands, release/target-loss/camera-failure/timeout stops, initialization brake/mode and invalid-power stopping.
+- Turret tests connect actual held-alignment outputs to a fake DcMotor, verifying bounded directional commands, release/camera-failure/timeout stops and target-loss search commands, initialization brake/mode and invalid-power stopping.
 
 ## Work Guidance
 
