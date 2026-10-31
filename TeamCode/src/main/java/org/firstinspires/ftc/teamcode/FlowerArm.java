@@ -41,6 +41,7 @@ public class FlowerArm {
         double dt = Double.isFinite(elapsedSeconds)
                 ? Math.max(0, Math.min(0.05, elapsedSeconds)) : 0;
         if (up != down) {
+            // Installed arm: smaller positions raise; larger positions lower.
             if (down) target += POSITION_PER_SECOND * dt;
             else if (!isUpperLimitPressed()) target -= POSITION_PER_SECOND * dt;
         }
