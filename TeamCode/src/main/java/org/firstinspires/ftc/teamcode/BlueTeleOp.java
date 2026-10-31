@@ -7,19 +7,19 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import java.util.List;
 
 /**
- * BLUE ALLIANCE TELEOP OPMODE
+ * BLUE ALLIANCE TELEOP OPMODE (Single Controller)
  * 
- * Camera Turret Auto-Alignment:
- * - LB (Hold): Auto-aligns Turret to Blue Tags [38, 39, 40, 41]
- * - RB (Hold): Auto-aligns Turret to Blue Tags [42, 43, 44, 45]
+ * Match Loader Servo:
+ * - Rotates 110° to the left on Button A toggle.
+ * - Auto-halts / retracts if Touch Sensor ("matchLoaderTouch") is triggered.
  * 
- * Manual Controls:
+ * Controls (Gamepad 1):
  * - Left Stick Y / Right Stick X: Manual Drive & Turn
  * - D-Pad Left / Right: Manual 360° Turret Rotation
  * - Right Trigger: Shoot (Shooter 1 & 2 at 100% Speed)
  * - Left Trigger: Run Intake
  * - Button Y: Toggle Intake Direction
- * - Button A: Toggle Match Loader Servo DOWN 90°
+ * - Button A: Toggle Match Loader Servo DOWN 110°
  * - Button X: Direct Intake OUT (Reverse)
  */
 @TeleOp(name = "Blue Alliance TeleOp", group = "Blue")
@@ -35,10 +35,11 @@ public class BlueTeleOp extends LinearOpMode {
     private boolean matchLoaderDown = false;
     private boolean previousA = false;
 
-    // Proportional gains for camera alignment
-    private static final double P_TURRET_GAIN = 0.025; // Gain for turret auto-alignment
-    private static final double P_DRIVE_GAIN  = 0.03;
-    private static final double P_CHASSIS_TURN_GAIN = 0.02;
+    // Camera mounting offset correction for Blue Alliance (+45° Left Offset Correction)
+    private static final double CAMERA_MOUNT_OFFSET_DEGREES = +45.0;
+
+    // Proportional gains for camera turret alignment
+    private static final double P_TURRET_GAIN = 0.020;
 
     @Override
     public void runOpMode() {
@@ -47,8 +48,10 @@ public class BlueTeleOp extends LinearOpMode {
 
         telemetry.addLine("=================================");
         telemetry.addLine("  BLUE ALLIANCE TELEOP READY     ");
+        telemetry.addLine("  Match Loader: 110° + Touch Halt");
         telemetry.addLine("  LB: Turret Align Tags 38-41    ");
         telemetry.addLine("  RB: Turret Align Tags 42-45    ");
+        telemetry.addLine("  Right Trigger = Shooter 1 & 2  ");
         telemetry.addLine("=================================");
         telemetry.update();
 
@@ -78,7 +81,6 @@ public class BlueTeleOp extends LinearOpMode {
                 int[] targetGroup = leftBumper ? AprilTagVision.BLUE_TAGS_PRIMARY : AprilTagVision.BLUE_TAGS_SECONDARY;
                 AprilTagDetection targetTag = robot.vision.findTagInGroup(targetGroup);
 
-                // Fallback: If group tag not found, use any visible tag
                 if (targetTag == null && detections != null && !detections.isEmpty()) {
                     targetTag = detections.get(0);
                 }
@@ -86,24 +88,20 @@ public class BlueTeleOp extends LinearOpMode {
                 if (targetTag != null && targetTag.ftcPose != null) {
                     isAutoAligningTurret = true;
 
-                    double bearingError = targetTag.ftcPose.bearing; // Camera offset angle
-                    double rangeError   = targetTag.ftcPose.range - 12.0;
+                    double rawBearing = targetTag.ftcPose.bearing;
+                    double adjustedBearing = rawBearing + CAMERA_MOUNT_OFFSET_DEGREES;
 
-                    // Calculate proportional turret alignment power
-                    double turretPower = bearingError * P_TURRET_GAIN;
-                    turretPower = Math.max(-0.6, Math.min(0.6, turretPower));
+                    double turretPower = adjustedBearing * P_TURRET_GAIN;
+                    turretPower = Math.max(-0.45, Math.min(0.45, turretPower));
 
-                    // Rotate turret automatically to lock onto target
                     robot.turretSystem.setPower(turretPower);
 
-                    // Chassis assistance drive
-                    drive = Math.max(-0.3, Math.min(0.3, rangeError * P_DRIVE_GAIN));
-                    turn  = Math.max(-0.2, Math.min(0.2, bearingError * P_CHASSIS_TURN_GAIN));
-
                     telemetry.addData("Turret Auto-Aligning Tag", targetTag.id);
-                    telemetry.addData("Bearing Error (Deg)", "%.1f", bearingError);
+                    telemetry.addData("Raw Bearing (Deg)", "%.1f", rawBearing);
+                    telemetry.addData("Adjusted Bearing", "%.1f", adjustedBearing);
                     telemetry.addData("Turret Power", "%.2f", turretPower);
                 } else {
+                    robot.turretSystem.stopTurret();
                     telemetry.addData("Turret Auto-Align", "No Target Blue Tags in View!");
                 }
             }
@@ -112,16 +110,13 @@ public class BlueTeleOp extends LinearOpMode {
             robot.drive(drive, turn);
 
             // =========================================================================
-            // MANUAL TURRET CONTROL (D-Pad Left / Right - Active when not auto-aligning)
+            // MANUAL TURRET CONTROL (D-Pad Left / Right)
             // =========================================================================
 
             if (!isAutoAligningTurret) {
-                boolean dpadLeft  = gamepad1.dpad_left || gamepad2.dpad_left;
-                boolean dpadRight = gamepad1.dpad_right || gamepad2.dpad_right;
-
-                if (dpadLeft) {
+                if (gamepad1.dpad_left) {
                     robot.turretSystem.rotateLeft();
-                } else if (dpadRight) {
+                } else if (gamepad1.dpad_right) {
                     robot.turretSystem.rotateRight();
                 } else {
                     robot.turretSystem.stopTurret();
@@ -132,7 +127,7 @@ public class BlueTeleOp extends LinearOpMode {
             // BUTTON Y: TOGGLE INTAKE DIRECTION
             // =========================================================================
 
-            boolean currentY = gamepad1.y || gamepad2.y;
+            boolean currentY = gamepad1.y;
 
             if (currentY && !previousY) {
                 intakeInDirection = !intakeInDirection;
@@ -141,10 +136,10 @@ public class BlueTeleOp extends LinearOpMode {
             previousY = currentY;
 
             // =========================================================================
-            // BUTTON A: MATCH LOADER SERVO DOWN 90°
+            // BUTTON A: MATCH LOADER SERVO DOWN 110° (WITH TOUCH SENSOR HALT)
             // =========================================================================
 
-            boolean currentA = gamepad1.a || gamepad2.a;
+            boolean currentA = gamepad1.a;
 
             if (currentA && !previousA) {
                 matchLoaderDown = !matchLoaderDown;
@@ -153,13 +148,19 @@ public class BlueTeleOp extends LinearOpMode {
 
             previousA = currentA;
 
+            // Update robot safety checks (auto-retract match loader if touch sensor pressed)
+            robot.update();
+            if (robot.isMatchLoaderTouchPressed()) {
+                matchLoaderDown = false; // Reset toggle state if touch sensor triggered
+            }
+
             // =========================================================================
             // TRIGGERS & INTAKE / SHOOTER CONTROLS
             // =========================================================================
 
-            double intakeTrigger  = Math.max(gamepad1.left_trigger, gamepad2.left_trigger);
-            double shooterTrigger = Math.max(gamepad1.right_trigger, gamepad2.right_trigger);
-            boolean buttonX       = gamepad1.x || gamepad2.x;
+            double intakeTrigger  = gamepad1.left_trigger;
+            double shooterTrigger = gamepad1.right_trigger;
+            boolean buttonX       = gamepad1.x;
 
             // SHOOTER CONTROL (Right Trigger)
             if (shooterTrigger > 0.05) {
@@ -176,7 +177,6 @@ public class BlueTeleOp extends LinearOpMode {
                 robot.intakeSystem.intakeOut();
 
             } else if (intakeTrigger > 0.05) {
-                // Run Intake according to current toggle direction
                 if (intakeInDirection) {
                     robot.intakeSystem.intakeIn();
                 } else {
@@ -186,8 +186,6 @@ public class BlueTeleOp extends LinearOpMode {
             } else {
                 robot.intakeSystem.stopIntake();
             }
-
-            robot.update();
 
             // =========================================================================
             // TELEMETRY
@@ -210,7 +208,8 @@ public class BlueTeleOp extends LinearOpMode {
             telemetry.addData("Shooter 2 Power", "%.2f", robot.shooter2System.getCurrentPower());
 
             telemetry.addLine("------------------------------");
-            telemetry.addData("Match Loader Servo (A)", matchLoaderDown ? "DOWN (90°)" : "UP (Rest)");
+            telemetry.addData("Match Loader Servo (A)", matchLoaderDown ? "DOWN (110°)" : "UP (Rest)");
+            telemetry.addData("Match Loader Touch Sensor", robot.isMatchLoaderTouchPressed() ? "TOUCHED (HALTED)" : "OPEN");
 
             telemetry.addLine("------------------------------");
             telemetry.addData("Visible AprilTags", detections != null ? detections.size() : 0);
