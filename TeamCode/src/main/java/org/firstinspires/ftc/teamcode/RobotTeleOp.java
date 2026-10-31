@@ -41,7 +41,8 @@ public class RobotTeleOp extends LinearOpMode {
                 telemetry.addLine("Robot initialized — Controller 1 D-pad Up/Down: Flower Arm");
                 telemetry.addLine("Controller 1 L1: Intake In; R1: Intake Out (hold)");
                 telemetry.addData("Flower upper limit", flowerArm.isUpperLimitPressed() ? "PRESSED" : "RELEASED");
-                telemetry.addLine("Verify touch switch changes state before moving the arm");
+                telemetry.addLine("Arm holds position on release; INIT commands midpoint (0.5)");
+                telemetry.addData("Flower arm target (not measured)", "%.3f", flowerArm.getTargetPosition());
                 telemetry.update();
                 sleep(50);
             }
@@ -129,7 +130,7 @@ public class RobotTeleOp extends LinearOpMode {
                         detections != null ? detections.size() : 0);
 
                 telemetry.addData("Flower upper limit", flowerArm.isUpperLimitPressed() ? "PRESSED" : "RELEASED");
-                telemetry.addData("Flower arm power", "%.2f", flowerArm.getPower());
+                telemetry.addData("Flower arm target (not measured)", "%.3f", flowerArm.getTargetPosition());
                 telemetry.addData("Intake power", "%.2f", robot.intakeSystem.getPower());
                 telemetry.update();
             }

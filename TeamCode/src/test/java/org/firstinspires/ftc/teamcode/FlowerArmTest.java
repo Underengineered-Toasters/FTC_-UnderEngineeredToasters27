@@ -1,60 +1,68 @@
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.TouchSensor;
 import org.junit.Test;
 import java.lang.reflect.Proxy;
 import static org.junit.Assert.*;
 
 public class FlowerArmTest {
-    private double power = 1;
+    private double position;
+    private int commands;
     private boolean pressed;
     private final FlowerArm arm = new FlowerArm();
 
-    private void initialize() {
-        CRServo servo = (CRServo) Proxy.newProxyInstance(CRServo.class.getClassLoader(),
-                new Class<?>[]{CRServo.class}, (proxy, method, args) -> {
-                    if (method.getName().equals("setPower")) power = (Double) args[0];
-                    if (method.getName().equals("getPower")) return power;
+    private Servo servo() {
+        return (Servo) Proxy.newProxyInstance(Servo.class.getClassLoader(),
+                new Class<?>[]{Servo.class}, (proxy, method, args) -> {
+                    if (method.getName().equals("setPosition")) {
+                        position = (Double) args[0]; commands++;
+                    }
                     return null;
                 });
+    }
+
+    private void initialize() {
         TouchSensor sensor = (TouchSensor) Proxy.newProxyInstance(TouchSensor.class.getClassLoader(),
                 new Class<?>[]{TouchSensor.class}, (proxy, method, args) ->
                         method.getName().equals("isPressed") ? pressed : null);
-        arm.configure(servo, sensor);
+        arm.configure(servo(), sensor);
     }
 
-    @Test public void initializationReleaseAndStopCommandZero() {
-        initialize(); assertEquals(0, power, 0);
-        arm.update(true, false); assertEquals(-0.3, power, 0);
-        arm.update(false, false); assertEquals(0, power, 0);
-        arm.update(false, true); assertEquals(0.3, power, 0);
-        arm.stop(); assertEquals(0, power, 0);
+    @Test public void releaseAndStopHoldLastPositionInsteadOfReturningToCenter() {
+        initialize(); assertEquals(0.5, position, 0);
+        arm.update(true, false, 0.04); assertEquals(0.49, position, 1e-9);
+        arm.update(false, false, 0.04); assertEquals(0.49, position, 1e-9);
+        arm.stop(); assertEquals(0.49, position, 1e-9);
+        arm.update(false, true, 0.04); assertEquals(0.5, position, 1e-9);
     }
 
-    @Test public void switchStopsAnAlreadyRaisingArmAndAllowsDownwardEscape() {
-        initialize(); arm.update(true, false); assertEquals(-0.3, power, 0);
+    @Test public void upperSwitchBlocksRaisingButAllowsLowering() {
+        initialize(); arm.update(true, false, 0.04);
         pressed = true;
-        arm.update(true, false); assertEquals(0, power, 0);
-        arm.update(false, true); assertEquals(0.3, power, 0);
+        arm.update(true, false, 0.04); assertEquals(0.49, position, 1e-9);
+        arm.update(false, true, 0.04); assertEquals(0.5, position, 1e-9);
         pressed = false;
-        arm.update(true, false); assertEquals(-0.3, power, 0);
+        arm.update(true, false, 0.04); assertEquals(0.49, position, 1e-9);
     }
 
-    @Test public void conflictingButtonsStopInEitherSwitchState() {
-        initialize(); arm.update(true, false);
-        arm.update(true, true); assertEquals(0, power, 0);
-        pressed = true;
-        arm.update(true, true); assertEquals(0, power, 0);
+    @Test public void bothButtonsHoldAndLargeOrInvalidTimeCannotJumpTheArm() {
+        initialize(); arm.update(true, true, 0.04); assertEquals(0.5, position, 0);
+        arm.update(true, false, 10); assertEquals(0.4875, position, 1e-9);
+        arm.update(true, false, Double.NaN); assertEquals(0.4875, position, 1e-9);
+        arm.update(true, false, -1); assertEquals(0.4875, position, 1e-9);
     }
 
-    @Test public void missingSwitchFailsWithServoStopped() {
-        CRServo servo = (CRServo) Proxy.newProxyInstance(CRServo.class.getClassLoader(),
-                new Class<?>[]{CRServo.class}, (proxy, method, args) -> {
-                    if (method.getName().equals("setPower")) power = (Double) args[0];
-                    return null;
-                });
-        try { arm.configure(servo, null); fail("Missing switch must fail initialization"); }
-        catch (IllegalArgumentException expected) { assertEquals(0, power, 0); }
+    @Test public void sustainedInputReachesConfiguredRangeWithoutExceedingIt() {
+        initialize();
+        for (int i = 0; i < 100; i++) arm.update(true, false, 0.05);
+        assertEquals(0, position, 0);
+        for (int i = 0; i < 200; i++) arm.update(false, true, 0.05);
+        assertEquals(1, position, 0);
+    }
+
+    @Test public void missingSwitchFailsBeforeCommandingPosition() {
+        try { arm.configure(servo(), null); fail("Missing switch must fail initialization"); }
+        catch (IllegalArgumentException expected) { assertEquals(0, commands); }
     }
 }
