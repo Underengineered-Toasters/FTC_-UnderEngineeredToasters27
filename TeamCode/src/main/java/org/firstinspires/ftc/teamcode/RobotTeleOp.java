@@ -24,17 +24,18 @@ public class RobotTeleOp extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-
+        boolean robotInitialized = false;
         try {
             flowerArm.init(hardwareMap);
             robot.init(hardwareMap);
+            robotInitialized = true;
 
             telemetry.addLine("==============================");
             telemetry.addLine("       ROBOT INITIALIZED");
             telemetry.addLine("==============================");
             telemetry.addLine("Left Stick Y  = Manual Drive");
             telemetry.addLine("Right Stick X = Manual Turn");
-            telemetry.addLine("LB (Hold)     = Align Audience Tag");
+            telemetry.addLine("L1 (Hold) = Intake In; L2 (Hold) = Intake Out");
             telemetry.addLine("RB (Hold)     = Align Scoring Tag");
             telemetry.addLine("Controller 1 D-pad Up/Down = Flower Arm (hold)");
             telemetry.addLine("Right Trigger = Run Shooter");
@@ -43,6 +44,7 @@ public class RobotTeleOp extends LinearOpMode {
 
             while (!isStarted() && !isStopRequested()) {
                 telemetry.addLine("Robot initialized — Controller 1 D-pad Up/Down: Flower Arm");
+                telemetry.addLine("Controller 1 L1: Intake In; L2: Intake Out (hold)");
                 telemetry.addData("Flower upper limit", flowerArm.isUpperLimitPressed() ? "PRESSED" : "RELEASED");
                 telemetry.addLine("Verify touch switch changes state before moving the arm");
                 telemetry.update();
@@ -62,14 +64,11 @@ public class RobotTeleOp extends LinearOpMode {
                 double drive = gamepad1.left_stick_y;
                 double turn = -gamepad1.right_stick_x;
 
-                boolean leftBumper = gamepad1.left_bumper;
                 boolean rightBumper = gamepad1.right_bumper;
 
-                if (leftBumper || rightBumper) {
+                if (rightBumper) {
 
-                    String targetTagGroup = leftBumper
-                            ? AprilTagVision.RED_AUDIENCE
-                            : AprilTagVision.RED_SCORING;
+                    String targetTagGroup = AprilTagVision.RED_SCORING;
 
                     AprilTagClusterDetection targetTag =
                             robot.vision.findCluster(targetTagGroup);
@@ -130,6 +129,16 @@ public class RobotTeleOp extends LinearOpMode {
                 robot.drive(drive, turn);
                 flowerArm.update(gamepad1.dpad_up, gamepad1.dpad_down);
 
+                boolean intakeIn = gamepad1.left_bumper;
+                boolean intakeOut = gamepad1.left_trigger > 0.05;
+                if (intakeIn == intakeOut) {
+                    robot.intakeSystem.stopIntake();
+                } else if (intakeIn) {
+                    robot.intakeSystem.intakeIn();
+                } else {
+                    robot.intakeSystem.intakeOut();
+                }
+
                 // ==================================
                 // SHOOTER CONTROL
                 // Y toggles direction.
@@ -188,12 +197,14 @@ public class RobotTeleOp extends LinearOpMode {
 
                 telemetry.addData("Flower upper limit", flowerArm.isUpperLimitPressed() ? "PRESSED" : "RELEASED");
                 telemetry.addData("Flower arm power", "%.2f", flowerArm.getPower());
+                telemetry.addData("Intake power", "%.2f", robot.intakeSystem.getPower());
                 telemetry.update();
             }
 
         } finally {
             flowerArm.stop();
             robot.shooter.spinDown();
+            if (robotInitialized) robot.intakeSystem.stopIntake();
             robot.close();
         }
     }
