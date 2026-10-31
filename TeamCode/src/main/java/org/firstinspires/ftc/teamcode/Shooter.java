@@ -10,7 +10,7 @@ public class Shooter {
     private DcMotorEx flywheel;
     private CRServo shooter1;
     private CRServo shooter2;
-    private static final double POWER_MAX = 0.3;
+    private static final double POWER_MAX = 0.4;
 
     public void init(HardwareMap hardwareMap) {
         CRServo first = hardwareMap.tryGet(CRServo.class, "shooter1");

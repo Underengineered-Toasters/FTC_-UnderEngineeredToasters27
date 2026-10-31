@@ -48,9 +48,9 @@ public class ShooterTest {
         Shooter s = new Shooter();
         s.configureActuators(a.as(CRServo.class), b.as(CRServo.class), null);
         s.spinForwardMaxSpeed();
-        assertEquals(0.3, a.power, 0); assertEquals(0.3, b.power, 0); assertTrue(s.isSpinning());
+        assertEquals(0.4, a.power, 0); assertEquals(0.4, b.power, 0); assertTrue(s.isSpinning());
         s.spinReverseMaxSpeed();
-        assertEquals(-0.3, a.power, 0); assertEquals(-0.3, b.power, 0);
+        assertEquals(-0.4, a.power, 0); assertEquals(-0.4, b.power, 0);
         s.spinDown();
         assertEquals(0, a.power, 0); assertEquals(0, b.power, 0); assertFalse(s.isSpinning());
     }
@@ -73,8 +73,8 @@ public class ShooterTest {
         Actuator a = new Actuator(), b = new Actuator();
         Shooter s = new Shooter();
         s.configureActuators(a.as(CRServo.class), b.as(CRServo.class), null);
-        s.setTargetPower(3); assertEquals(0.3, a.power, 0); assertEquals(0.3, b.power, 0);
-        s.setTargetPower(-3); assertEquals(-0.3, a.power, 0); assertEquals(-0.3, b.power, 0);
+        s.setTargetPower(3); assertEquals(0.4, a.power, 0); assertEquals(0.4, b.power, 0);
+        s.setTargetPower(-3); assertEquals(-0.4, a.power, 0); assertEquals(-0.4, b.power, 0);
         s.setTargetPower(Double.NaN); assertEquals(0, a.power, 0); assertEquals(0, b.power, 0);
     }
 
@@ -105,7 +105,7 @@ public class ShooterTest {
         assertTrue(motor.enabled);
         assertEquals(DcMotor.RunMode.RUN_WITHOUT_ENCODER, motor.mode);
         assertTrue(s.hasVelocityFeedback()); assertEquals(120, s.getCurrentVelocityRPM(), 0);
-        s.setTargetPower(.7); assertEquals(.3, motor.power, 0);
+        s.setTargetPower(.7); assertEquals(.4, motor.power, 0);
         s.spinDown(); assertEquals(0, motor.power, 0);
     }
 
@@ -113,7 +113,7 @@ public class ShooterTest {
         Shooter s = new Shooter();
         s.configureActuators(new Actuator().as(CRServo.class), new Actuator().as(CRServo.class), null);
         s.spinUp6000RPM();
-        assertEquals(0.3, s.getCurrentPower(), 0);
+        assertEquals(0.4, s.getCurrentPower(), 0);
         assertTrue(Double.isNaN(s.getCurrentVelocityRPM()));
     }
 }
