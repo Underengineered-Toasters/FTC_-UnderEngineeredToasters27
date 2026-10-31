@@ -29,6 +29,8 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 
 - `FlowerArm` uses positional Servo `flower arm` on Control Hub servo port 0: goBILDA dual-mode torque servo in default positional mode. REV Touch Sensor `flowerUpperLimit` uses digital channel 1 (physical 0–1 socket). INIT commands raised target 0.0, which can move the arm; support/clear it before initialization. Controller 1 D-pad up decreases target and down increases it at 0.5 normalized units/sec, bounded 0–1 with a 50 ms per-update cap. Release/both inputs hold the last target; upper touch blocks upward target changes only. Missing hardware fails before commanding position. Target telemetry is commanded, not physical angle feedback. Verify direction, endpoints and load on hardware; there is no lower switch. Holding depends on servo torque and enabled PWM and is not guaranteed after OpMode STOP or power loss.
 
+- `FlowerArmDiagnostic` provides `Flower Arm Test`: runs the production positional arm controller without Robot, drive, shooter, intake, or vision initialization. Displays controller 1 D-pad inputs, commanded target, SDK command, servo port, PWM controller status, and touch input. INIT still commands raised target 0.0; controls require START. Test DOWN first because UP is clamped at the initial upper command limit. No physical position feedback is available.
+
 ## Work Guidance
 
 - Follow Java conventions used in existing OpModes and subsystems.

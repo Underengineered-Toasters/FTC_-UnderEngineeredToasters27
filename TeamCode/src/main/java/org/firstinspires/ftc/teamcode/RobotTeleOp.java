@@ -54,6 +54,8 @@ public class RobotTeleOp extends LinearOpMode {
 
             while (opModeIsActive()) {
 
+                telemetry.addData("Arm D-pad up/down", "%s / %s", gamepad1.dpad_up, gamepad1.dpad_down);
+
                 List<AprilTagDetection> detections =
                         robot.getAprilTagDetections();
 
