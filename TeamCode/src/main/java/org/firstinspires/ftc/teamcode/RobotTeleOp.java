@@ -33,13 +33,14 @@ public class RobotTeleOp extends LinearOpMode {
             telemetry.addLine("Right Stick X = Manual Turn");
             telemetry.addLine("L1 (Hold) = Intake In; R1 (Hold) = Intake Out");
             telemetry.addLine("Controller 1 D-pad Up/Down = Flower Arm (hold)");
-            telemetry.addLine("Right Trigger = Run Shooter");
+            telemetry.addLine("R2 (Hold) = Intake In + Both Shooters");
             telemetry.addLine("Y             = Toggle Shooter Direction");
             telemetry.update();
 
             while (!isStarted() && !isStopRequested()) {
                 telemetry.addLine("Robot initialized — Controller 1 D-pad Up/Down: Flower Arm");
                 telemetry.addLine("Controller 1 L1: Intake In; R1: Intake Out (hold)");
+                telemetry.addLine("Controller 1 R2: Intake In + Both Shooters (hold)");
                 telemetry.addData("Flower upper limit", flowerArm.isUpperLimitPressed() ? "PRESSED" : "RELEASED");
                 telemetry.addLine("Arm holds position on release; INIT commands midpoint (0.5)");
                 telemetry.addData("Flower arm target (not measured)", "%.3f", flowerArm.getTargetPosition());
@@ -65,7 +66,11 @@ public class RobotTeleOp extends LinearOpMode {
 
                 boolean intakeIn = gamepad1.left_bumper;
                 boolean intakeOut = gamepad1.right_bumper;
-                if (intakeIn == intakeOut) {
+                // R2 takes priority so intake always feeds inward while shooting.
+                boolean shootAndIntake = gamepad1.right_trigger > 0.05;
+                if (shootAndIntake) {
+                    robot.intakeSystem.intakeIn();
+                } else if (intakeIn == intakeOut) {
                     robot.intakeSystem.stopIntake();
                 } else if (intakeIn) {
                     robot.intakeSystem.intakeIn();
