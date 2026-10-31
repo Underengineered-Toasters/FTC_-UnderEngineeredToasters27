@@ -171,6 +171,8 @@ public class RobotTeleOp extends LinearOpMode {
                     telemetry.addData("Shooter Velocity", "%.0f RPM", robot.shooter.getCurrentVelocityRPM());
                 } else {
                     telemetry.addData("Shooter Velocity", "Unavailable (CR servos)");
+                    telemetry.addData("Shooter 1 / 2 power", "%.2f / %.2f",
+                            robot.shooter.getShooter1Power(), robot.shooter.getShooter2Power());
                 }
                 telemetry.addData("Shooter active (measured/commanded)",
                         robot.shooter.isSpinning());

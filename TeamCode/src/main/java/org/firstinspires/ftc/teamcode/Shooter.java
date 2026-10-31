@@ -10,7 +10,10 @@ public class Shooter {
     private DcMotorEx flywheel;
     private CRServo shooter1;
     private CRServo shooter2;
-    private static final double POWER_MAX = 0.4;
+    private static final double POWER_MAX = 1.0;
+    private static final double SHOOTER1_MAX = 0.3;
+    private static final double SHOOTER2_MAX = 0.5;
+    private static final double LEGACY_MOTOR_MAX = 0.4;
 
     public void init(HardwareMap hardwareMap) {
         CRServo first = hardwareMap.tryGet(CRServo.class, "shooter1");
@@ -64,10 +67,17 @@ public class Shooter {
 
     public void setTargetPower(double power) {
         double clipped = Double.isFinite(power) ? Math.max(-POWER_MAX, Math.min(POWER_MAX, power)) : 0;
-        if (flywheel != null) flywheel.setPower(clipped);
-        if (shooter1 != null) shooter1.setPower(clipped);
-        if (shooter2 != null) shooter2.setPower(clipped);
+        if (flywheel != null) flywheel.setPower(limit(clipped, LEGACY_MOTOR_MAX));
+        if (shooter1 != null) shooter1.setPower(limit(clipped, SHOOTER1_MAX));
+        if (shooter2 != null) shooter2.setPower(limit(clipped, SHOOTER2_MAX));
     }
+
+    private static double limit(double power, double maximum) {
+        return Math.max(-maximum, Math.min(maximum, power));
+    }
+
+    public double getShooter1Power() { return shooter1 == null ? 0 : shooter1.getPower(); }
+    public double getShooter2Power() { return shooter2 == null ? 0 : shooter2.getPower(); }
 
     public void spinDown() { setTargetPower(0); }
     public void update() { /* Open-loop actuators need no periodic velocity command. */ }
