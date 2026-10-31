@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * RED ALLIANCE AUTONOMOUS PATH (High-Speed Performance)
  *
- * Includes tagAlign() method for camera turret & chassis alignment.
+ * Includes tagAlign(), deployRamp(), pullRamp(), intake(seconds), and shoot(seconds).
  */
 @Autonomous(name = "Red Alliance Autonomous", group = "Red")
 public class RedAutonomous extends LinearOpMode {
@@ -37,37 +37,28 @@ public class RedAutonomous extends LinearOpMode {
         runtime.reset();
 
         // =========================================================================
-        // RED ALLIANCE AUTONOMOUS PATH
+        // RED ALLIANCE AUTONOMOUS PATH EXAMPLE
         // =========================================================================
 
-        // STEP 1: Align to Red AprilTags (30-33) before shooting
+        // STEP 1: Align to Red AprilTags (30-33)
         telemetry.addLine("Auto-Aligning to Red AprilTags...");
         telemetry.update();
-        tagAlign(AprilTagVision.RED_TAGS_PRIMARY); // Automatically locks onto Red AprilTags!
+        tagAlign(AprilTagVision.RED_TAGS_PRIMARY);
 
-        // STEP 2: Drive into position and intake
-        driveInches(30, 0.70);
-        sleep(500);
-        turnRight(0.42, 0.56);
-        sleep(500);
-        driveInches(10, 0.5);
-        sleep(500);
+        // STEP 2: Deploy Ramp & Shoot for 2.5 seconds
+        deployRamp();
+        shoot(2.5);
+        pullRamp();
 
-        // Align again at second waypoint
+        // STEP 3: Drive forward & Intake for 3.0 seconds
+        driveInches(25, 0.60);
+        intake(3.0);
+
+        // STEP 4: Secondary Alignment & Final Shoot
         tagAlign(AprilTagVision.RED_TAGS_SECONDARY);
-
-        turnRight(0.7, 0.42);
-        driveInches(18, 0.75);
-        sleep(2000);
-
-        driveInches(-15, 0.75);
-        sleep(500);
-        turnLeft(0.5, 0.7);
-        driveInches(15, 0.7);
-        sleep(500);
-        turnLeft(0.4, 0.45);
-        sleep(500);
-        driveInches(50, 0.7);
+        deployRamp();
+        shoot(2.0);
+        pullRamp();
 
         stopRobot();
 
@@ -76,6 +67,62 @@ public class RedAutonomous extends LinearOpMode {
         telemetry.addData("Total Time Elapsed", "%.2f sec", runtime.seconds());
         telemetry.addLine("=================================");
         telemetry.update();
+    }
+
+    // =========================================================================
+    // RAMP, INTAKE, AND SHOOTING AUTONOMOUS HELPER METHODS
+    // =========================================================================
+
+    /**
+     * Deploys the Match Loader Ramp Servo (rotates 110° left).
+     */
+    public void deployRamp() {
+        robot.setMatchLoaderDown(true);
+        telemetry.addLine("Ramp Deployed (110°)");
+        telemetry.update();
+    }
+
+    /**
+     * Pulls the Match Loader Ramp Servo back up to rest position.
+     */
+    public void pullRamp() {
+        robot.setMatchLoaderDown(false);
+        telemetry.addLine("Ramp Retracted (UP)");
+        telemetry.update();
+    }
+
+    /**
+     * Runs the intake motor forward for the specified duration in seconds.
+     */
+    public void intake(double seconds) {
+        ElapsedTime intakeTimer = new ElapsedTime();
+        intakeTimer.reset();
+        robot.intakeSystem.intakeIn();
+
+        while (opModeIsActive() && intakeTimer.seconds() < seconds) {
+            telemetry.addData("Intaking", "%.1fs / %.1fs", intakeTimer.seconds(), seconds);
+            telemetry.update();
+        }
+
+        robot.intakeSystem.stopIntake();
+    }
+
+    /**
+     * Spins both flywheel shooter motors at 100% max speed for specified duration in seconds.
+     */
+    public void shoot(double seconds) {
+        ElapsedTime shootTimer = new ElapsedTime();
+        shootTimer.reset();
+        robot.shooter1System.spinForwardMaxSpeed();
+        robot.shooter2System.spinForwardMaxSpeed();
+
+        while (opModeIsActive() && shootTimer.seconds() < seconds) {
+            telemetry.addData("Shooting", "%.1fs / %.1fs", shootTimer.seconds(), seconds);
+            telemetry.update();
+        }
+
+        robot.shooter1System.spinDown();
+        robot.shooter2System.spinDown();
     }
 
     // =========================================================================
