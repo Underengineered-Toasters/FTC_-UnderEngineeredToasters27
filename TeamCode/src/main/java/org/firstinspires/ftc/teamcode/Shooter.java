@@ -8,31 +8,23 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 public class Shooter {
     private DcMotorEx flywheel;
-    private CRServo shooter1;
     private CRServo shooter2;
     private static final double POWER_MAX = 1.0;
 
     public void init(HardwareMap hardwareMap) {
-        CRServo first = hardwareMap.tryGet(CRServo.class, "shooter1");
-        CRServo second = hardwareMap.tryGet(CRServo.class, "shooter2");
-        // Prefer the explicitly configured Comp pair; retain older motor configurations.
-        configureActuators(first, second, first == null && second == null
+        CRServo servo = hardwareMap.tryGet(CRServo.class, "shooter2");
+        configureActuators(servo, servo == null
                 ? hardwareMap.tryGet(DcMotorEx.class, "shooter") : null);
     }
 
-    // Shared initialization seam for hardware mapping and actuator-command unit tests.
-    void configureActuators(CRServo first, CRServo second, DcMotorEx motor) {
-        if (first != null) first.setPower(0);
-        if (second != null) second.setPower(0);
-        if ((first == null) != (second == null)) {
-            throw new IllegalArgumentException("Shooter requires BOTH CR servos: shooter1 and shooter2");
+    // Port 0 belongs exclusively to FlowerArm; never look up shooter1 here.
+    void configureActuators(CRServo servo, DcMotorEx motor) {
+        if (servo != null) servo.setPower(0);
+        if (servo == null && motor == null) {
+            throw new IllegalArgumentException("Configure CR servo shooter2 or a DcMotorEx named shooter");
         }
-        if (first == null && motor == null) {
-            throw new IllegalArgumentException("Configure CR servos shooter1/shooter2 or a DcMotorEx named shooter");
-        }
-        shooter1 = first;
-        shooter2 = second;
-        flywheel = first == null ? motor : null;
+        shooter2 = servo;
+        flywheel = servo == null ? motor : null;
         if (flywheel != null) {
             flywheel.setMotorEnable();
             flywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -55,14 +47,12 @@ public class Shooter {
         DcMotorSimple.Direction direction = reverse
                 ? DcMotorSimple.Direction.REVERSE : DcMotorSimple.Direction.FORWARD;
         if (flywheel != null) flywheel.setDirection(direction);
-        if (shooter1 != null) shooter1.setDirection(direction);
         if (shooter2 != null) shooter2.setDirection(direction);
     }
 
     public void setTargetPower(double power) {
         double clipped = Double.isFinite(power) ? Math.max(-POWER_MAX, Math.min(POWER_MAX, power)) : 0;
         if (flywheel != null) flywheel.setPower(clipped);
-        if (shooter1 != null) shooter1.setPower(clipped);
         if (shooter2 != null) shooter2.setPower(clipped);
     }
 
@@ -71,7 +61,7 @@ public class Shooter {
 
     public double getCurrentPower() {
         if (flywheel != null) return flywheel.getPower();
-        return shooter1 != null ? shooter1.getPower() : 0;
+        return shooter2 != null ? shooter2.getPower() : 0;
     }
 
     public boolean hasVelocityFeedback() { return flywheel != null; }
@@ -83,7 +73,7 @@ public class Shooter {
 
     public String getHardwareDescription() {
         if (flywheel != null) return "DcMotorEx: shooter";
-        return shooter1 != null ? "CR servos: shooter1 + shooter2" : "Not initialized";
+        return shooter2 != null ? "CR servo: shooter2" : "Not initialized";
     }
 
     public boolean isSpinning() {

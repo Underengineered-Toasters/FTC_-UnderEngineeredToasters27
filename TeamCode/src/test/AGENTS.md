@@ -10,10 +10,10 @@ Owns tests under `src/test/java`; production behavior remains owned by TeamCode.
 
 ## Local Contracts
 
-- Use JUnit 4, fake timestamps/observations for alignment, and lightweight SDK-interface proxies for shooter actuator commands.
+- Use JUnit 4, fake timestamps/observations for alignment, and lightweight SDK-interface proxies for shooter and flower arm actuator commands.
 - Exercise actual production controller logic; do not substitute Android hardware behavior.
 - Cover fresh versus repeated/stale frames, target loss, stable lock, timeout, and motor-command sign/bounds.
-- Shooter tests cover dual CR-servo setup without a motor, partial/missing hardware, both direction/power commands, stopping, unavailable servo RPM, and legacy motor compatibility.
+- Shooter tests cover single shooter2 servo setup, missing hardware, direction/power commands, stopping, unavailable servo RPM, and legacy motor compatibility. Flower arm tests cover hold/release/stop, upper limit stopping a raising arm, downward escape, conflicting inputs, and missing-switch initialization.
 
 ## Work Guidance
 

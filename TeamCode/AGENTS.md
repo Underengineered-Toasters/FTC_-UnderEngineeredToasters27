@@ -16,7 +16,7 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 - `AutonomousCameraAligner` only turns in place; range is telemetry, not a shooting-distance controller. Aim defaults to 0-degree bearing; calibrate camera-to-shooter offset on hardware. Raw positive turn is physical left on the current drivetrain.
 - Alignment requires five distinct fresh frames over 200 ms, within 2 degrees and at most 8 deg/sec bearing change. Frames older than 250 ms, target loss, or non-streaming cameras stop turning; camera failure and a 5-second timeout abort. `Camera Alignment Test` selects alliance and tests this without shooting.
 - `AprilTagVision` uses the existing 640x480 YUY2 Arducam setup with exposure/gain controls and startup Logitech fallback (`Webcam 2`). Runtime loss reports failure instead of reopening. Imported lens calibration needs physical bearing verification; its principal point is outside the image.
-- `Shooter` supports the active Comp pair: `shooter1` (CRServo, servo port 0) and `shooter2` (CRServo, servo port 2). Both receive the same signed power; verify physical wheel directions before loaded firing. If neither servo is present, legacy `shooter` (DcMotorEx) remains supported. A partial pair is an explicit configuration error. CR servos have no RPM feedback; telemetry reports velocity unavailable and run state is commanded, not measured. The active Comp configuration currently has no `feeder` entry and reports an I2C fault for `colorSensor` on bus 0; resolve wiring/configuration before autonomous feeding.
+- `Shooter` controls only CR servo `shooter2` (Control Hub servo port 2), with legacy `shooter` DcMotorEx fallback. Port 0 is the flower arm and must never receive shooter commands. CR servo RPM is unavailable; run state is commanded. Comp still lacks `feeder` and reports a `colorSensor` I2C fault; resolve wiring/configuration before autonomous feeding.
 - Keep OpModes organized under `org.firstinspires.ftc.teamcode`.
 - Annotate competition TeleOp classes with `@TeleOp(name = "...", group = "...")`.
 - Annotate competition Autonomous classes with `@Autonomous(name = "...", group = "...")`.
@@ -26,6 +26,8 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 - `Robot TeleOp` selects alliance in INIT (X = Blue, B = Red, default Red); hold LB or RB to align the chassis to the alliance audience or far CELL cluster using `ftcPose.bearing`.
 - `org.firstinspires.ftc.teamcode.ds` hosts the driver station web UI backend (web handlers, `ds` websocket namespace, diagnostics poller); opmodes publish through the `DriverStation` facade.
 - `src/main/assets/ds/` holds the web UI assets served at `/ds`; `app.css` is generated output — edit `ds-ui/input.css` and rebuild with `cd TeamCode/ds-ui && ./build.sh` instead of editing it directly.
+
+- `FlowerArm` uses CR servo `flower arm` on Control Hub servo port 0 and REV Touch Sensor `flowerUpperLimit` on digital channel 1 (physical 0–1 socket with standard REV wiring). `Robot TeleOp` controller 2 D-pad up/down commands +/-0.3 while held; release or simultaneous inputs stop. Upper switch blocks up only; down remains available. Missing hardware fails initialization with the servo stopped. INIT displays live switch status; finally stops the arm. Positive power is provisionally up: verify direction and switch operation unloaded before full travel. No lower limit or automatic holding is implemented; release commands zero power.
 
 ## Work Guidance
 
