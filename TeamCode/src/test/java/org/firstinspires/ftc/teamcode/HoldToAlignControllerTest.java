@@ -4,6 +4,20 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class HoldToAlignControllerTest {
+    @Test public void learnedShooterBearingBecomesAlignmentReference() {
+        HoldToAlignController controller = new HoldToAlignController(25.0);
+        ClusterAlignmentController.Output output = controller.update(true, 100, true, false, true,
+                new ClusterAlignmentController.Sample(25.0, 72, 100));
+        assertEquals(0, output.turnPower, 0);
+        assertEquals(ClusterAlignmentController.State.SETTLING, output.state);
+        output = controller.update(true, 200, true, false, true,
+                new ClusterAlignmentController.Sample(35.0, 72, 200));
+        assertTrue(output.turnPower > 0);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void invalidLearnedBearingIsRejected() { new HoldToAlignController(Double.NaN); }
+
     @Test public void releaseImmediatelyReturnsManualAndNextHoldStartsNewAttempt() {
         HoldToAlignController controller = new HoldToAlignController();
         assertNull(controller.update(false, 0, false, true, false, null));

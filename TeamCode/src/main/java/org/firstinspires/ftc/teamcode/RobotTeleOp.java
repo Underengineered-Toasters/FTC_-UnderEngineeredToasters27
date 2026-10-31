@@ -15,8 +15,13 @@ public class RobotTeleOp extends LinearOpMode {
 
     private final Robot robot = new Robot();
     private final FlowerArm flowerArm = new FlowerArm();
-    private final HoldToAlignController alignment = new HoldToAlignController();
-    private String alignmentTarget = AprilTagVision.RED_SCORING;
+    private HoldToAlignController alignment = new HoldToAlignController();
+    private String alignmentTarget = AprilTagVision.RED_AUDIENCE;
+    private boolean blueAlliance;
+    private boolean scoringTags;
+    private boolean aimCalibrated;
+    private boolean previousCalibrationButton;
+    private double learnedBearing;
 
 
     private boolean shooterReversed = false;
@@ -47,9 +52,32 @@ public class RobotTeleOp extends LinearOpMode {
             telemetry.update();
 
             while (!isStarted() && !isStopRequested()) {
-                if (gamepad1.x) alignmentTarget = AprilTagVision.BLUE_SCORING;
-                if (gamepad1.b) alignmentTarget = AprilTagVision.RED_SCORING;
-                telemetry.addLine("Square: Blue / Circle: Red during INIT; hold L2 to aim after START");
+                if (gamepad1.x) blueAlliance = true;
+                if (gamepad1.b) blueAlliance = false;
+                if (gamepad1.dpad_left) scoringTags = false;
+                if (gamepad1.dpad_right) scoringTags = true;
+                String selected = blueAlliance
+                        ? (scoringTags ? AprilTagVision.BLUE_SCORING : AprilTagVision.BLUE_AUDIENCE)
+                        : (scoringTags ? AprilTagVision.RED_SCORING : AprilTagVision.RED_AUDIENCE);
+                if (!selected.equals(alignmentTarget)) {
+                    alignmentTarget = selected;
+                    aimCalibrated = false;
+                }
+                AprilTagClusterDetection visible = robot.vision.findCluster(alignmentTarget);
+                boolean freshReference = visible != null && visible.ftcPose != null
+                        && Double.isFinite(visible.ftcPose.bearing) && visible.frameAcquisitionNanoTime <= System.nanoTime()
+                        && System.nanoTime() - visible.frameAcquisitionNanoTime <= ClusterAlignmentController.MAX_FRAME_AGE_NANOS;
+                if (gamepad1.y && !previousCalibrationButton && freshReference) {
+                    learnedBearing = visible.ftcPose.bearing;
+                    alignment = new HoldToAlignController(learnedBearing);
+                    aimCalibrated = true;
+                }
+                previousCalibrationButton = gamepad1.y;
+                telemetry.addLine("INIT: Square Blue / Circle Red; D-pad Left Audience / Right Scoring tags");
+                telemetry.addLine("Point SHOOTERS at hive, then tap Triangle to record that aim");
+                telemetry.addData("Selected hive tags", freshReference ? "DETECTED" : "NOT DETECTED");
+                telemetry.addData("Hive aim reference", aimCalibrated ? String.format(java.util.Locale.US,
+                        "SAVED %.1f deg", learnedBearing) : "NOT SAVED - Triangle requires visible tags");
                 telemetry.addData("Aim target", alignmentTarget);
                 telemetry.addData("Camera", robot.vision.getCameraState());
                 telemetry.addLine("D-pad Left/Right tunes shooter power after START; resets on INIT");
@@ -66,6 +94,7 @@ public class RobotTeleOp extends LinearOpMode {
             if (isStopRequested()) {
                 return;
             }
+            previousY = gamepad1.y || gamepad2.y;
 
             while (opModeIsActive()) {
 
@@ -94,7 +123,7 @@ public class RobotTeleOp extends LinearOpMode {
                         }
                     }
                 }
-                ClusterAlignmentController.Output aim = alignment.update(aimHeld, System.nanoTime(),
+                ClusterAlignmentController.Output aim = alignment.update(aimHeld && aimCalibrated, System.nanoTime(),
                         robot.vision.isReady(), robot.vision.hasFailed(), fresh != null, sample);
                 if (aim != null) {
                     drive = 0;
@@ -106,10 +135,15 @@ public class RobotTeleOp extends LinearOpMode {
                         telemetry.addData("Aim bearing", "%.1f deg", aim.target.bearingDeg);
                     }
                     telemetry.addLine("Release L2 for manual driving; release/repress to retry timeout");
+                } else if (aimHeld) {
+                    drive = 0;
+                    turn = 0;
+                    telemetry.addData("Alignment", "Record hive aim with Triangle during INIT first");
                 } else {
                     telemetry.addData("Alignment", "MANUAL - hold L2 to aim");
                 }
                 telemetry.addData("Aim target", alignmentTarget);
+                telemetry.addData("Hive aim reference", aimCalibrated ? learnedBearing : "NOT SAVED");
                 telemetry.addData("Camera", robot.vision.getCameraState());
 
                 if (System.nanoTime() >= nextAlignmentLog) {
@@ -126,9 +160,10 @@ public class RobotTeleOp extends LinearOpMode {
                         }
                     }
                     RobotLog.ii("[DEBUG-camera-align]",
-                            "L2=%.2f state=%s selected=%s camera=%s observed=%s turn=%.3f",
-                            gamepad1.left_trigger, aim == null ? "MANUAL" : aim.state,
-                            alignmentTarget, robot.vision.getCameraState(), observed.toString(), turn);
+                            "L2=%.2f state=%s selected=%s camera=%s observed=%s turn=%.3f reference=%s aimBearing=%.1f",
+                            gamepad1.left_trigger, aim == null ? (aimHeld ? "REFERENCE_REQUIRED" : "MANUAL") : aim.state,
+                            alignmentTarget, robot.vision.getCameraState(), observed.toString(), turn,
+                            aimCalibrated, learnedBearing);
                     nextAlignmentLog = System.nanoTime() + 500_000_000L;
                 }
 
