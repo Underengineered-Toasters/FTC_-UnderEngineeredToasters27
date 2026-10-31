@@ -47,7 +47,7 @@ public abstract class RobotTeleOp extends LinearOpMode {
             telemetry.addLine("Controller 1 D-pad Up/Down = Flower Arm (hold)");
             telemetry.addLine("R2 (Hold) = Intake In + Both Shooters");
             telemetry.addLine("Y             = Toggle Shooter Direction");
-            telemetry.addLine("Hold L2 = Camera Aim");
+            telemetry.addLine("Hold L2 = Turret Camera Aim");
             telemetry.addLine("D-pad Left/Right = Shooter Power -/+ 1 percentage point");
             telemetry.update();
 
@@ -116,7 +116,7 @@ public abstract class RobotTeleOp extends LinearOpMode {
                         robot.vision.isReady(), robot.vision.hasFailed(), fresh != null, sample);
                 if (aim != null) {
                     drive = 0;
-                    turn = aim.turnPower;
+                    turn = 0;
                     telemetry.addData("Alignment", aim.state);
                     telemetry.addData("Stable frames", "%d / %d", aim.stableFrames,
                             ClusterAlignmentController.REQUIRED_FRAMES);
@@ -134,6 +134,8 @@ public abstract class RobotTeleOp extends LinearOpMode {
                 telemetry.addData("Aim target", alignmentTarget);
                 telemetry.addData("Hive aim reference", aimCalibrated ? learnedBearing : "NOT SAVED");
                 telemetry.addData("Camera", robot.vision.getCameraState());
+                robot.turret.applyAlignment(aim);
+                telemetry.addData("Turret power", "%.3f", robot.turret.getPower());
 
                 if (System.nanoTime() >= nextAlignmentLog) {
                     StringBuilder observed = new StringBuilder();
@@ -149,9 +151,9 @@ public abstract class RobotTeleOp extends LinearOpMode {
                         }
                     }
                     RobotLog.ii("[DEBUG-camera-align]",
-                            "L2=%.2f state=%s selected=%s camera=%s observed=%s turn=%.3f reference=%s aimBearing=%.1f",
+                            "L2=%.2f state=%s selected=%s camera=%s observed=%s turret=%.3f reference=%s aimBearing=%.1f",
                             gamepad1.left_trigger, aim == null ? (aimHeld ? "REFERENCE_REQUIRED" : "MANUAL") : aim.state,
-                            alignmentTarget, robot.vision.getCameraState(), observed.toString(), turn,
+                            alignmentTarget, robot.vision.getCameraState(), observed.toString(), robot.turret.getPower(),
                             aimCalibrated, learnedBearing);
                     nextAlignmentLog = System.nanoTime() + 500_000_000L;
                 }

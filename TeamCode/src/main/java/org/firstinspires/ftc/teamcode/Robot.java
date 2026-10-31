@@ -12,6 +12,7 @@ public class Robot {
     public intake intakeSystem = new intake();
     public Shooter shooter = new Shooter();
     public AprilTagVision vision = new AprilTagVision();
+    public final Turret turret = new Turret();
 
     private DcMotor leftDrive;
     private DcMotor rightDrive;
@@ -20,6 +21,7 @@ public class Robot {
     private double rightPower = 0.0;
 
     public void init(HardwareMap hardwareMap) {
+        turret.init(hardwareMap);
         leftDrive = hardwareMap.get(DcMotor.class, "left");
         rightDrive = hardwareMap.get(DcMotor.class, "right");
 
@@ -67,6 +69,7 @@ public class Robot {
     }
 
     public void close() {
+        turret.stop();
         if (vision != null) {
             vision.close();
         }

@@ -15,6 +15,8 @@ Owns tests under `src/test/java`; production behavior remains owned by TeamCode.
 - Cover fresh versus repeated/stale frames, target loss, stable lock, timeout, and motor-command sign/bounds. HoldToAlignController tests exercise release returning manual control, fresh attempts without retained steering, timeout requiring release, and zero steering on camera failure/target loss, learned nonzero bearing references, and invalid reference rejection.
 - Shooter tests cover dual shooter1/shooter2 servo setup, partial/missing hardware, both direction/power commands, live tuning with shared adjustment and bounded gap, initialization reset, stopping, unavailable servo RPM, and legacy motor compatibility. Flower arm tests cover retained positional targets on release/stop, upper switch blocking upward targets with downward escape, conflicting inputs, time-step/range bounds, and missing-switch initialization without movement.
 
+- Turret tests connect actual held-alignment outputs to a fake DcMotor, verifying bounded directional commands, release/target-loss/camera-failure/timeout stops, initialization brake/mode and invalid-power stopping.
+
 ## Work Guidance
 
 Keep hardware integration verification explicit; passing JVM tests cannot validate camera calibration or physical steering.

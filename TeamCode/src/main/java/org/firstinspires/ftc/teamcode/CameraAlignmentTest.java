@@ -7,7 +7,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 public class CameraAlignmentTest extends LinearOpMode {
     @Override public void runOpMode() {
         Robot robot = new Robot();
-        String target = AprilTagVision.RED_SCORING;
+        String target = AprilTagVision.RED_AUDIENCE;
         boolean initialized = false;
         try {
             robot.init(hardwareMap);
@@ -16,9 +16,9 @@ public class CameraAlignmentTest extends LinearOpMode {
             robot.intakeSystem.stopIntake();
             robot.intakeSystem.restFeeder();
             while (opModeInInit()) {
-                if (gamepad1.x) target = AprilTagVision.BLUE_SCORING;
-                if (gamepad1.b) target = AprilTagVision.RED_SCORING;
-                telemetry.addLine("X = Blue, B = Red. Turns in place only; no shooting.");
+                if (gamepad1.x) target = AprilTagVision.BLUE_AUDIENCE;
+                if (gamepad1.b) target = AprilTagVision.RED_AUDIENCE;
+                telemetry.addLine("X = Blue Audience, B = Red Audience. Turret only; no shooting.");
                 telemetry.addData("Target", target);
                 telemetry.addData("Camera", robot.vision.getCameraState());
                 telemetry.update();

@@ -5,7 +5,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import java.util.List;
 
-/** Chassis-only alignment to a selected scoring cluster; never drives toward it or fires. */
+/** Alignment using the camera mounted on the turret; chassis remains stopped. */
 public final class AutonomousCameraAligner {
     // Camera bearing at which the shooter is aimed correctly. Calibrate on hardware.
     public static final double AIM_BEARING_DEG = 0.0;
@@ -31,13 +31,14 @@ public final class AutonomousCameraAligner {
                 }
                 ClusterAlignmentController.Output output = controller.update(System.nanoTime(), ready,
                         robot.vision.hasFailed(), fresh != null, target);
-                robot.drive(0, output.turnPower);
+                robot.drive(0, 0);
+                robot.turret.applyAlignment(output);
                 opMode.telemetry.addData("Camera", robot.vision.getCameraState());
                 opMode.telemetry.addData("Align target", targetName);
                 opMode.telemetry.addData("Alignment", output.state);
                 opMode.telemetry.addData("Stable frames", "%d / %d", output.stableFrames,
                         ClusterAlignmentController.REQUIRED_FRAMES);
-                opMode.telemetry.addData("Align turn power", "%.3f", output.turnPower);
+                opMode.telemetry.addData("Turret power", "%.3f", robot.turret.getPower());
                 if (output.target != null) {
                     opMode.telemetry.addData("Target bearing", "%.1f deg", output.target.bearingDeg);
                     opMode.telemetry.addData("Target range", "%.1f in (display only)", output.target.rangeInches);
@@ -50,6 +51,7 @@ public final class AutonomousCameraAligner {
             }
             return false;
         } finally {
+            robot.turret.stop();
             robot.drive(0, 0);
         }
     }
