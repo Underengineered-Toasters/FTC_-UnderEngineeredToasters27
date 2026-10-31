@@ -59,7 +59,12 @@ public class ShooterTest {
         Actuator a = new Actuator(), b = new Actuator();
         Shooter s = new Shooter();
         s.configureActuators(a.as(CRServo.class), b.as(CRServo.class), null);
+        assertEquals(DcMotorSimple.Direction.REVERSE, a.direction);
+        assertEquals(DcMotorSimple.Direction.REVERSE, b.direction);
         s.setDirection(true);
+        assertEquals(DcMotorSimple.Direction.FORWARD, a.direction);
+        assertEquals(DcMotorSimple.Direction.FORWARD, b.direction);
+        s.setDirection(false);
         assertEquals(DcMotorSimple.Direction.REVERSE, a.direction);
         assertEquals(DcMotorSimple.Direction.REVERSE, b.direction);
     }

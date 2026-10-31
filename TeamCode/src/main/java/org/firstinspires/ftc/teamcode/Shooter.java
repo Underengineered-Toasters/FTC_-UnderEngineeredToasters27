@@ -55,8 +55,11 @@ public class Shooter {
         DcMotorSimple.Direction direction = reverse
                 ? DcMotorSimple.Direction.REVERSE : DcMotorSimple.Direction.FORWARD;
         if (flywheel != null) flywheel.setDirection(direction);
-        if (shooter1 != null) shooter1.setDirection(direction);
-        if (shooter2 != null) shooter2.setDirection(direction);
+        // Both installed shooter servos need opposite polarity for physical shooting.
+        DcMotorSimple.Direction servoDirection = reverse
+                ? DcMotorSimple.Direction.FORWARD : DcMotorSimple.Direction.REVERSE;
+        if (shooter1 != null) shooter1.setDirection(servoDirection);
+        if (shooter2 != null) shooter2.setDirection(servoDirection);
     }
 
     public void setTargetPower(double power) {
