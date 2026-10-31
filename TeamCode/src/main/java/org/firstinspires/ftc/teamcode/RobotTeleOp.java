@@ -63,10 +63,10 @@ public abstract class RobotTeleOp extends LinearOpMode {
                 }
                 previousCalibrationButton = gamepad1.y;
                 telemetry.addLine("Alliance audience target is fixed by the selected TeleOp");
-                telemetry.addLine("Point SHOOTERS at hive, then tap Triangle to record that aim");
+                telemetry.addLine("Hold L2 after START to align automatically; Triangle optionally records an aim offset");
                 telemetry.addData("Selected hive tags", freshReference ? "DETECTED" : "NOT DETECTED");
                 telemetry.addData("Hive aim reference", aimCalibrated ? String.format(java.util.Locale.US,
-                        "SAVED %.1f deg", learnedBearing) : "NOT SAVED - Triangle requires visible tags");
+                        "SAVED %.1f deg", learnedBearing) : "DEFAULT 0 deg - no setup required");
                 telemetry.addData("Aim target", alignmentTarget);
                 telemetry.addData("Camera", robot.vision.getCameraState());
                 telemetry.addLine("D-pad Left/Right tunes shooter power after START; resets on INIT");
@@ -112,7 +112,7 @@ public abstract class RobotTeleOp extends LinearOpMode {
                         }
                     }
                 }
-                ClusterAlignmentController.Output aim = alignment.update(aimHeld && aimCalibrated, System.nanoTime(),
+                ClusterAlignmentController.Output aim = alignment.update(aimHeld, System.nanoTime(),
                         robot.vision.isReady(), robot.vision.hasFailed(), fresh != null, sample);
                 if (aim != null) {
                     drive = 0;
@@ -124,15 +124,11 @@ public abstract class RobotTeleOp extends LinearOpMode {
                         telemetry.addData("Aim bearing", "%.1f deg", aim.target.bearingDeg);
                     }
                     telemetry.addLine("Release L2 for manual driving; release/repress to retry timeout");
-                } else if (aimHeld) {
-                    drive = 0;
-                    turn = 0;
-                    telemetry.addData("Alignment", "Record hive aim with Triangle during INIT first");
                 } else {
                     telemetry.addData("Alignment", "MANUAL - hold L2 to aim");
                 }
                 telemetry.addData("Aim target", alignmentTarget);
-                telemetry.addData("Hive aim reference", aimCalibrated ? learnedBearing : "NOT SAVED");
+                telemetry.addData("Hive aim reference", aimCalibrated ? learnedBearing : "DEFAULT 0 deg");
                 telemetry.addData("Camera", robot.vision.getCameraState());
                 robot.turret.applyAlignment(aim);
                 telemetry.addData("Turret power", "%.3f", robot.turret.getPower());
@@ -152,7 +148,7 @@ public abstract class RobotTeleOp extends LinearOpMode {
                     }
                     RobotLog.ii("[DEBUG-camera-align]",
                             "L2=%.2f state=%s selected=%s camera=%s observed=%s turret=%.3f reference=%s aimBearing=%.1f",
-                            gamepad1.left_trigger, aim == null ? (aimHeld ? "REFERENCE_REQUIRED" : "MANUAL") : aim.state,
+                            gamepad1.left_trigger, aim == null ? "MANUAL" : aim.state,
                             alignmentTarget, robot.vision.getCameraState(), observed.toString(), robot.turret.getPower(),
                             aimCalibrated, learnedBearing);
                     nextAlignmentLog = System.nanoTime() + 500_000_000L;
