@@ -3,13 +3,14 @@ package org.firstinspires.ftc.teamcode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+
+import java.util.List;
 
 /**
  * BLUE ALLIANCE AUTONOMOUS PATH (High-Speed Performance)
- * 
- * Tuning Adjustments:
- * - Increased driving velocity across all steps (0.75 - 1.00 power).
- * - Calibrated turn duration for snappy 90° rotations.
+ *
+ * Includes tagAlign() method for camera turret & chassis alignment.
  */
 @Autonomous(name = "Blue Alliance Autonomous", group = "Blue")
 public class BlueAutonomous extends LinearOpMode {
@@ -28,7 +29,7 @@ public class BlueAutonomous extends LinearOpMode {
 
         telemetry.addLine("=================================");
         telemetry.addLine("  BLUE ALLIANCE AUTONOMOUS READY ");
-        telemetry.addLine("  Mode: High Speed Performance    ");
+        telemetry.addLine("  tagAlign() Vision Active      ");
         telemetry.addLine("=================================");
         telemetry.update();
 
@@ -36,30 +37,29 @@ public class BlueAutonomous extends LinearOpMode {
         runtime.reset();
 
         // =========================================================================
-        // BLUE ALLIANCE AUTONOMOUS7 PATH
+        // BLUE ALLIANCE AUTONOMOUS PATH
         // =========================================================================
 
-        // STEP 1: Drive forward 20 inches into Blue Hive Bucket opening (Higher speed)
-        telemetry.addLine("Shooting...");
+        // STEP 1: Align to Blue AprilTags (38-41) before shooting
+        telemetry.addLine("Auto-Aligning to Blue AprilTags...");
         telemetry.update();
-        sleep(3000);
+        tagAlign(AprilTagVision.BLUE_TAGS_PRIMARY); // Automatically locks onto Blue AprilTags!
 
-        // PAUSE AFTER STEP 1: Wait 1 second
-        telemetry.addLine("Flower Intake");
-        telemetry.update();
+        // STEP 2: Drive into position and intake
         driveInches(30, 0.70);
         sleep(500);
         turnRight(0.42, 0.56);
         sleep(500);
-        driveInches(8, 0.5);
+        driveInches(10, 0.5);
         sleep(500);
-        turnRight(0.7, 0.47);
+
+        // Align again at second waypoint
+        tagAlign(AprilTagVision.BLUE_TAGS_SECONDARY);
+
+        turnRight(0.7, 0.42);
         driveInches(18, 0.75);
         sleep(2000);
 
-        // STEP 2: Back up 12 inches & Turn LEFT 90° toward Blue Floor Sample Area
-        telemetry.addLine("Intaking from flower");
-        telemetry.update();
         driveInches(-15, 0.75);
         sleep(500);
         turnLeft(0.5, 0.7);
@@ -69,44 +69,87 @@ public class BlueAutonomous extends LinearOpMode {
         sleep(500);
         driveInches(50, 0.7);
 
-
-        telemetry.addLine("test...");
-        telemetry.update();
-        turnLeft(0.4, 0.4);
-        driveInches(27, 0.6);
-        turnRight(0.4, 0.50);
-        driveInches(8, 0.2);
-        sleep(3000);
-
-
-        telemetry.addLine("Park");
-        telemetry.update();
-        driveInches(-8, 0.3);
-        turnRight(0.5, 0.7);
-        driveInches(20, 0.5);
-        turnRight(0., 0.50);
-        driveInches(50, 0.7);
-
-
-
-
-
         stopRobot();
 
         telemetry.addLine("=================================");
-        telemetry.addLine("  BLUE ALLIANCE AUTO COMPLETED!  ");
+        telemetry.addLine("  BLUE ALLIANCE AUTO COMPLETED! ");
         telemetry.addData("Total Time Elapsed", "%.2f sec", runtime.seconds());
         telemetry.addLine("=================================");
         telemetry.update();
     }
 
     // =========================================================================
-    // TIME & POWER DRIVING HELPER METHODS
+    // AUTONOMOUS APRILTAG ALIGNMENT METHOD
     // =========================================================================
 
     /**
-     * Drives forward or backward based on target inches converted to seconds.
+     * Automatically locks onto target AprilTags, aligns turret, and drives chassis into position.
+     * Usage: tagAlign(AprilTagVision.BLUE_TAGS_PRIMARY);
      */
+    public boolean tagAlign(int[] targetTagIds) {
+        return tagAlign(targetTagIds, 12.0, 3.5);
+    }
+
+    public boolean tagAlign(int[] targetTagIds, double targetDistanceInches, double maxTimeoutSeconds) {
+        ElapsedTime alignTimer = new ElapsedTime();
+        alignTimer.reset();
+        boolean aligned = false;
+
+        while (opModeIsActive() && alignTimer.seconds() < maxTimeoutSeconds && !aligned) {
+            List<AprilTagDetection> detections = robot.getAprilTagDetections();
+            AprilTagDetection targetTag = robot.vision.findTagInGroup(targetTagIds);
+
+            if (targetTag == null && detections != null && !detections.isEmpty()) {
+                targetTag = detections.get(0);
+            }
+
+            if (targetTag != null && targetTag.ftcPose != null) {
+                // Apply +45° Camera Offset Correction
+                double rawBearing = targetTag.ftcPose.bearing;
+                double adjustedBearing = rawBearing + 45.0; 
+                double rangeError = targetTag.ftcPose.range - targetDistanceInches;
+
+                // Turret alignment power
+                double turretPower = adjustedBearing * 0.020;
+                turretPower = Math.max(-0.45, Math.min(0.45, turretPower));
+                robot.turretSystem.setPower(turretPower);
+
+                // Chassis drive correction
+                double drivePower = rangeError * 0.03;
+                double turnPower = adjustedBearing * 0.02;
+                drivePower = Math.max(-0.35, Math.min(0.35, drivePower));
+                turnPower = Math.max(-0.25, Math.min(0.25, turnPower));
+
+                robot.drive(drivePower, turnPower);
+
+                // Check alignment tolerance (1.5 inches range, 2.0 degrees bearing)
+                if (Math.abs(rangeError) < 1.5 && Math.abs(adjustedBearing) < 2.0) {
+                    aligned = true;
+                    robot.drive(0, 0);
+                    robot.turretSystem.stopTurret();
+                    telemetry.addData("tagAlign()", "ALIGNED to Tag " + targetTag.id);
+                } else {
+                    telemetry.addData("tagAlign()", "Aligning Tag %d (Range Err: %.1fin, Bearing: %.1fdeg)",
+                            targetTag.id, rangeError, adjustedBearing);
+                }
+            } else {
+                robot.drive(0.0, 0.15); // Scan slowly for tag
+                robot.turretSystem.stopTurret();
+                telemetry.addData("tagAlign()", "Searching for AprilTags...");
+            }
+
+            telemetry.update();
+        }
+
+        robot.drive(0, 0);
+        robot.turretSystem.stopTurret();
+        return aligned;
+    }
+
+    // =========================================================================
+    // TIME & POWER DRIVING HELPER METHODS
+    // =========================================================================
+
     private void driveInches(double targetInches, double power) {
         double seconds = Math.abs(targetInches) / (ESTIMATED_INCHES_PER_SECOND * (Math.abs(power) / 0.5));
         double direction = targetInches >= 0 ? 1.0 : -1.0;
@@ -115,23 +158,14 @@ public class BlueAutonomous extends LinearOpMode {
         driveForSeconds(motorPower, 0.0, seconds);
     }
 
-    /**
-     * Turns Left (Spins Left: positive turn input).
-     */
     private void turnRight(double power, double seconds) {
         driveForSeconds(0.0, power, seconds);
     }
 
-    /**
-     * Turns Right (Spins Right: negative turn input).
-     */
     private void turnLeft(double power, double seconds) {
         driveForSeconds(0.0, -power, seconds);
     }
 
-    /**
-     * Drives the robot with given forward and turn powers for exact duration in seconds.
-     */
     private void driveForSeconds(double forward, double turn, double seconds) {
         runtime.reset();
         while (opModeIsActive() && runtime.seconds() < seconds) {
@@ -143,9 +177,6 @@ public class BlueAutonomous extends LinearOpMode {
         stopRobot();
     }
 
-    /**
-     * Stop all drive motors.
-     */
     private void stopRobot() {
         robot.drive(0.0, 0.0);
     }
