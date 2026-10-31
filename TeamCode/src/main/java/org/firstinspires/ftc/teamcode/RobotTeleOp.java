@@ -38,13 +38,13 @@ public class RobotTeleOp extends LinearOpMode {
             telemetry.addLine("Controller 1 D-pad Up/Down = Flower Arm (hold)");
             telemetry.addLine("R2 (Hold) = Intake In + Both Shooters");
             telemetry.addLine("Y             = Toggle Shooter Direction");
-            telemetry.addLine("Hold M1 / Circle = Camera Aim (default M1 mapping)");
+            telemetry.addLine("Hold L2 = Camera Aim");
             telemetry.update();
 
             while (!isStarted() && !isStopRequested()) {
                 if (gamepad1.x) alignmentTarget = AprilTagVision.BLUE_SCORING;
                 if (gamepad1.b) alignmentTarget = AprilTagVision.RED_SCORING;
-                telemetry.addLine("Square: Blue / Circle: Red during INIT; hold M1/Circle to aim after START");
+                telemetry.addLine("Square: Blue / Circle: Red during INIT; hold L2 to aim after START");
                 telemetry.addData("Aim target", alignmentTarget);
                 telemetry.addData("Camera", robot.vision.getCameraState());
                 telemetry.addLine("Robot initialized — Controller 1 D-pad Up/Down: Flower Arm");
@@ -72,8 +72,8 @@ public class RobotTeleOp extends LinearOpMode {
                 double drive = gamepad1.left_stick_y;
                 double turn = -gamepad1.right_stick_x;
 
-                // REV M1 defaults to Circle/B; its front Circle button sends the same input.
-                boolean aimHeld = gamepad1.b;
+                // Controller 1 L2 controls alignment independently of the intake bumpers.
+                boolean aimHeld = gamepad1.left_trigger > 0.05;
                 List<AprilTagDetection> fresh = aimHeld ? robot.vision.getFreshDetections() : null;
                 ClusterAlignmentController.Sample sample = null;
                 if (fresh != null) {
@@ -99,9 +99,9 @@ public class RobotTeleOp extends LinearOpMode {
                     if (aim.target != null) {
                         telemetry.addData("Aim bearing", "%.1f deg", aim.target.bearingDeg);
                     }
-                    telemetry.addLine("Release M1/Circle for manual driving; release/repress to retry timeout");
+                    telemetry.addLine("Release L2 for manual driving; release/repress to retry timeout");
                 } else {
-                    telemetry.addData("Alignment", "MANUAL - hold M1/Circle to aim");
+                    telemetry.addData("Alignment", "MANUAL - hold L2 to aim");
                 }
                 telemetry.addData("Aim target", alignmentTarget);
                 telemetry.addData("Camera", robot.vision.getCameraState());
