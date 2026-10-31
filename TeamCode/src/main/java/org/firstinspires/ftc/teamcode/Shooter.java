@@ -11,8 +11,8 @@ public class Shooter {
     private CRServo shooter1;
     private CRServo shooter2;
     private static final double POWER_MAX = 1.0;
-    private static final double SHOOTER1_MAX = 0.4;
-    private static final double SHOOTER2_MAX = 0.6;
+    private static final double SHOOTER1_MAX = 0.35;
+    private static final double SHOOTER2_MAX = 0.55;
     private static final double LEGACY_MOTOR_MAX = 0.4;
 
     public void init(HardwareMap hardwareMap) {
