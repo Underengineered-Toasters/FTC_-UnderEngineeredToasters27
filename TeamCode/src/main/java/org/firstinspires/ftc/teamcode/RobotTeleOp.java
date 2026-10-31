@@ -36,13 +36,13 @@ public class RobotTeleOp extends LinearOpMode {
             telemetry.addLine("Right Stick X = Manual Turn");
             telemetry.addLine("LB (Hold)     = Align Audience Tag");
             telemetry.addLine("RB (Hold)     = Align Scoring Tag");
-            telemetry.addLine("Controller 2 D-pad Up/Down = Flower Arm (hold)");
+            telemetry.addLine("Controller 1 D-pad Up/Down = Flower Arm (hold)");
             telemetry.addLine("Right Trigger = Run Shooter");
             telemetry.addLine("Y             = Toggle Shooter Direction");
             telemetry.update();
 
             while (!isStarted() && !isStopRequested()) {
-                telemetry.addLine("Robot initialized — Controller 2 D-pad Up/Down: Flower Arm");
+                telemetry.addLine("Robot initialized — Controller 1 D-pad Up/Down: Flower Arm");
                 telemetry.addData("Flower upper limit", flowerArm.isUpperLimitPressed() ? "PRESSED" : "RELEASED");
                 telemetry.addLine("Verify touch switch changes state before moving the arm");
                 telemetry.update();
@@ -127,7 +127,7 @@ public class RobotTeleOp extends LinearOpMode {
                 }
 
                 robot.drive(drive, turn);
-                flowerArm.update(gamepad2.dpad_up, gamepad2.dpad_down);
+                flowerArm.update(gamepad1.dpad_up, gamepad1.dpad_down);
 
                 // ==================================
                 // SHOOTER CONTROL

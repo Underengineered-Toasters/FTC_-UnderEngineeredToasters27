@@ -27,7 +27,7 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 - `org.firstinspires.ftc.teamcode.ds` hosts the driver station web UI backend (web handlers, `ds` websocket namespace, diagnostics poller); opmodes publish through the `DriverStation` facade.
 - `src/main/assets/ds/` holds the web UI assets served at `/ds`; `app.css` is generated output — edit `ds-ui/input.css` and rebuild with `cd TeamCode/ds-ui && ./build.sh` instead of editing it directly.
 
-- `FlowerArm` uses CR servo `flower arm` on Control Hub servo port 0 and REV Touch Sensor `flowerUpperLimit` on digital channel 1 (physical 0–1 socket with standard REV wiring). `Robot TeleOp` controller 2 D-pad up/down commands +/-0.3 while held; release or simultaneous inputs stop. Upper switch blocks up only; down remains available. Missing hardware fails initialization with the servo stopped. INIT displays live switch status; finally stops the arm. Positive power is provisionally up: verify direction and switch operation unloaded before full travel. No lower limit or automatic holding is implemented; release commands zero power.
+- `FlowerArm` uses CR servo `flower arm` on Control Hub servo port 0 and REV Touch Sensor `flowerUpperLimit` on digital channel 1 (physical 0–1 socket with standard REV wiring). `Robot TeleOp` controller 1 D-pad up/down commands +/-0.3 while held; release or simultaneous inputs stop. Upper switch blocks up only; down remains available. Missing hardware fails initialization with the servo stopped. INIT displays live switch status; finally stops the arm. Positive power is provisionally up: verify direction and switch operation unloaded before full travel. No lower limit or automatic holding is implemented; release commands zero power.
 
 ## Work Guidance
 
@@ -43,5 +43,5 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 
 ## Child DOX Index
 
-- `src/test/`: deterministic JVM alignment and shooter actuator tests and their verification contract.
+- `src/test/`: deterministic JVM alignment, shooter, and flower arm actuator tests and their verification contract.
 - Production sources, resources, and hardware verification remain owned here.
