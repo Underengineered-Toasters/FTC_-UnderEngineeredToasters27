@@ -26,19 +26,19 @@ public class FlowerArmTest {
 
     @Test public void initializationReleaseAndStopCommandZero() {
         initialize(); assertEquals(0, power, 0);
-        arm.update(true, false); assertTrue(power > 0);
+        arm.update(true, false); assertEquals(-0.3, power, 0);
         arm.update(false, false); assertEquals(0, power, 0);
-        arm.update(false, true); assertTrue(power < 0);
+        arm.update(false, true); assertEquals(0.3, power, 0);
         arm.stop(); assertEquals(0, power, 0);
     }
 
     @Test public void switchStopsAnAlreadyRaisingArmAndAllowsDownwardEscape() {
-        initialize(); arm.update(true, false); assertTrue(power > 0);
+        initialize(); arm.update(true, false); assertEquals(-0.3, power, 0);
         pressed = true;
         arm.update(true, false); assertEquals(0, power, 0);
-        arm.update(false, true); assertTrue(power < 0);
+        arm.update(false, true); assertEquals(0.3, power, 0);
         pressed = false;
-        arm.update(true, false); assertTrue(power > 0);
+        arm.update(true, false); assertEquals(-0.3, power, 0);
     }
 
     @Test public void conflictingButtonsStopInEitherSwitchState() {

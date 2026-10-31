@@ -6,8 +6,8 @@ import com.qualcomm.robotcore.hardware.TouchSensor;
 
 /** Manual flower extraction arm with an upper travel limit. */
 public class FlowerArm {
-    // Verify physical direction with a brief unloaded test before using full travel.
-    private static final double UP_POWER = 0.3;
+    // Negative servo power raises the installed arm; positive power lowers it.
+    private static final double UP_POWER = -0.3;
     private CRServo servo;
     private TouchSensor upperLimit;
 

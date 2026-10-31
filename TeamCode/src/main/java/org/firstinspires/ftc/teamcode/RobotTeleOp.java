@@ -58,7 +58,8 @@ public class RobotTeleOp extends LinearOpMode {
                 List<AprilTagDetection> detections =
                         robot.getAprilTagDetections();
 
-                double drive = -gamepad1.left_stick_y;
+                // Stick forward is negative Y; negative drive power moves this chassis forward.
+                double drive = gamepad1.left_stick_y;
                 double turn = -gamepad1.right_stick_x;
 
                 boolean leftBumper = gamepad1.left_bumper;
