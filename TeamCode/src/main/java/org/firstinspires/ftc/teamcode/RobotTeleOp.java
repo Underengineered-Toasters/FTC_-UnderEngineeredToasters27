@@ -5,6 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 
 import java.util.List;
 
@@ -13,6 +14,8 @@ public class RobotTeleOp extends LinearOpMode {
 
     private final Robot robot = new Robot();
     private final FlowerArm flowerArm = new FlowerArm();
+    private final HoldToAlignController alignment = new HoldToAlignController();
+    private String alignmentTarget = AprilTagVision.RED_SCORING;
 
 
     private boolean shooterReversed = false;
@@ -35,9 +38,15 @@ public class RobotTeleOp extends LinearOpMode {
             telemetry.addLine("Controller 1 D-pad Up/Down = Flower Arm (hold)");
             telemetry.addLine("R2 (Hold) = Intake In + Both Shooters");
             telemetry.addLine("Y             = Toggle Shooter Direction");
+            telemetry.addLine("Hold M1 / Circle = Camera Aim (default M1 mapping)");
             telemetry.update();
 
             while (!isStarted() && !isStopRequested()) {
+                if (gamepad1.x) alignmentTarget = AprilTagVision.BLUE_SCORING;
+                if (gamepad1.b) alignmentTarget = AprilTagVision.RED_SCORING;
+                telemetry.addLine("Square: Blue / Circle: Red during INIT; hold M1/Circle to aim after START");
+                telemetry.addData("Aim target", alignmentTarget);
+                telemetry.addData("Camera", robot.vision.getCameraState());
                 telemetry.addLine("Robot initialized — Controller 1 D-pad Up/Down: Flower Arm");
                 telemetry.addLine("Controller 1 L1: Intake In; R1: Intake Out (hold)");
                 telemetry.addLine("Controller 1 R2: Intake In + Both Shooters (hold)");
@@ -62,6 +71,40 @@ public class RobotTeleOp extends LinearOpMode {
                 // Stick forward is negative Y; negative drive power moves this chassis forward.
                 double drive = gamepad1.left_stick_y;
                 double turn = -gamepad1.right_stick_x;
+
+                // REV M1 defaults to Circle/B; its front Circle button sends the same input.
+                boolean aimHeld = gamepad1.b;
+                List<AprilTagDetection> fresh = aimHeld ? robot.vision.getFreshDetections() : null;
+                ClusterAlignmentController.Sample sample = null;
+                if (fresh != null) {
+                    for (AprilTagDetection detection : fresh) {
+                        if (!(detection instanceof AprilTagClusterDetection)) continue;
+                        AprilTagClusterDetection cluster = (AprilTagClusterDetection) detection;
+                        if (cluster.metadata != null && alignmentTarget.equals(cluster.metadata.name)
+                                && cluster.ftcPose != null) {
+                            sample = new ClusterAlignmentController.Sample(cluster.ftcPose.bearing,
+                                    cluster.ftcPose.range, cluster.frameAcquisitionNanoTime);
+                            break;
+                        }
+                    }
+                }
+                ClusterAlignmentController.Output aim = alignment.update(aimHeld, System.nanoTime(),
+                        robot.vision.isReady(), robot.vision.hasFailed(), fresh != null, sample);
+                if (aim != null) {
+                    drive = 0;
+                    turn = aim.turnPower;
+                    telemetry.addData("Alignment", aim.state);
+                    telemetry.addData("Stable frames", "%d / %d", aim.stableFrames,
+                            ClusterAlignmentController.REQUIRED_FRAMES);
+                    if (aim.target != null) {
+                        telemetry.addData("Aim bearing", "%.1f deg", aim.target.bearingDeg);
+                    }
+                    telemetry.addLine("Release M1/Circle for manual driving; release/repress to retry timeout");
+                } else {
+                    telemetry.addData("Alignment", "MANUAL - hold M1/Circle to aim");
+                }
+                telemetry.addData("Aim target", alignmentTarget);
+                telemetry.addData("Camera", robot.vision.getCameraState());
 
                 robot.drive(drive, turn);
                 flowerArm.update(gamepad1.dpad_up, gamepad1.dpad_down);
@@ -145,7 +188,10 @@ public class RobotTeleOp extends LinearOpMode {
         } finally {
             flowerArm.stop();
             robot.shooter.spinDown();
-            if (robotInitialized) robot.intakeSystem.stopIntake();
+            if (robotInitialized) {
+                robot.drive(0, 0);
+                robot.intakeSystem.stopIntake();
+            }
             robot.close();
         }
     }
