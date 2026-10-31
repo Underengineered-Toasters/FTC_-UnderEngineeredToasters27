@@ -11,9 +11,10 @@ public class Shooter {
     private CRServo shooter1;
     private CRServo shooter2;
     private static final double POWER_MAX = 1.0;
-    private static final double SHOOTER1_MAX = 0.325;
-    private static final double SHOOTER2_MAX = 0.525;
+    private static final double SHOOTER1_MAX = 0.34;
+    private static final double SHOOTER2_MAX = 0.54;
     private static final double LEGACY_MOTOR_MAX = 0.4;
+    private double powerAdjustment;
 
     public void init(HardwareMap hardwareMap) {
         CRServo first = hardwareMap.tryGet(CRServo.class, "shooter1");
@@ -35,6 +36,7 @@ public class Shooter {
         }
         shooter1 = first;
         shooter2 = second;
+        powerAdjustment = 0;
         flywheel = first == null ? motor : null;
         if (flywheel != null) {
             flywheel.setMotorEnable();
@@ -68,9 +70,20 @@ public class Shooter {
     public void setTargetPower(double power) {
         double clipped = Double.isFinite(power) ? Math.max(-POWER_MAX, Math.min(POWER_MAX, power)) : 0;
         if (flywheel != null) flywheel.setPower(limit(clipped, LEGACY_MOTOR_MAX));
-        if (shooter1 != null) shooter1.setPower(limit(clipped, SHOOTER1_MAX));
-        if (shooter2 != null) shooter2.setPower(limit(clipped, SHOOTER2_MAX));
+        if (shooter1 != null) shooter1.setPower(limit(clipped, getShooter1Limit()));
+        if (shooter2 != null) shooter2.setPower(limit(clipped, getShooter2Limit()));
     }
+
+    /** Adjust both servo limits equally, preserving their 20-point difference. Resets on init. */
+    public void adjustPower(double delta) {
+        if (Double.isFinite(delta)) {
+            powerAdjustment = Math.max(-SHOOTER1_MAX,
+                    Math.min(1.0 - SHOOTER2_MAX, powerAdjustment + delta));
+        }
+    }
+
+    public double getShooter1Limit() { return SHOOTER1_MAX + powerAdjustment; }
+    public double getShooter2Limit() { return SHOOTER2_MAX + powerAdjustment; }
 
     private static double limit(double power, double maximum) {
         return Math.max(-maximum, Math.min(maximum, power));
@@ -102,6 +115,6 @@ public class Shooter {
     public boolean isSpinning() {
         // For CR servos this indicates a commanded run, not measured wheel motion.
         return flywheel != null ? Math.abs(flywheel.getVelocity()) > 1.0
-                : Math.abs(getCurrentPower()) > 0.05;
+                : Math.max(Math.abs(getShooter1Power()), Math.abs(getShooter2Power())) > 0.05;
     }
 }

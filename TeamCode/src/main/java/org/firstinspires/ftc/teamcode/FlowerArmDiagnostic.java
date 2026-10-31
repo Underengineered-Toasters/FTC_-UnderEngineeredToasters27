@@ -26,7 +26,7 @@ public class FlowerArmDiagnostic extends LinearOpMode {
                 telemetry.addData("SDK command (not feedback)", "%.3f", servo.getPosition());
                 telemetry.addData("Servo port", servo.getPortNumber());
                 telemetry.addData("Servo PWM", servo.getController().getPwmStatus());
-                telemetry.addLine("Starts at 0.000: test DOWN first; release holds target");
+                telemetry.addLine("Starts at 1.000: test UP first; release holds target");
                 telemetry.update();
                 sleep(20);
             }

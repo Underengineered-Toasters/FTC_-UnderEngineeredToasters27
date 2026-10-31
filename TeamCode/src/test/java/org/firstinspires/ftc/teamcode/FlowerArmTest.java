@@ -30,27 +30,27 @@ public class FlowerArmTest {
     }
 
     @Test public void releaseAndStopHoldLastPositionInsteadOfReturningToCenter() {
-        initialize(); assertEquals(0.0, position, 0);
-        arm.update(false, true, 0.04); assertEquals(0.02, position, 1e-9);
-        arm.update(false, false, 0.04); assertEquals(0.02, position, 1e-9);
-        arm.stop(); assertEquals(0.02, position, 1e-9);
-        arm.update(true, false, 0.04); assertEquals(0.0, position, 1e-9);
+        initialize(); assertEquals(1.0, position, 0);
+        arm.update(true, false, 0.04); assertEquals(0.98, position, 1e-9);
+        arm.update(false, false, 0.04); assertEquals(0.98, position, 1e-9);
+        arm.stop(); assertEquals(0.98, position, 1e-9);
+        arm.update(false, true, 0.04); assertEquals(1.0, position, 1e-9);
     }
 
     @Test public void upperSwitchBlocksRaisingButAllowsLowering() {
-        initialize(); arm.update(false, true, 0.04);
+        initialize(); arm.update(true, false, 0.04);
         pressed = true;
-        arm.update(true, false, 0.04); assertEquals(0.02, position, 1e-9);
-        arm.update(false, true, 0.04); assertEquals(0.04, position, 1e-9);
+        arm.update(true, false, 0.04); assertEquals(0.98, position, 1e-9);
+        arm.update(false, true, 0.04); assertEquals(1.0, position, 1e-9);
         pressed = false;
-        arm.update(true, false, 0.04); assertEquals(0.02, position, 1e-9);
+        arm.update(true, false, 0.04); assertEquals(0.98, position, 1e-9);
     }
 
     @Test public void bothButtonsHoldAndLargeOrInvalidTimeCannotJumpTheArm() {
-        initialize(); arm.update(true, true, 0.04); assertEquals(0.0, position, 0);
-        arm.update(false, true, 10); assertEquals(0.025, position, 1e-9);
-        arm.update(false, true, Double.NaN); assertEquals(0.025, position, 1e-9);
-        arm.update(false, true, -1); assertEquals(0.025, position, 1e-9);
+        initialize(); arm.update(true, true, 0.04); assertEquals(1.0, position, 0);
+        arm.update(true, false, 10); assertEquals(0.975, position, 1e-9);
+        arm.update(true, false, Double.NaN); assertEquals(0.975, position, 1e-9);
+        arm.update(true, false, -1); assertEquals(0.975, position, 1e-9);
     }
 
     @Test public void sustainedInputReachesConfiguredRangeWithoutExceedingIt() {

@@ -20,6 +20,8 @@ public class RobotTeleOp extends LinearOpMode {
 
     private boolean shooterReversed = false;
     private boolean previousY = false;
+    private boolean previousPowerDown = false;
+    private boolean previousPowerUp = false;
 
     @Override
     public void runOpMode() {
@@ -39,6 +41,7 @@ public class RobotTeleOp extends LinearOpMode {
             telemetry.addLine("R2 (Hold) = Intake In + Both Shooters");
             telemetry.addLine("Y             = Toggle Shooter Direction");
             telemetry.addLine("Hold L2 = Camera Aim");
+            telemetry.addLine("D-pad Left/Right = Shooter Power -/+ 1 percentage point");
             telemetry.update();
 
             while (!isStarted() && !isStopRequested()) {
@@ -47,11 +50,12 @@ public class RobotTeleOp extends LinearOpMode {
                 telemetry.addLine("Square: Blue / Circle: Red during INIT; hold L2 to aim after START");
                 telemetry.addData("Aim target", alignmentTarget);
                 telemetry.addData("Camera", robot.vision.getCameraState());
+                telemetry.addLine("D-pad Left/Right tunes shooter power after START; resets on INIT");
                 telemetry.addLine("Robot initialized — Controller 1 D-pad Up/Down: Flower Arm");
                 telemetry.addLine("Controller 1 L1: Intake In; R1: Intake Out (hold)");
                 telemetry.addLine("Controller 1 R2: Intake In + Both Shooters (hold)");
                 telemetry.addData("Flower upper limit", flowerArm.isUpperLimitPressed() ? "PRESSED" : "RELEASED");
-                telemetry.addLine("Arm holds position on release; INIT commands raised target (0.0)");
+                telemetry.addLine("Arm holds position on release; INIT commands opposite startup target (1.0)");
                 telemetry.addData("Flower arm target (not measured)", "%.3f", flowerArm.getTargetPosition());
                 telemetry.update();
                 sleep(50);
@@ -129,6 +133,13 @@ public class RobotTeleOp extends LinearOpMode {
                 // Right trigger runs at maximum power.
                 // ==================================
 
+                boolean powerDown = gamepad1.dpad_left;
+                boolean powerUp = gamepad1.dpad_right;
+                if (powerUp && !previousPowerUp && !powerDown) robot.shooter.adjustPower(0.01);
+                if (powerDown && !previousPowerDown && !powerUp) robot.shooter.adjustPower(-0.01);
+                previousPowerUp = powerUp;
+                previousPowerDown = powerDown;
+
                 boolean yPressed = gamepad1.y || gamepad2.y;
 
                 if (yPressed && !previousY) {
@@ -167,6 +178,8 @@ public class RobotTeleOp extends LinearOpMode {
                 telemetry.addData("Shooter Power", "%.2f",
                         robot.shooter.getCurrentPower());
                 telemetry.addData("Shooter Hardware", robot.shooter.getHardwareDescription());
+                telemetry.addData("Shooter 1 / 2 setting", "%.0f%% / %.0f%%",
+                        100 * robot.shooter.getShooter1Limit(), 100 * robot.shooter.getShooter2Limit());
                 if (robot.shooter.hasVelocityFeedback()) {
                     telemetry.addData("Shooter Velocity", "%.0f RPM", robot.shooter.getCurrentVelocityRPM());
                 } else {

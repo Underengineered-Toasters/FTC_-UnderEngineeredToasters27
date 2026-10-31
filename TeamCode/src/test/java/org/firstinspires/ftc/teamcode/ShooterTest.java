@@ -48,9 +48,9 @@ public class ShooterTest {
         Shooter s = new Shooter();
         s.configureActuators(a.as(CRServo.class), b.as(CRServo.class), null);
         s.spinForwardMaxSpeed();
-        assertEquals(0.325, a.power, 0); assertEquals(0.525, b.power, 0); assertTrue(s.isSpinning());
+        assertEquals(0.34, a.power, 0); assertEquals(0.54, b.power, 0); assertTrue(s.isSpinning());
         s.spinReverseMaxSpeed();
-        assertEquals(-0.325, a.power, 0); assertEquals(-0.525, b.power, 0);
+        assertEquals(-0.34, a.power, 0); assertEquals(-0.54, b.power, 0);
         s.spinDown();
         assertEquals(0, a.power, 0); assertEquals(0, b.power, 0); assertFalse(s.isSpinning());
     }
@@ -73,8 +73,8 @@ public class ShooterTest {
         Actuator a = new Actuator(), b = new Actuator();
         Shooter s = new Shooter();
         s.configureActuators(a.as(CRServo.class), b.as(CRServo.class), null);
-        s.setTargetPower(3); assertEquals(0.325, a.power, 0); assertEquals(0.525, b.power, 0);
-        s.setTargetPower(-3); assertEquals(-0.325, a.power, 0); assertEquals(-0.525, b.power, 0);
+        s.setTargetPower(3); assertEquals(0.34, a.power, 0); assertEquals(0.54, b.power, 0);
+        s.setTargetPower(-3); assertEquals(-0.34, a.power, 0); assertEquals(-0.54, b.power, 0);
         s.setTargetPower(Double.NaN); assertEquals(0, a.power, 0); assertEquals(0, b.power, 0);
     }
 
@@ -109,11 +109,32 @@ public class ShooterTest {
         s.spinDown(); assertEquals(0, motor.power, 0);
     }
 
+    @Test public void liveTuningChangesBothCommandsAndStaysBoundedWithSameGap() {
+        Actuator a = new Actuator(), b = new Actuator();
+        Shooter s = new Shooter();
+        s.configureActuators(a.as(CRServo.class), b.as(CRServo.class), null);
+        s.adjustPower(0.01); s.spinForwardMaxSpeed();
+        assertEquals(0.35, a.power, 1e-9); assertEquals(0.55, b.power, 1e-9);
+        s.adjustPower(-0.01); s.spinForwardMaxSpeed();
+        assertEquals(0.34, a.power, 1e-9); assertEquals(0.54, b.power, 1e-9);
+        s.adjustPower(100); s.spinForwardMaxSpeed();
+        assertEquals(0.8, a.power, 1e-9); assertEquals(1, b.power, 1e-9);
+        s.adjustPower(Double.NaN); s.spinForwardMaxSpeed();
+        assertEquals(1, b.power, 1e-9);
+        s.adjustPower(-100); s.spinForwardMaxSpeed();
+        assertEquals(0, a.power, 1e-9); assertEquals(0.2, b.power, 1e-9);
+        assertTrue(s.isSpinning());
+        s.spinDown(); assertEquals(0, a.power, 0); assertEquals(0, b.power, 0);
+        s.configureActuators(a.as(CRServo.class), b.as(CRServo.class), null);
+        assertEquals(0.34, s.getShooter1Limit(), 0);
+        assertEquals(0.54, s.getShooter2Limit(), 0);
+    }
+
     @Test public void servosNeverReportFictitiousMeasuredRpm() {
         Shooter s = new Shooter();
         s.configureActuators(new Actuator().as(CRServo.class), new Actuator().as(CRServo.class), null);
         s.spinUp6000RPM();
-        assertEquals(0.325, s.getCurrentPower(), 0);
+        assertEquals(0.34, s.getCurrentPower(), 0);
         assertTrue(Double.isNaN(s.getCurrentVelocityRPM()));
     }
 }
