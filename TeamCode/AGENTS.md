@@ -16,6 +16,7 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 - `AutonomousCameraAligner` only turns in place; range is telemetry, not a shooting-distance controller. Aim defaults to 0-degree bearing; calibrate camera-to-shooter offset on hardware. Raw positive turn is physical left on the current drivetrain.
 - Alignment requires five distinct fresh frames over 200 ms, within 2 degrees and at most 8 deg/sec bearing change. Frames older than 250 ms, target loss, or non-streaming cameras stop turning; camera failure and a 5-second timeout abort. `Camera Alignment Test` selects alliance and tests this without shooting.
 - `AprilTagVision` uses the existing 640x480 YUY2 Arducam setup with exposure/gain controls and startup Logitech fallback (`Webcam 2`). Runtime loss reports failure instead of reopening. Imported lens calibration needs physical bearing verification; its principal point is outside the image.
+- `Shooter` supports the active Comp pair: `shooter1` (CRServo, servo port 0) and `shooter2` (CRServo, servo port 2). Both receive the same signed power; verify physical wheel directions before loaded firing. If neither servo is present, legacy `shooter` (DcMotorEx) remains supported. A partial pair is an explicit configuration error. CR servos have no RPM feedback; telemetry reports velocity unavailable and run state is commanded, not measured. The active Comp configuration currently has no `feeder` entry and reports an I2C fault for `colorSensor` on bus 0; resolve wiring/configuration before autonomous feeding.
 - Keep OpModes organized under `org.firstinspires.ftc.teamcode`.
 - Annotate competition TeleOp classes with `@TeleOp(name = "...", group = "...")`.
 - Annotate competition Autonomous classes with `@Autonomous(name = "...", group = "...")`.
@@ -40,5 +41,5 @@ Owned by the FTC student programming team. All robot behavior modifications occu
 
 ## Child DOX Index
 
-- `src/test/`: deterministic JVM alignment tests and their verification contract.
+- `src/test/`: deterministic JVM alignment and shooter actuator tests and their verification contract.
 - Production sources, resources, and hardware verification remain owned here.

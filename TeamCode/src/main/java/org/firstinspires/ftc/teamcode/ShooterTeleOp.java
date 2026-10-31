@@ -77,9 +77,13 @@ public class ShooterTeleOp extends LinearOpMode {
                     shooterReversed ? "REVERSE" : "FORWARD");
             telemetry.addData("Shooter Power", "%.2f",
                     shooter.getCurrentPower());
-            telemetry.addData("Shooter Velocity", "%.0f RPM",
-                    shooter.getCurrentVelocityRPM());
-            telemetry.addData("Shooter Spinning",
+            telemetry.addData("Shooter Hardware", shooter.getHardwareDescription());
+            if (shooter.hasVelocityFeedback()) {
+                telemetry.addData("Shooter Velocity", "%.0f RPM", shooter.getCurrentVelocityRPM());
+            } else {
+                telemetry.addData("Shooter Velocity", "Unavailable (CR servos)");
+            }
+            telemetry.addData("Shooter active (measured/commanded)",
                     shooter.isSpinning());
             telemetry.addData("Drive Left", "%.2f", leftPower);
             telemetry.addData("Drive Right", "%.2f", rightPower);
