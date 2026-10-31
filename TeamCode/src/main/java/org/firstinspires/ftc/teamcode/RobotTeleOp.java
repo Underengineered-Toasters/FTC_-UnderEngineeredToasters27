@@ -42,7 +42,7 @@ public class RobotTeleOp extends LinearOpMode {
                 telemetry.addLine("Controller 1 L1: Intake In; R1: Intake Out (hold)");
                 telemetry.addLine("Controller 1 R2: Intake In + Both Shooters (hold)");
                 telemetry.addData("Flower upper limit", flowerArm.isUpperLimitPressed() ? "PRESSED" : "RELEASED");
-                telemetry.addLine("Arm holds position on release; INIT commands midpoint (0.5)");
+                telemetry.addLine("Arm holds position on release; INIT commands raised target (0.0)");
                 telemetry.addData("Flower arm target (not measured)", "%.3f", flowerArm.getTargetPosition());
                 telemetry.update();
                 sleep(50);

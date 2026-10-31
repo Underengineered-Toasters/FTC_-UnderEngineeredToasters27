@@ -6,8 +6,8 @@ import com.qualcomm.robotcore.hardware.TouchSensor;
 
 /** Position control for the default-mode goBILDA torque servo. */
 public class FlowerArm {
-    private static final double INITIAL_POSITION = 0.5;
-    private static final double POSITION_PER_SECOND = 0.25;
+    private static final double INITIAL_POSITION = 0.0;
+    private static final double POSITION_PER_SECOND = 0.5;
     private Servo servo;
     private TouchSensor upperLimit;
     private double target = INITIAL_POSITION;
