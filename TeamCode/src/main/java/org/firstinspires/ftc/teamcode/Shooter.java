@@ -114,6 +114,6 @@ public class Shooter {
 
     public boolean isSpinning() {
         return (flywheel1 != null && Math.abs(flywheel1.getPower()) > 0.05) ||
-               (flywheel2 != null && Math.abs(flywheel2.getPower()) > 0.05);
+                (flywheel2 != null && Math.abs(flywheel2.getPower()) > 0.05);
     }
 }

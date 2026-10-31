@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * RED ALLIANCE TELEOP OPMODE (Static Turret Hold)
- * 
+ *
  * Camera alignment commented out. Turret holds static initial position:
  * - Automatically returns to initial position if drifted > 5° to 30° equivalent ticks.
  * - Manual override via D-Pad Left / Right.
@@ -75,7 +75,7 @@ public class RedTeleOp extends LinearOpMode {
                 int errorTicks = currentTurretPos - initialTurretPos;
 
                 // Threshold: ~5 degrees (~150 ticks) to 30 degrees (~900 ticks) drift correction
-                int driftThresholdTicks = 150; 
+                int driftThresholdTicks = 150;
 
                 if (Math.abs(errorTicks) > driftThresholdTicks) {
                     // Automatically return to initial static position

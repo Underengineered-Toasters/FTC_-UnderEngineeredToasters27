@@ -163,7 +163,7 @@ public class AprilTagAutonomous extends LinearOpMode {
 
                 // Check if aligned within tolerance
                 if (Math.abs(rangeError) < DISTANCE_TOLERANCE_INCHES &&
-                    Math.abs(bearingError) < BEARING_TOLERANCE_DEGREES) {
+                        Math.abs(bearingError) < BEARING_TOLERANCE_DEGREES) {
                     aligned = true;
                     robot.drive(0, 0);
                     telemetry.addLine(">> VERIFIED & ALIGNED TO TAG " + targetTagId + " <<");

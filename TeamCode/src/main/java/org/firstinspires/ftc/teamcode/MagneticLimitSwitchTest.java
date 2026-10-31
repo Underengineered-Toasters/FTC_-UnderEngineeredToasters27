@@ -7,7 +7,7 @@ import com.qualcomm.robotcore.hardware.TouchSensor;
 
 /**
  * TEST OPMODE FOR TURRET MAGNETIC LIMIT SWITCH
- * 
+ *
  * Hardware Setup:
  * - Plugged into Digital Port 0-1 on the Control Hub.
  * - Driver Station Configuration Name: "mag" (Digital Port 0)
