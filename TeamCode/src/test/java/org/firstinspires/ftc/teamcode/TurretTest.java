@@ -9,6 +9,7 @@ public class TurretTest {
     private double power = 1;
     private DcMotor.RunMode mode;
     private DcMotor.ZeroPowerBehavior zeroPower;
+    private DcMotor.Direction direction;
 
     private Turret initialize() {
         DcMotor motor = (DcMotor) Proxy.newProxyInstance(DcMotor.class.getClassLoader(),
@@ -16,6 +17,7 @@ public class TurretTest {
                     if (method.getName().equals("setPower")) power = (Double) args[0];
                     if (method.getName().equals("getPower")) return power;
                     if (method.getName().equals("setMode")) mode = (DcMotor.RunMode) args[0];
+                    if (method.getName().equals("setDirection")) direction = (DcMotor.Direction) args[0];
                     if (method.getName().equals("setZeroPowerBehavior")) zeroPower = (DcMotor.ZeroPowerBehavior) args[0];
                     return null;
                 });
@@ -26,6 +28,7 @@ public class TurretTest {
         initialize(); assertEquals(0, power, 0);
         assertEquals(DcMotor.RunMode.RUN_WITHOUT_ENCODER, mode);
         assertEquals(DcMotor.ZeroPowerBehavior.BRAKE, zeroPower);
+        assertEquals(DcMotor.Direction.REVERSE, direction);
     }
 
     @Test public void realAlignmentOutputDrivesTurretAndReleaseStopsIt() {
