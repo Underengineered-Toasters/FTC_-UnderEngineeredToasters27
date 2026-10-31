@@ -45,9 +45,10 @@ public abstract class RobotTeleOp extends LinearOpMode {
             telemetry.addLine("Right Stick X = Manual Turn");
             telemetry.addLine("L1 (Hold) = Intake In; R1 (Hold) = Intake Out");
             telemetry.addLine("Controller 1 D-pad Up/Down = Flower Arm (hold)");
+            telemetry.addLine("L2 (Hold) = Both Shooters Only");
             telemetry.addLine("R2 (Hold) = Intake In + Both Shooters");
             telemetry.addLine("Y             = Toggle Shooter Direction");
-            telemetry.addLine("Hold L2 = Turret Search + Camera Aim");
+            telemetry.addLine("Hold M2/Cross = Turret Search + Camera Aim");
             telemetry.addLine("D-pad Left/Right = Shooter Power -/+ 1 percentage point");
             telemetry.update();
 
@@ -63,7 +64,7 @@ public abstract class RobotTeleOp extends LinearOpMode {
                 }
                 previousCalibrationButton = gamepad1.y;
                 telemetry.addLine("Alliance audience target is fixed by the selected TeleOp");
-                telemetry.addLine("Hold L2 after START to align automatically; Triangle optionally records an aim offset");
+                telemetry.addLine("Hold M2/Cross after START to align automatically; Triangle optionally records an aim offset");
                 telemetry.addData("Selected hive tags", freshReference ? "DETECTED" : "NOT DETECTED");
                 telemetry.addData("Hive aim reference", aimCalibrated ? String.format(java.util.Locale.US,
                         "SAVED %.1f deg", learnedBearing) : "DEFAULT 0 deg - no setup required");
@@ -72,6 +73,7 @@ public abstract class RobotTeleOp extends LinearOpMode {
                 telemetry.addLine("D-pad Left/Right tunes shooter power after START; resets on INIT");
                 telemetry.addLine("Robot initialized — Controller 1 D-pad Up/Down: Flower Arm");
                 telemetry.addLine("Controller 1 L1: Intake In; R1: Intake Out (hold)");
+                telemetry.addLine("Controller 1 L2: Both Shooters Only (hold)");
                 telemetry.addLine("Controller 1 R2: Intake In + Both Shooters (hold)");
                 telemetry.addData("Flower upper limit", flowerArm.isUpperLimitPressed() ? "PRESSED" : "RELEASED");
                 telemetry.addLine("Arm holds position on release; INIT commands opposite startup target (1.0)");
@@ -96,8 +98,8 @@ public abstract class RobotTeleOp extends LinearOpMode {
                 double drive = gamepad1.left_stick_y;
                 double turn = -gamepad1.right_stick_x;
 
-                // Controller 1 L2 controls alignment independently of the intake bumpers.
-                boolean aimHeld = gamepad1.left_trigger > 0.05;
+                // Controller 1 M2/Cross controls alignment independently of the intake bumpers.
+                boolean aimHeld = gamepad1.a; // REV M2 defaults to Cross (FTC a).
                 List<AprilTagDetection> fresh = aimHeld ? robot.vision.getFreshDetections() : null;
                 ClusterAlignmentController.Sample sample = null;
                 if (fresh != null) {
@@ -119,16 +121,16 @@ public abstract class RobotTeleOp extends LinearOpMode {
                     turn = 0;
                     telemetry.addData("Alignment", aim.state);
                     if (aim.state == ClusterAlignmentController.State.SEARCHING) {
-                        telemetry.addLine("Searching side-to-side for hive tags; release L2 to stop");
+                        telemetry.addLine("Searching side-to-side for hive tags; release M2/Cross to stop");
                     }
                     telemetry.addData("Stable frames", "%d / %d", aim.stableFrames,
                             ClusterAlignmentController.REQUIRED_FRAMES);
                     if (aim.target != null) {
                         telemetry.addData("Aim bearing", "%.1f deg", aim.target.bearingDeg);
                     }
-                    telemetry.addLine("Release L2 for manual driving; release/repress to retry timeout");
+                    telemetry.addLine("Release M2/Cross for manual driving; release/repress to retry timeout");
                 } else {
-                    telemetry.addData("Alignment", "MANUAL - hold L2 to aim");
+                    telemetry.addData("Alignment", "MANUAL - hold M2/Cross to aim");
                 }
                 telemetry.addData("Aim target", alignmentTarget);
                 telemetry.addData("Hive aim reference", aimCalibrated ? learnedBearing : "DEFAULT 0 deg");
@@ -150,8 +152,8 @@ public abstract class RobotTeleOp extends LinearOpMode {
                         }
                     }
                     RobotLog.ii("[DEBUG-camera-align]",
-                            "L2=%.2f state=%s selected=%s camera=%s observed=%s turret=%.3f reference=%s aimBearing=%.1f",
-                            gamepad1.left_trigger, aim == null ? "MANUAL" : aim.state,
+                            "M2/Cross=%s state=%s selected=%s camera=%s observed=%s turret=%.3f reference=%s aimBearing=%.1f",
+                            aimHeld, aim == null ? "MANUAL" : aim.state,
                             alignmentTarget, robot.vision.getCameraState(), observed.toString(), robot.turret.getPower(),
                             aimCalibrated, learnedBearing);
                     nextAlignmentLog = System.nanoTime() + 500_000_000L;
@@ -177,7 +179,7 @@ public abstract class RobotTeleOp extends LinearOpMode {
                 // ==================================
                 // SHOOTER CONTROL
                 // Y toggles direction.
-                // Right trigger runs at maximum power.
+                // L2 runs shooters only; R2 also commands intake above.
                 // ==================================
 
                 boolean powerDown = gamepad1.dpad_left;
@@ -195,11 +197,11 @@ public abstract class RobotTeleOp extends LinearOpMode {
 
                 previousY = yPressed;
 
-                double rightTrigger = Math.max(
+                double shooterTrigger = Math.max(gamepad1.left_trigger, Math.max(
                         gamepad1.right_trigger,
-                        gamepad2.right_trigger);
+                        gamepad2.right_trigger));
 
-                if (rightTrigger > 0.05) {
+                if (shooterTrigger > 0.05) {
                     robot.shooter.setTargetPower(
                             shooterReversed ? -1.0 : 1.0
                     );
