@@ -2,7 +2,6 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.RobotLog;
 
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
@@ -10,15 +9,13 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 
 import java.util.List;
 
-@TeleOp(name = "Robot TeleOp", group = "Main")
-public class RobotTeleOp extends LinearOpMode {
+/** Shared controls for the two fixed-alliance TeleOps. */
+public abstract class RobotTeleOp extends LinearOpMode {
 
     private final Robot robot = new Robot();
     private final FlowerArm flowerArm = new FlowerArm();
     private HoldToAlignController alignment = new HoldToAlignController();
-    private String alignmentTarget = AprilTagVision.RED_AUDIENCE;
-    private boolean blueAlliance;
-    private boolean scoringTags;
+    private String alignmentTarget;
     private boolean aimCalibrated;
     private boolean previousCalibrationButton;
     private double learnedBearing;
@@ -30,8 +27,11 @@ public class RobotTeleOp extends LinearOpMode {
     private boolean previousPowerUp = false;
     private long nextAlignmentLog;
 
+    protected abstract String getAllianceTarget();
+
     @Override
     public void runOpMode() {
+        alignmentTarget = getAllianceTarget();
         boolean robotInitialized = false;
         try {
             flowerArm.init(hardwareMap);
@@ -52,17 +52,6 @@ public class RobotTeleOp extends LinearOpMode {
             telemetry.update();
 
             while (!isStarted() && !isStopRequested()) {
-                if (gamepad1.x) blueAlliance = true;
-                if (gamepad1.b) blueAlliance = false;
-                if (gamepad1.dpad_left) scoringTags = false;
-                if (gamepad1.dpad_right) scoringTags = true;
-                String selected = blueAlliance
-                        ? (scoringTags ? AprilTagVision.BLUE_SCORING : AprilTagVision.BLUE_AUDIENCE)
-                        : (scoringTags ? AprilTagVision.RED_SCORING : AprilTagVision.RED_AUDIENCE);
-                if (!selected.equals(alignmentTarget)) {
-                    alignmentTarget = selected;
-                    aimCalibrated = false;
-                }
                 AprilTagClusterDetection visible = robot.vision.findCluster(alignmentTarget);
                 boolean freshReference = visible != null && visible.ftcPose != null
                         && Double.isFinite(visible.ftcPose.bearing) && visible.frameAcquisitionNanoTime <= System.nanoTime()
@@ -73,7 +62,7 @@ public class RobotTeleOp extends LinearOpMode {
                     aimCalibrated = true;
                 }
                 previousCalibrationButton = gamepad1.y;
-                telemetry.addLine("INIT: Square Blue / Circle Red; D-pad Left Audience / Right Scoring tags");
+                telemetry.addLine("Alliance audience target is fixed by the selected TeleOp");
                 telemetry.addLine("Point SHOOTERS at hive, then tap Triangle to record that aim");
                 telemetry.addData("Selected hive tags", freshReference ? "DETECTED" : "NOT DETECTED");
                 telemetry.addData("Hive aim reference", aimCalibrated ? String.format(java.util.Locale.US,
