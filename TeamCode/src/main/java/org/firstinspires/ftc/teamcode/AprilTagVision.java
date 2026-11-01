@@ -7,7 +7,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.stream.CameraStreamSource;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
-import org.firstinspires.ftc.vision.apriltag.AprilTagLibrary;
+import org.firstinspires.ftc.vision.apriltag.AprilTagGameDatabase;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 
 import java.util.Collections;
@@ -20,44 +20,21 @@ public class AprilTagVision {
     public static final String BLUE_AUDIENCE = "BLUE AUDIENCE";
     public static final String BLUE_SCORING  = "BLUE SCORING";
 
-    // Red Alliance Target Tag IDs
+    // SDK BIOBUZZ cluster members: primary = scoring, secondary = audience for red.
     public static final int[] RED_TAGS_PRIMARY   = {30, 31, 32, 33};
     public static final int[] RED_TAGS_SECONDARY = {34, 35, 36, 37};
 
-    // Blue Alliance Target Tag IDs
+    // SDK BIOBUZZ cluster members: primary = audience, secondary = scoring for blue.
     public static final int[] BLUE_TAGS_PRIMARY   = {38, 39, 40, 41};
     public static final int[] BLUE_TAGS_SECONDARY = {42, 43, 44, 45};
 
     private AprilTagProcessor aprilTag;
     private VisionPortal visionPortal;
 
-    // Physical tag width in inches
-    private static final double TAG_SIZE_INCHES = 3.25;
-
     public void init(HardwareMap hardwareMap) {
 
-        // Register tags 30–45 for BIOBUZZ
-        AprilTagLibrary tagLibrary = new AprilTagLibrary.Builder()
-                .addTag(30, RED_AUDIENCE, TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .addTag(31, RED_AUDIENCE, TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .addTag(32, RED_SCORING, TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .addTag(33, RED_SCORING, TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .addTag(34, BLUE_AUDIENCE, TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .addTag(35, BLUE_AUDIENCE, TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .addTag(36, BLUE_SCORING, TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .addTag(37, BLUE_SCORING, TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .addTag(38, "Tag 38", TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .addTag(39, "Tag 39", TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .addTag(40, "Tag 40", TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .addTag(41, "Tag 41", TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .addTag(42, "Tag 42", TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .addTag(43, "Tag 43", TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .addTag(44, "Tag 44", TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .addTag(45, "Tag 45", TAG_SIZE_INCHES, DistanceUnit.INCH)
-                .build();
-
         aprilTag = new AprilTagProcessor.Builder()
-                .setTagLibrary(tagLibrary)
+                .setTagLibrary(AprilTagGameDatabase.getCurrentGameTagLibrary())
                 .setOutputUnits(DistanceUnit.INCH, AngleUnit.DEGREES)
                 .build();
 
@@ -79,8 +56,8 @@ public class AprilTagVision {
 
     public AprilTagDetection findTagByName(String name) {
         for (AprilTagDetection detection : getDetections()) {
-            if (detection.metadata != null && name != null
-                    && name.equals(detection.metadata.name) && detection.ftcPose != null) {
+            if (name != null
+                    && name.equals(AprilTagTargets.nameOf(detection)) && detection.ftcPose != null) {
                 return detection;
             }
         }
@@ -91,7 +68,7 @@ public class AprilTagVision {
         for (AprilTagDetection detection : getDetections()) {
             if (detection.ftcPose != null) {
                 for (int id : tagIds) {
-                    if (detection.id == id) {
+                    if (AprilTagTargets.matchesId(detection, id)) {
                         return detection;
                     }
                 }

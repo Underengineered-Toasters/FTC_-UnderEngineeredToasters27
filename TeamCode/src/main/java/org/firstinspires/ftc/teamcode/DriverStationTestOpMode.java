@@ -32,8 +32,8 @@ public class DriverStationTestOpMode extends LinearOpMode {
             telemetry.addLine("--------------------------------");
 
             for (AprilTagDetection detection : detections) {
-                String name = (detection.metadata != null) ? detection.metadata.name : "Unknown Tag";
-                telemetry.addLine(String.format("Tag ID %d (%s):", detection.id, name));
+                String name = AprilTagTargets.nameOf(detection);
+                telemetry.addLine(String.format("Tag ID/group %s (%s):", AprilTagTargets.identityOf(detection), name));
 
                 if (detection.ftcPose != null) {
                     telemetry.addLine(String.format(
@@ -48,11 +48,11 @@ public class DriverStationTestOpMode extends LinearOpMode {
                             detection.ftcPose.bearing,
                             detection.ftcPose.yaw
                     ));
-                } else if (detection.center != null) {
+                } else if (AprilTagTargets.centerOf(detection) != null) {
                     telemetry.addLine(String.format(
                             "   2D Center: X %.0f, Y %.0f",
-                            detection.center.x,
-                            detection.center.y
+                            AprilTagTargets.centerOf(detection).x,
+                            AprilTagTargets.centerOf(detection).y
                     ));
                 }
             }

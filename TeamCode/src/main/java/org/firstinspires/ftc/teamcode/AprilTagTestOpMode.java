@@ -32,18 +32,18 @@ public class AprilTagTestOpMode extends LinearOpMode {
             telemetry.addLine("--------------------------------");
 
             for (AprilTagDetection tag : detections) {
-                String tagName = (tag.metadata != null) ? tag.metadata.name : "unknown tag";
+                String tagName = AprilTagTargets.nameOf(tag);
                 if (DESIRED_TARGET.equals(tagName)) {
                     targetFound = true;
                     telemetry.addLine(String.format(
-                            ">> TARGET FOUND (%s, ID %d) <<",
+                            ">> TARGET FOUND (%s, ID/group %s) <<",
                             tagName,
-                            tag.id
+                            AprilTagTargets.identityOf(tag)
                     ));
                 } else {
                     telemetry.addLine(String.format(
-                            "Tag (ID %d, %s):",
-                            tag.id,
+                            "Tag (ID/group %s, %s):",
+                            AprilTagTargets.identityOf(tag),
                             tagName
                     ));
                 }
@@ -65,11 +65,11 @@ public class AprilTagTestOpMode extends LinearOpMode {
                             tag.ftcPose.z,
                             tag.ftcPose.yaw
                     ));
-                } else if (tag.center != null) {
+                } else if (AprilTagTargets.centerOf(tag) != null) {
                     telemetry.addLine(String.format(
                             "   Pose unavailable (Center at X: %.0f, Y: %.0f)",
-                            tag.center.x,
-                            tag.center.y
+                            AprilTagTargets.centerOf(tag).x,
+                            AprilTagTargets.centerOf(tag).y
                     ));
                 } else {
                     telemetry.addLine("   Pose unavailable");
