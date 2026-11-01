@@ -7,6 +7,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 
 import java.util.List;
 
+@com.qualcomm.robotcore.eventloop.opmode.Disabled
 @TeleOp(name = "Robot TeleOp", group = "Main")
 public class RobotTeleOp extends LinearOpMode {
 

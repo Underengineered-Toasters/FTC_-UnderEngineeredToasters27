@@ -13,6 +13,7 @@ import java.util.List;
  * - Automatically returns to initial position if drifted > 5° to 30° equivalent ticks.
  * - Manual override via D-Pad Left / Right.
  */
+@com.qualcomm.robotcore.eventloop.opmode.Disabled
 @TeleOp(name = "Red Alliance TeleOp", group = "Red")
 public class RedTeleOp extends LinearOpMode {
 
