@@ -30,6 +30,10 @@ public class shooter1 {
             sparkMiniFlywheel = null;
         }
 
+        if (sparkMiniFlywheel != null) {
+            sparkMiniFlywheel.setDirection(DcMotorSimple.Direction.REVERSE);
+        }
+
         // Fallback: try initializing as DcMotorEx (Control Hub Motor Port)
         if (sparkMiniFlywheel == null) {
             try {
@@ -46,7 +50,7 @@ public class shooter1 {
                 motorFlywheel.setMotorEnable();
                 motorFlywheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
                 motorFlywheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-                motorFlywheel.setDirection(DcMotor.Direction.FORWARD);
+                motorFlywheel.setDirection(DcMotor.Direction.REVERSE);
             }
         }
 

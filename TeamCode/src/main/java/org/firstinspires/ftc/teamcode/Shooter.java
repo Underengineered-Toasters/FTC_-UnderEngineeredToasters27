@@ -7,8 +7,8 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 /**
  * Dual-Motor Shooter Controller for FTC (2 Flywheel Motors on Port 2 & Port 3).
- * Motor 1 ("shooter") runs FORWARD.
- * Motor 2 ("shooter2") runs REVERSE (Opposite Direction).
+ * Motor 1 ("shooter") runs REVERSE.
+ * Motor 2 ("shooter2") retains its REVERSE direction.
  * Both motors deliver 100% maximum raw battery voltage.
  */
 public class Shooter {
@@ -38,12 +38,12 @@ public class Shooter {
             flywheel2 = null;
         }
 
-        // Configure Motor 1 (FORWARD Direction)
+        // Configure Motor 1 (reversed primary shooter direction)
         if (flywheel1 != null) {
             flywheel1.setMotorEnable();
             flywheel1.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
             flywheel1.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-            flywheel1.setDirection(DcMotor.Direction.FORWARD);
+            flywheel1.setDirection(DcMotor.Direction.REVERSE);
             flywheel1.setPower(POWER_OFF);
         }
 
@@ -77,7 +77,7 @@ public class Shooter {
 
     public void setDirection(boolean reverse) {
         if (flywheel1 != null) {
-            flywheel1.setDirection(reverse ? DcMotor.Direction.REVERSE : DcMotor.Direction.FORWARD);
+            flywheel1.setDirection(reverse ? DcMotor.Direction.FORWARD : DcMotor.Direction.REVERSE);
         }
         if (flywheel2 != null) {
             flywheel2.setDirection(reverse ? DcMotor.Direction.FORWARD : DcMotor.Direction.REVERSE);

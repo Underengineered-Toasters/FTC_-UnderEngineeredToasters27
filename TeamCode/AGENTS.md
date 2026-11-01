@@ -15,6 +15,8 @@ Team programming owns production code and its physical calibration.
 
 - BasicParkingAutonomous registers as Basic Autonomous with the restored forward 7/46/7/46-inch legs, right/left/left/left 90-degree turns, then backward 7 inches. ParkingAutonomous registers separately as Parking Autonomous: backward 7 inches, right 90 degrees, then backward 46 inches. Both initialize only left/right drive motors. Existing BasicAutonomous remains unchanged. Uses main Robot's motor directions; timed distances/turns require field calibration. STOP/finally zeros both motors.
 
+- Primary shooter direction is reversed in both shooter1 (CRServo and DcMotor paths) and the unified Shooter motor wrapper. shooter1 CRServo explicitly initializes REVERSE; the primary motor defaults REVERSE and the wrapper's direction toggle preserves this polarity. Secondary shooter commands and power magnitudes are unchanged. Verify loaded exit direction on hardware.
+
 ## Work Guidance
 Keep camera API migrations separate from shooter, intake, and drive tuning. Verify physical aiming after deployment.
 
