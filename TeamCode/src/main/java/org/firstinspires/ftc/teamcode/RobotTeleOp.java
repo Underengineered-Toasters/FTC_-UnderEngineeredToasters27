@@ -88,7 +88,7 @@ public class RobotTeleOp extends LinearOpMode {
                     turn  = Math.max(-0.3, Math.min(0.3, turn));
 
                     telemetry.addData("Auto-Align Target",
-                            targetTag.metadata != null ? targetTag.metadata.name : "Tag " + targetTag.id);
+                            AprilTagTargets.nameOf(targetTag));
                     telemetry.addData("Align Distance Error", "%.1f in", rangeError);
                     telemetry.addData("Align Heading Error", "%.1f deg", bearingError);
 

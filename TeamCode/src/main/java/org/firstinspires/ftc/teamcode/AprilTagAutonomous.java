@@ -9,8 +9,8 @@ import java.util.List;
 
 /**
  * Autonomous OpMode for FTC testing.
- * Navigates a hardcoded waypoint path, using AprilTag IDs (30-37)
- * to verify field position and perform closed-loop alignment (distance and heading).
+ * Navigates a hardcoded waypoint path, using SDK 12 BIOBUZZ clusters
+ * for relative closed-loop alignment (distance and heading), not absolute field localization.
  */
 @Autonomous(name = "AprilTag Autonomous Path", group = "Autonomous")
 public class AprilTagAutonomous extends LinearOpMode {
@@ -30,10 +30,10 @@ public class AprilTagAutonomous extends LinearOpMode {
     private static final double BEARING_TOLERANCE_DEGREES = 2.0;
 
     // Target Tag IDs based on Game Map
-    // Red Alliance: 30 & 31 (Audience), 32 & 33 (Scoring)
-    // Blue Alliance: 34 & 35 (Audience), 36 & 37 (Scoring)
-    private static final int TARGET_TAG_WAYPOINT_1 = 30; // Red Audience Tag
-    private static final int TARGET_TAG_WAYPOINT_2 = 32; // Red Scoring Tag
+    // Red Alliance: 34-37 (Audience), 30-33 (Scoring)
+    // Blue Alliance: 38-41 (Audience), 42-45 (Scoring)
+    private static final int TARGET_TAG_WAYPOINT_1 = 34; // Red Audience Tag
+    private static final int TARGET_TAG_WAYPOINT_2 = 30; // Red Scoring Tag
 
     @Override
     public void runOpMode() {
@@ -68,7 +68,7 @@ public class AprilTagAutonomous extends LinearOpMode {
         driveTime(0.0, 0.3, 0.8); // Turn right ~45 degrees
 
         // ===============================================
-        // STEP 2: Verify Position & Align using Tag 30
+        // STEP 2: Verify Position & Align using Red Audience
         // ===============================================
         telemetry.addLine("Step 2: Searching & Aligning to AprilTag " + TARGET_TAG_WAYPOINT_1 + "...");
         telemetry.update();
@@ -83,13 +83,13 @@ public class AprilTagAutonomous extends LinearOpMode {
         telemetry.update();
         // Back up slightly from Tag 1
         driveTime(-0.3, 0.0, 1.0);
-        // Turn left toward Scoring Area (Tag 32)
+        // Turn left toward Scoring Area (Red Scoring)
         driveTime(0.0, -0.3, 1.2);
         // Drive forward across field
         driveTime(0.4, 0.0, 2.0);
 
         // ===============================================
-        // STEP 4: Verify Position & Align using Tag 32
+        // STEP 4: Verify Position & Align using Red Scoring
         // ===============================================
         telemetry.addLine("Step 4: Searching & Aligning to AprilTag " + TARGET_TAG_WAYPOINT_2 + "...");
         telemetry.update();
@@ -189,7 +189,7 @@ public class AprilTagAutonomous extends LinearOpMode {
     private AprilTagDetection findTagById(List<AprilTagDetection> detections, int id) {
         if (detections == null) return null;
         for (AprilTagDetection detection : detections) {
-            if (detection.id == id) {
+            if (AprilTagTargets.matchesId(detection, id)) {
                 return detection;
             }
         }
