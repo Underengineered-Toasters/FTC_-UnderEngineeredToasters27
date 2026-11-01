@@ -13,7 +13,7 @@ Team programming owns production code and its physical calibration.
 - SDK migration preserves main's hardware controls and existing route timing. AprilTagAutonomous targets Red Audience then Red Scoring using corrected SDK identities.
 - Alliance TeleOps retain main's static turret behavior; SDK compatibility alone does not enable their commented-out alignment.
 
-- BasicParkingAutonomous registers as Basic Autonomous and initializes only left/right drive motors. It estimates forward legs 7/46/7/46 inches, right/left/left/left 90-degree turns, then backward 7 inches. Existing BasicAutonomous remains unchanged. Uses main Robot's motor directions; timed distances/turns require field calibration. STOP/finally zeros both motors.
+- BasicParkingAutonomous registers as Basic Autonomous and initializes only left/right drive motors. It estimates backward 7 inches, right 90 degrees, then backward 46 inches. Existing BasicAutonomous remains unchanged. Uses main Robot's motor directions; timed distances/turns require field calibration. STOP/finally zeros both motors.
 
 ## Work Guidance
 Keep camera API migrations separate from shooter, intake, and drive tuning. Verify physical aiming after deployment.
