@@ -9,8 +9,11 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 @Autonomous(name = "Basic Autonomous", group = "Autonomous")
 public class BasicParkingAutonomous extends LinearOpMode {
     // Starting estimates from BasicAutonomous, not measured parking coordinates.
-    public static final double FIRST_BACKWARD_INCHES = 7.0;
-    public static final double SECOND_BACKWARD_INCHES = 46.0;
+    public static final double FIRST_FORWARD_INCHES = 7.0;
+    public static final double SECOND_FORWARD_INCHES = 46.0;
+    public static final double THIRD_FORWARD_INCHES = 7.0;
+    public static final double FOURTH_FORWARD_INCHES = 46.0;
+    public static final double BACKWARD_INCHES = 7.0;
     private static final double INCHES_PER_SECOND_AT_HALF_POWER = 20.0;
     private static final double TURN_POWER = 0.565;
     private static final double SECONDS_PER_90_DEGREES = 0.60;
@@ -34,15 +37,22 @@ public class BasicParkingAutonomous extends LinearOpMode {
             right.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
             telemetry.addLine("Basic Autonomous - drive only, estimated distances");
-            telemetry.addLine("Backward 7 inches, right 90 degrees, backward 46 inches");
+            telemetry.addLine("Forward 7, right 90, forward 46, left 90");
+            telemetry.addLine("Forward 7, left 90, forward 46, left 90, back 7");
             telemetry.addLine("No shooter, intake, loader or camera actions");
             telemetry.update();
             waitForStart();
             if (!opModeIsActive()) return;
 
-            driveInches(-FIRST_BACKWARD_INCHES, 0.3);
+            driveInches(FIRST_FORWARD_INCHES, 0.3);
             turn90(true);
-            driveInches(-SECOND_BACKWARD_INCHES, 0.5);
+            driveInches(SECOND_FORWARD_INCHES, 0.5);
+            turn90(false);
+            driveInches(THIRD_FORWARD_INCHES, 0.3);
+            turn90(false);
+            driveInches(FOURTH_FORWARD_INCHES, 0.5);
+            turn90(false);
+            driveInches(-BACKWARD_INCHES, 0.3);
             if (opModeIsActive()) {
                 telemetry.addLine("Parking route complete");
                 telemetry.update();
