@@ -52,8 +52,11 @@ public class RedTeleOp extends LinearOpMode {
 
             List<AprilTagDetection> detections = robot.getAprilTagDetections();
 
-            double drive = -gamepad1.left_stick_y;
-            double turn  = -gamepad1.right_stick_x;
+            // Shaped stick input; left stick button held = slow mode
+            boolean slowMode = gamepad1.left_stick_button;
+            double driveScale = slowMode ? DriveMath.SLOW_MODE_SCALE : 1.0;
+            double drive = DriveMath.shape(-gamepad1.left_stick_y) * driveScale;
+            double turn  = DriveMath.shape(-gamepad1.right_stick_x) * driveScale;
 
             // Apply chassis drive
             robot.drive(drive, turn);
@@ -153,6 +156,7 @@ public class RedTeleOp extends LinearOpMode {
             // =========================================================================
 
             telemetry.addLine("------------------------------");
+            telemetry.addData("Drive Mode", slowMode ? "SLOW" : "NORMAL");
             telemetry.addData("Drive Left Power", "%.2f", robot.getLeftPower());
             telemetry.addData("Drive Right Power", "%.2f", robot.getRightPower());
 
@@ -175,6 +179,7 @@ public class RedTeleOp extends LinearOpMode {
         robot.shooter1System.spinDown();
         robot.shooter2System.spinDown();
         robot.turretSystem.stopTurret();
+        robot.stopDrive();
         robot.close();
     }
 }

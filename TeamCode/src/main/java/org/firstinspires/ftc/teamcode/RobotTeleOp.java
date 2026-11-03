@@ -34,6 +34,7 @@ public class RobotTeleOp extends LinearOpMode {
         telemetry.addLine("==============================");
         telemetry.addLine("Left Stick Y  = Manual Drive");
         telemetry.addLine("Right Stick X = Manual Turn");
+        telemetry.addLine("Left Stick Button (hold) = Slow Drive Mode");
         telemetry.addLine("LB / RB       = Camera AprilTag Auto-Align");
         telemetry.addLine("D-Pad Left/Right = Rotate Turret 360°");
         telemetry.addLine("Left Trigger  = Run Intake (Port 2)");
@@ -54,8 +55,12 @@ public class RobotTeleOp extends LinearOpMode {
 
             List<AprilTagDetection> detections = robot.getAprilTagDetections();
 
-            double drive = -gamepad1.left_stick_y;
-            double turn  = -gamepad1.right_stick_x;
+            // Shaped stick input; left stick button held = slow mode.
+            // Auto-align below overrides these with unshaped, unslowed PID outputs.
+            boolean slowMode = gamepad1.left_stick_button;
+            double driveScale = slowMode ? DriveMath.SLOW_MODE_SCALE : 1.0;
+            double drive = DriveMath.shape(-gamepad1.left_stick_y) * driveScale;
+            double turn  = DriveMath.shape(-gamepad1.right_stick_x) * driveScale;
 
             // ==================================
             // CAMERA APRILTAG AUTO-ALIGNMENT (LB / RB)
@@ -182,6 +187,7 @@ public class RobotTeleOp extends LinearOpMode {
             // ==================================
 
             telemetry.addLine("------------------------------");
+            telemetry.addData("Drive Mode", slowMode ? "SLOW" : "NORMAL");
             telemetry.addData("Drive Left Power", "%.2f", robot.getLeftPower());
             telemetry.addData("Drive Right Power", "%.2f", robot.getRightPower());
 
@@ -215,6 +221,7 @@ public class RobotTeleOp extends LinearOpMode {
         robot.shooter1System.spinDown();
         robot.shooter2System.spinDown();
         robot.turretSystem.stopTurret();
+        robot.stopDrive();
         robot.close();
     }
 }
