@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#050505">
+  <title>Underengineered Toasters 36424 · Driver Station</title>
+  <link rel="stylesheet" href="/ds/app.css">
+</head>
+<body>
+  <a class="skiplink" href="#main">Skip to controls</a>
+
+  <div id="banner" class="banner hidden" role="alert">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M9.9 4.6 3.2 18a2 2 0 0 0 1.8 2.9h14a2 2 0 0 0 1.8-2.9L14.1 4.6a2 2 0 0 0-3.6 0Z"/>
+      <path d="M12 9v5"/><path d="M12 18h.01"/>
+    </svg>
+    <span>Disconnected from the robot. Reconnecting…</span>
+  </div>
+
+  <div class="shell">
+
+    <header id="topbar" class="topbar">
+      <h1 class="brand">
+        <span class="brand__team">Underengineered Toasters</span>
+        <span class="brand__num">36424</span>
+        <span class="brand__sep" aria-hidden="true">/</span>
+        <span class="brand__role">Driver Station</span>
+      </h1>
+
+      <div class="statusbar">
+        <span id="opstate" class="badge badge--none" role="status" aria-live="polite">Idle</span>
+        <span id="conn" class="badge badge--wait" role="status" aria-live="polite">Connecting</span>
+      </div>
+    </header>
+
+    <main id="main" class="grid">
+
+      <!-- ============================ CONTROLS ============================ -->
+      <div id="col-left" class="rail rail--controls">
+
+        <section class="panel" aria-labelledby="h-control">
+          <div class="panel__head">
+            <h2 id="h-control" class="panel__title">OpMode</h2>
+          </div>
+          <div class="panel__body">
+            <div class="field">
+              <label class="label" for="opmode">Program</label>
+              <div class="select">
+                <select id="opmode" aria-label="OpMode">
+                  <option value="">No opmodes</option>
+                </select>
+                <svg class="select__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m6 9 6 6 6-6"/>
+                </svg>
+              </div>
+            </div>
+
+            <div class="actions" role="group" aria-label="OpMode control">
+              <button id="btnInit" type="button" class="btn btn--init">Init</button>
+              <button id="btnStart" type="button" class="btn btn--start">Start</button>
+              <button id="btnStop" type="button" class="btn btn--stop">Stop</button>
+            </div>
+
+            <dl class="kv">
+              <dt>Active</dt>
+              <dd id="active">None</dd>
+            </dl>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="h-battery">
+          <div class="panel__head">
+            <h2 id="h-battery" class="panel__title">Battery</h2>
+          </div>
+          <div class="panel__body">
+            <div class="battery">
+              <p class="battery__val"><span id="battery">n/a</span><span class="battery__unit">V</span></p>
+              <canvas id="batterySpark" class="spark battery__spark" width="120" height="28" aria-hidden="true"></canvas>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="h-motors">
+          <div class="panel__head">
+            <h2 id="h-motors" class="panel__title">Motors</h2>
+          </div>
+          <div class="panel__body">
+            <div class="tablewrap" tabindex="0" role="region" aria-label="Motor table">
+              <table class="table table--motors">
+                <thead>
+                  <tr>
+                    <th scope="col" class="c-name">Name</th>
+                    <th scope="col" class="c-num">Power</th>
+                    <th scope="col" class="c-num">Position</th>
+                    <th scope="col" class="c-num">mA</th>
+                    <th scope="col" class="c-flag">Busy</th>
+                  </tr>
+                </thead>
+                <tbody id="motors"></tbody>
+              </table>
+            </div>
+            <p id="motorsEmpty" class="empty">No motors on the hardware map.</p>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="h-servos">
+          <div class="panel__head">
+            <h2 id="h-servos" class="panel__title">Servos</h2>
+          </div>
+          <div class="panel__body">
+            <div class="tablewrap" tabindex="0" role="region" aria-label="Servo table">
+              <table class="table table--servos">
+                <thead>
+                  <tr>
+                    <th scope="col" class="c-name">Name</th>
+                    <th scope="col" class="c-num">Position</th>
+                  </tr>
+                </thead>
+                <tbody id="servos"></tbody>
+              </table>
+            </div>
+            <p id="servosEmpty" class="empty">No servos on the hardware map.</p>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="h-telemetry">
+          <div class="panel__head">
+            <h2 id="h-telemetry" class="panel__title">Telemetry</h2>
+          </div>
+          <div class="panel__body">
+            <div class="tablewrap" tabindex="0" role="region" aria-label="Telemetry table">
+              <table class="table table--telemetry">
+                <thead>
+                  <tr>
+                    <th scope="col" class="c-name">Key</th>
+                    <th scope="col" class="c-num">Value</th>
+                  </tr>
+                </thead>
+                <tbody id="telemetry"></tbody>
+              </table>
+            </div>
+            <p id="telemetryEmpty" class="empty">Waiting for telemetry…</p>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ============================ OBSERVE ============================ -->
+      <div id="col-right" class="rail rail--observe">
+
+        <section class="panel panel--cam" aria-labelledby="h-cam">
+          <div class="panel__head">
+            <h2 id="h-cam" class="panel__title">Camera</h2>
+          </div>
+          <div class="stage">
+            <img id="cam" class="cam hidden" src="/ds/camera.mjpeg" alt="Live camera feed from the robot">
+            <div id="camEmpty" class="cam-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M15.75 10.5l4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72"/>
+                <path d="M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"/>
+                <path d="M3 3l18 18"/>
+              </svg>
+              <p class="cam-empty__title">No camera feed</p>
+              <p class="cam-empty__hint">Start an opmode that enables the camera.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel panel--log" aria-labelledby="h-log">
+          <div class="panel__head">
+            <h2 id="h-log" class="panel__title">Log</h2>
+            <div class="panel__tools" role="group" aria-label="Log tools">
+              <button id="logPause" type="button" class="btn btn--ghost">Pause</button>
+              <button id="logClear" type="button" class="btn btn--ghost">Clear</button>
+              <button id="logCopy" type="button" class="btn btn--ghost">Copy</button>
+            </div>
+          </div>
+          <div class="panel__body panel__body--log">
+            <div id="log" class="log" role="log" aria-label="Debug log"></div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <noscript>
+    <p class="noscript">JavaScript is required for live diagnostics and opmode control.</p>
+  </noscript>
+
+  <script src="/ds/app.js"></script>
+</body>
+</html>
