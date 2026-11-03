@@ -115,12 +115,24 @@ public class Robot {
         return perpendicularEncoder != null ? perpendicularEncoder.getCurrentPosition() : 0;
     }
 
+    /**
+     * Drives from raw forward/turn commands (left = forward + turn, right = forward - turn).
+     * No stick shaping is applied here; the mix is desaturated by {@link DriveMath}.
+     */
     public void drive(double forward, double turn) {
-        leftPower = Math.max(-1.0, Math.min(1.0, forward + turn));
-        rightPower = Math.max(-1.0, Math.min(1.0, forward - turn));
+        leftPower = DriveMath.leftPower(forward, turn);
+        rightPower = DriveMath.rightPower(forward, turn);
 
         leftDrive.setPower(leftPower);
         rightDrive.setPower(rightPower);
+    }
+
+    public void stopDrive() {
+        leftPower = 0.0;
+        rightPower = 0.0;
+
+        leftDrive.setPower(0.0);
+        rightDrive.setPower(0.0);
     }
 
     public void setMatchLoaderDown(boolean down) {
