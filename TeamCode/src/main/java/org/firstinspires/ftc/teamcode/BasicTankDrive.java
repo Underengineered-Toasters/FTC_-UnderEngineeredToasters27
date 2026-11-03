@@ -30,15 +30,11 @@ public class BasicTankDrive extends LinearOpMode {
         while (opModeIsActive()) {
 
             // Inverted signs so forward is forward, turn left is left
-            double drive = gamepad1.left_stick_y;
-            double turn  = -gamepad1.right_stick_x;
+            double drive = DriveMath.shape(gamepad1.left_stick_y);
+            double turn  = DriveMath.shape(-gamepad1.right_stick_x);
 
-            double leftPower  = drive + turn;
-            double rightPower = drive - turn;
-
-            // Clip to [-1, 1] range
-            leftPower  = Math.max(-1.0, Math.min(1.0, leftPower));
-            rightPower = Math.max(-1.0, Math.min(1.0, rightPower));
+            double leftPower  = DriveMath.leftPower(drive, turn);
+            double rightPower = DriveMath.rightPower(drive, turn);
 
             left.setPower(leftPower);
             right.setPower(rightPower);
@@ -47,5 +43,8 @@ public class BasicTankDrive extends LinearOpMode {
             telemetry.addData("Right Power", rightPower);
             telemetry.update();
         }
+
+        left.setPower(0.0);
+        right.setPower(0.0);
     }
 }
