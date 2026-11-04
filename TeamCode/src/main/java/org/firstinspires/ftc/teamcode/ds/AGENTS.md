@@ -20,7 +20,7 @@ Team programming owns these classes. The browser client lives in `TeamCode/src/m
 - Diagnostics run on one daemon thread every 500 ms and read hardware only while a browser is subscribed. A missing or failing device is skipped and does not hide the others.
 - Failures are logged with `RobotLog` and never thrown into the SDK. An uncaught exception on any thread ends the Robot Controller app.
 - Validate all websocket input. There is no authentication.
-- Practice and debugging only (RS09 bans browser dashboards in matches).
+- Practice and debugging only. Game Manual rule R704.D prohibits third party streaming tools and any continuous video stream, so the server and camera stream must be off for matches and inspection.
 
 ## Work Guidance
 - Keep OpMode hookups in the OpMode. Always call `DriverStation.detach()` in a `finally`.

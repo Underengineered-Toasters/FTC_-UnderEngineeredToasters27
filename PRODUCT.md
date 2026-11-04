@@ -24,7 +24,7 @@ Served directly by the Robot Controller web server with no external library depe
 
 ## Operating Context
 
-Runs on the robot's Wi-Fi network at `http://192.168.43.1:8080/ds`. Practice and debugging only: competition rules (RS09) ban browser dashboards during matches, and gamepads stay on the official Driver Station. Deployed with the TeamCode APK over wireless ADB.
+Runs on the robot's Wi-Fi network at `http://192.168.43.1:8080/ds`. Practice and debugging only: Game Manual rule R704.D prohibits third party logging and streaming tools such as FTC Dashboard and any continuous video stream, so it must be off in matches and in the inspected robot. Gamepads stay on the official Driver Station. Deployed with the TeamCode APK over wireless ADB.
 
 ## Capabilities and Constraints
 
