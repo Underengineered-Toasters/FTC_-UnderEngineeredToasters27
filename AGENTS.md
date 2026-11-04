@@ -65,9 +65,11 @@ Small edits that do not change behavior or contracts may leave docs unchanged, b
 
 ## Wireless ADB and Hub Setup
 
-- Robot Wi-Fi: SSID `36424-RC`, password `87654321`
+- Robot Wi-Fi is the Control Hub's own access point: SSID `FTC-PnjW`, password `password`. These are the SDK defaults, read from the hub's log on 2026-11-03. After an APK install that day the app applied them and the network that had been `36424-DS` became `FTC-PnjW`. The earlier documented `36424-RC` and `87654321` did not match the hub. Update this line if the hub is renamed.
 - Control Hub: `192.168.43.1:5555`
-- Driver Hub: `192.168.43.141:5555`
+- Driver Hub: `192.168.43.141:5555` (last known address, not rechecked after the Wi-Fi name changed; it may need to rejoin the network)
+- Dashboard: `http://192.168.43.1:8080/ds`
+- `FtcRobotController/src/main/AndroidManifest.xml` must keep `versionCode` at or above the app on the hub (63, `versionName` 12.0, matching the SDK 12.0.0 libraries). A lower code fails with `INSTALL_FAILED_VERSION_DOWNGRADE`.
 
 ### Direct connection
 
@@ -83,7 +85,7 @@ adb connect 192.168.43.1:5555     # Control Hub
 To keep internet on `wlan0` (for example a hotspot) while reaching the robot, use a virtual interface `wlan1` so the primary interface keeps default routing:
 
 ```bash
-# 0. Ignore wlan1 in NetworkManager to prevent auto-connect conflicts
+# 0. Only when NetworkManager is running (the dev laptop uses iwd, so skip this step there)
 cat << 'EOF' | pkexec tee /etc/NetworkManager/conf.d/99-unmanage-wlan1.conf
 [keyfile]
 unmanaged-devices=interface-name:wlan1
@@ -101,10 +103,9 @@ ctrl_interface=/var/run/wpa_supplicant_wlan1
 update_config=0
 
 network={
-    ssid="36424-RC"
-    psk="87654321"
+    ssid="FTC-PnjW"
+    psk="password"
     key_mgmt=WPA-PSK
-    proto=RSN WPA
 }
 EOF
 pkexec mkdir -p /var/run/wpa_supplicant_wlan1
@@ -114,6 +115,12 @@ pkexec wpa_supplicant -B -i wlan1 -c /tmp/wpa_robot.conf
 adb connect 192.168.43.141:5555
 adb connect 192.168.43.1:5555
 ```
+
+Put all the privileged steps in one script and run it as `pkexec bash script.sh` so there is a single auth prompt. Do not scan from `wlan0` (`iwctl station wlan0 scan` or `iw dev wlan0 scan`), because that can drop the main connection. To see what `wlan1` can reach, use `pkexec wpa_cli -i wlan1 -p /var/run/wpa_supplicant_wlan1 scan_results`. Stop the `wlan1` supplicant (`pkexec pkill -f "wpa_supplicant -B -i wlan1"`) when you are done, because it keeps scanning.
+
+### USB fallback (Control Hub v1.0)
+
+Plug a USB-C data cable into the Control Hub and run `adb devices`; it shows as `Control_Hub_v1_0`. On 2026-11-03 one cable made the hub drop off USB and re-enumerate every 20 seconds, with ADB stuck offline. It was stable after a different cable, so try another cable before suspecting the hub. Run `adb tcpip 5555` to enable wireless ADB. To open the dashboard without Wi-Fi, run `adb forward tcp:8080 tcp:8080` and `adb forward tcp:8081 tcp:8081`, then browse to `http://localhost:8080/ds`.
 
 ### Screen mirroring and screenshots (Driver Hub)
 
@@ -133,6 +140,8 @@ Android 10 Driver Hubs require TCP/IP mode reactivation after every device resta
 2. Enable USB debugging in Developer Options.
 3. Run `adb tcpip 5555`.
 4. Unplug the cable. Wireless ADB on port 5555 stays active until the next reboot.
+
+The Control Hub (Android 7.1.2) was switched to TCP mode the same way on 2026-11-03. Whether that survives a reboot has not been checked.
 
 ## Child DOX Index
 
