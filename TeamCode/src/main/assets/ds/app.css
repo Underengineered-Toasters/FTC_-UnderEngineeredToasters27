@@ -333,6 +333,20 @@ body {
    -------------------------------------------------------------------------- */
 .actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 
+/* Robot command error, beside the buttons. Empty means no box at all. */
+.cmd-status {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--fault-line);
+  border-radius: var(--rad);
+  background: var(--fault-dim);
+  color: var(--fault);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.cmd-status:empty { display: none; }
+
 .btn {
   appearance: none;
   cursor: pointer;
@@ -352,18 +366,18 @@ body {
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
               color var(--dur) var(--ease), transform var(--dur) var(--ease);
 }
-.btn:hover { background: var(--ink-3); border-color: #4d4d4d; }
-.btn:active { transform: translateY(1px); }
-.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.btn:not([aria-disabled="true"]):hover { background: var(--ink-3); border-color: #4d4d4d; }
+.btn:not([aria-disabled="true"]):active { transform: translateY(1px); }
+.btn[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
 
 .btn--init  { color: var(--wait); border-color: var(--wait-line); background: var(--wait-dim); }
-.btn--init:hover:not(:disabled) { background: rgba(255, 206, 69, 0.22); border-color: var(--wait); }
+.btn--init:hover:not([aria-disabled="true"]) { background: rgba(255, 206, 69, 0.22); border-color: var(--wait); }
 
 .btn--start { color: var(--ok-ink); background: var(--ok); border-color: var(--ok); }
-.btn--start:hover:not(:disabled) { background: #57e88f; border-color: #57e88f; }
+.btn--start:hover:not([aria-disabled="true"]) { background: #57e88f; border-color: #57e88f; }
 
 .btn--stop  { color: var(--fault-ink); background: var(--fault); border-color: var(--fault); }
-.btn--stop:hover:not(:disabled) { background: #ff7373; border-color: #ff7373; }
+.btn--stop:hover:not([aria-disabled="true"]) { background: #ff7373; border-color: #ff7373; }
 
 .btn--ghost {
   min-block-size: 28px;
@@ -628,4 +642,12 @@ body {
   .battery__val { font-size: 1.875rem; }
   .brand__role { display: none; }
   .brand__sep { display: none; }
+}
+
+/* --------------------------------------------------------------------------
+   18. Touch: 44px targets where the pointer is a finger
+   -------------------------------------------------------------------------- */
+@media (pointer: coarse) {
+  :root { --min-tap: 44px; }
+  .btn--ghost { min-block-size: var(--min-tap); }
 }

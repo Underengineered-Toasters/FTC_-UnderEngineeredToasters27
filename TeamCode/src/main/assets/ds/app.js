@@ -32,6 +32,12 @@
  *     dump, so the client drops its telemetry snapshot on every disconnect. A
  *     reconnect against an empty robot snapshot shows nothing instead of the
  *     previous session's values.
+ *   - The robot also clears its telemetry when an opmode stops and sends nothing
+ *     for it, so the client drops telemetry when the active opmode ends or changes.
+ *   - Each socket replays the robot's log ring on subscribe, so the client clears
+ *     its log view on every new socket instead of stacking the replay on top.
+ *   - Action buttons use aria-disabled, never the disabled property, so a pressed
+ *     control keeps keyboard focus (see setActionEnabled).
  *   - The command guard is released only by a robot snapshot that shows the
  *     command took effect (for initOpMode: the requested name reported in
  *     state INIT), by an error reply, by a disconnect, or by the bounded
@@ -77,6 +83,7 @@
     "motors", "motorsEmpty", "servos", "servosEmpty", "telemetry", "telemetryEmpty",
     "log", "logPause", "logClear", "logCopy", "cam", "camEmpty",
     "btnInit", "btnStart", "btnStop",
+    "cmdStatus",
   ];
 
   // ---------------------------------------------------------------------------
@@ -309,6 +316,7 @@
     var pendingLog = [];
     var camLastAttemptMs = 0;
     var camWatchdog = null;
+    var activeName = null;
 
     function el(tag, cls, text) {
       var e = document.createElement(tag);
@@ -325,9 +333,23 @@
         selection: els.opmode ? els.opmode.value : "",
         pending: pending,
       });
-      if (els.btnInit) els.btnInit.disabled = !c.init;
-      if (els.btnStart) els.btnStart.disabled = !c.start;
-      if (els.btnStop) els.btnStop.disabled = !c.stop;
+      setActionEnabled(els.btnInit, c.init);
+      setActionEnabled(els.btnStart, c.start);
+      setActionEnabled(els.btnStop, c.stop);
+    }
+
+    /**
+     * Action buttons carry aria-disabled, never the native `disabled` property. A
+     * native disabled button loses keyboard focus the moment it is pressed (the
+     * control that was just used disables itself), which strands a keyboard user.
+     * The click handlers check actionEnabled() so a disabled action stays inert.
+     */
+    function setActionEnabled(button, enabled) {
+      if (button) button.setAttribute("aria-disabled", enabled ? "false" : "true");
+    }
+
+    function actionEnabled(button) {
+      return !!button && button.getAttribute("aria-disabled") !== "true";
     }
 
     function setConnected(next) {
@@ -344,6 +366,7 @@
         // gate, so the list goes too: a reconnect replays all of it.
         resetOpModeList();
         opState = null;
+        activeName = null;
         setActive(null, null);
         setBattery(null);
         setMotors([]);
@@ -352,6 +375,7 @@
         // The in-flight command's outcome is unknowable now; a reconnect
         // replays the authoritative state.
         setPending(null);
+        setCommandStatus("");
       }
       if (els.conn) {
         els.conn.textContent = next ? "Connected" : "Disconnected";
@@ -379,6 +403,15 @@
       if (!els.banner || typeof els.banner.querySelector !== "function") return;
       var span = els.banner.querySelector("span");
       if (span) span.textContent = text;
+    }
+
+    /**
+     * Show the robot's last command error beside the controls. The log is the
+     * wrong place for it: on a phone it sits far below the buttons. Cleared by
+     * the next command or a disconnect.
+     */
+    function setCommandStatus(text) {
+      if (els.cmdStatus) els.cmdStatus.textContent = text ? String(text) : "";
     }
 
     function setActive(name, state) {
@@ -417,6 +450,14 @@
      * release the guard only if it shows the in-flight command took effect.
      */
     function noteSnapshot(active, state) {
+      var next = active === null || active === undefined || active === "" ? null : String(active);
+      if (next !== activeName) {
+        // DriverStation.detach() clears the robot's telemetry when an opmode stops
+        // and never says so, so values from a stopped or replaced opmode would
+        // otherwise stay on screen as if they were live.
+        if (activeName !== null) resetTelemetry();
+        activeName = next;
+      }
       opState = state === null || state === undefined ? null : state;
       if (pendingCommand && commandSatisfied(pendingCommand, active, opState)) setPending(null);
     }
@@ -541,8 +582,7 @@
 
     function renderTelemetry() {
       if (!els.telemetry) return;
-      // Drop rows whose keys are gone, add/update the rest. Ordered by key.
-      var keys = Array.from(telemetry.keys()).sort();
+      // Drop rows whose keys are gone.
       for (var oldKey of Array.from(telemetryRows.keys())) {
         if (!telemetry.has(oldKey)) {
           var r = telemetryRows.get(oldKey);
@@ -550,7 +590,12 @@
           telemetryRows.delete(oldKey);
         }
       }
-      els.telemetry.textContent = "";
+      // Update rows in place. The robot sends a full dump on every update(), often
+      // many times a second, and rebuilding the table each time would clear any text
+      // the driver has selected. Text is written only when it changes, and rows are
+      // re-attached only when the set or order of keys changes.
+      var keys = Array.from(telemetry.keys()).sort();
+      var rows = [];
       for (var key of keys) {
         var row = telemetryRows.get(key);
         if (!row) {
@@ -567,9 +612,10 @@
           telemetryRows.set(key, row);
         }
         var value = telemetry.get(key);
-        row.v.textContent = value === undefined ? "" : String(value);
+        var text = value === undefined ? "" : String(value);
+        if (row.v.textContent !== text) row.v.textContent = text;
         var n = Number(value);
-        if (value !== "" && isFinite(n) && els.telemetry) {
+        if (value !== "" && isFinite(n)) {
           if (!row.spark) {
             row.spark = el("canvas", "tval__spark");
             row.spark.width = 64;
@@ -579,7 +625,14 @@
           }
           pushSpark(row.spark, n, "#a1a1aa");
         }
-        els.telemetry.append(row.tr);
+        rows.push(row.tr);
+      }
+      var attached = els.telemetry.children;
+      var same = attached.length === rows.length
+        && rows.every(function (node, i) { return attached[i] === node; });
+      if (!same) {
+        els.telemetry.textContent = "";
+        for (var rowNode of rows) els.telemetry.append(rowNode);
       }
       if (els.telemetryEmpty) els.telemetryEmpty.classList.toggle("hidden", telemetryRows.size > 0);
     }
@@ -633,6 +686,17 @@
       }
     }
 
+    /**
+     * Empty the log view and its paused queue. Used by Clear and on every new
+     * socket: the robot replays its log ring on subscribe, so keeping the old
+     * lines would show each replayed line twice after a reconnect.
+     */
+    function clearLogView() {
+      if (els.log) els.log.textContent = "";
+      pendingLog = [];
+      logPinned = true;
+    }
+
     // ---- outbound ----
     function sendCommand(type, payloadStr) {
       if (!ws || ws.readyState !== 1 /* OPEN */) return false;
@@ -656,6 +720,7 @@
     function sendControl(command) {
       if (!sendCommand(command.type, command.name === undefined ? "" : command.name)) return false;
       setPending(command);
+      setCommandStatus("");
       return true;
     }
 
@@ -711,7 +776,9 @@
           addLog(data ? String(data.line === undefined ? "" : data.line) : "", false);
           break;
         case "error":
-          addLog("Error: " + (data && data.message !== undefined ? String(data.message) : "unknown"), true);
+          var message = data && data.message !== undefined ? String(data.message) : "unknown";
+          addLog("Error: " + message, true);
+          setCommandStatus("Robot rejected the command: " + message);
           // A rejected command must not hold the controls until the timeout.
           setPending(null);
           break;
@@ -773,6 +840,7 @@
         if (ws !== socket) return;
         reconnectAttempt = 0;
         clearReconnect();
+        clearLogView();
         setConnected(true);
         // SDK protocol: the subscribe payload is the RAW namespace name, not base64.
         try {
@@ -824,18 +892,13 @@
     }
     if (els.logClear) {
       els.logClear.addEventListener("click", function () {
-        if (els.log) els.log.textContent = "";
-        pendingLog = [];
+        clearLogView();
       });
     }
     if (els.logCopy) {
       els.logCopy.addEventListener("click", function () {
         var text = els.log ? Array.prototype.map.call(els.log.children, function (d) { return d.textContent; }).join("\n") : "";
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).catch(function () { downloadLog(text); });
-        } else {
-          downloadLog(text);
-        }
+        copyText(text).then(function (ok) { if (!ok) downloadLog(text); });
       });
     }
     if (els.opmode) {
@@ -843,19 +906,19 @@
     }
     if (els.btnInit) {
       els.btnInit.addEventListener("click", function () {
-        if (els.btnInit.disabled) return;
+        if (!actionEnabled(els.btnInit)) return;
         sendControl({ type: "initOpMode", name: els.opmode ? els.opmode.value : "" });
       });
     }
     if (els.btnStart) {
       els.btnStart.addEventListener("click", function () {
-        if (els.btnStart.disabled) return;
+        if (!actionEnabled(els.btnStart)) return;
         sendControl({ type: "startOpMode" });
       });
     }
     if (els.btnStop) {
       els.btnStop.addEventListener("click", function () {
-        if (els.btnStop.disabled) return;
+        if (!actionEnabled(els.btnStop)) return;
         sendControl({ type: "stopOpMode" });
       });
     }
@@ -871,6 +934,36 @@
       a.download = "driver-station.log";
       a.click();
       URL.revokeObjectURL(a.href);
+    }
+
+    /**
+     * Copy text to the clipboard. navigator.clipboard exists only in secure
+     * contexts (https or localhost), and the robot serves plain http on its own
+     * network, so the fallback copies through a hidden textarea. Resolves to
+     * false when neither route works, and the caller then downloads the file.
+     */
+    function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).then(
+          function () { return true; },
+          function () { return copyWithTextarea(text); });
+      }
+      return Promise.resolve(copyWithTextarea(text));
+    }
+
+    function copyWithTextarea(text) {
+      var ta = el("textarea", "");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.setAttribute("aria-hidden", "true");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.append(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      ta.remove();
+      return ok;
     }
 
     // ---- boot ----
