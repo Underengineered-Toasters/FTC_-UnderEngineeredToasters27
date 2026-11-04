@@ -9,9 +9,11 @@ import com.qualcomm.robotcore.eventloop.opmode.OpModeManagerImpl;
 import com.qualcomm.robotcore.eventloop.opmode.OpModeManagerNotifier;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
+import com.qualcomm.robotcore.util.RobotLog;
 import com.qualcomm.robotcore.util.WebHandlerManager;
 
 import org.firstinspires.ftc.ftccommon.external.WebHandlerRegistrar;
@@ -21,21 +23,25 @@ import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
 import org.firstinspires.ftc.robotcore.external.stream.CameraStreamSource;
 import org.firstinspires.ftc.robotcore.internal.system.AppUtil;
 import org.firstinspires.ftc.robotcore.internal.webserver.WebHandler;
-import org.firstinspires.ftc.robotcore.internal.webserver.websockets.FtcWebSocketMessage;
 import org.firstinspires.ftc.robotcore.internal.webserver.websockets.WebSocketManager;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
+import java.lang.ref.WeakReference;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 import fi.iki.elonen.NanoHTTPD;
 
@@ -46,21 +52,35 @@ import fi.iki.elonen.NanoHTTPD;
  *
  * Routes (exact-match dispatch in RobotWebHandlerManager):
  *   GET /ds and /ds/        -> ds/index.html
- *   GET /ds/<file>          -> assets/ds/<file> (one handler per asset file,
- *                            registered at startup; anything else falls
- *                            through to the SDK's 404 asset fallback)
- *   GET /ds/camera.mjpeg    -> MJPEG stream, or 503 when no camera source
+ *   GET /ds/<file>          -> assets/ds/<file>, read once at registration
+ *   GET /ds/camera.mjpeg    -> MJPEG stream pulled by the HTTP thread, or 503 without a camera
  * Websocket namespace "ds"  -> DsSocketHandler
+ *
+ * Failures here are logged and never thrown into the SDK: this code runs inside the
+ * Robot Controller app, and an uncaught exception on a background thread ends the app.
  */
 public final class DriverStationServer {
 
+    private static final String TAG = "DriverStationServer";
     private static final String ASSET_ROOT = "ds";
     private static final String URI_PREFIX = "/ds/";
-    private static final long FRAME_INTERVAL_MS = 66; // ~15 fps
+    static final String MJPEG_BOUNDARY = "frame";
+    static final String MJPEG_MIME = "multipart/x-mixed-replace; boundary=" + MJPEG_BOUNDARY;
+    private static final String OCTET_STREAM = "application/octet-stream";
+    private static final String TEXT_UTF8 = "; charset=utf-8";
+    /** Pacing between camera frames, about 15 fps. */
+    private static final long FRAME_INTERVAL_MS = 66;
+    /** A camera that delivers nothing for this long ends the stream; the client shows its empty state. */
     private static final long FRAME_TIMEOUT_MS = 2000;
     private static final long POLL_PERIOD_MS = 500;
+    private static final int JPEG_QUALITY = 75;
+    private static final Pattern SAFE_SEGMENT = Pattern.compile("[A-Za-z0-9._-]+");
+
     /** Guards one-time startup work; the registrar can run again after a robot restart. */
     private static final AtomicBoolean started = new AtomicBoolean(false);
+    private static final Object REGISTRATION_LOCK = new Object();
+    /** The web server whose websocket manager already has the "ds" namespace. */
+    private static WebSocketManager namespaceManager; // guarded by REGISTRATION_LOCK
     /**
      * Strong reference to the opmode listener: OpModeManagerImpl keeps listeners in a
      * WeakReferenceSet, so an unreferenced anonymous listener is garbage-collected and
@@ -70,15 +90,17 @@ public final class DriverStationServer {
             new OpModeManagerNotifier.Notifications() {
                 @Override
                 public void onOpModePreInit(OpMode opMode) {
+                    if (!isUserOpModeActive()) return;
                     DriverStation.attach(opMode);
                     if (!(opMode.telemetry instanceof DsTelemetry)) {
                         opMode.telemetry = new DsTelemetry(opMode.telemetry);
                     }
                     DriverStation.setOpModeState("INIT");
                 }
+
                 @Override
                 public void onOpModePreStart(OpMode opMode) {
-                    DriverStation.setOpModeState("LOOPING");
+                    if (isUserOpModeActive()) DriverStation.setOpModeState("LOOPING");
                 }
 
                 @Override
@@ -87,14 +109,17 @@ public final class DriverStationServer {
                     DriverStation.detach();
                 }
             };
-    /** Last manager the listener was registered on; replaced on robot restart. */
-    private static volatile OpModeManagerImpl listenerManager;
+    /**
+     * Manager the listener is registered on. Weak, so a replaced manager (robot restart)
+     * and its Activity are not kept alive by this class.
+     */
+    private static volatile WeakReference<OpModeManagerImpl> listenerManager = new WeakReference<>(null);
 
     private static final Map<String, String> MIME_TYPES = new HashMap<>();
     static {
-        MIME_TYPES.put("html", "text/html");
-        MIME_TYPES.put("css", "text/css");
-        MIME_TYPES.put("js", "application/javascript");
+        MIME_TYPES.put("html", "text/html" + TEXT_UTF8);
+        MIME_TYPES.put("css", "text/css" + TEXT_UTF8);
+        MIME_TYPES.put("js", "application/javascript" + TEXT_UTF8);
         MIME_TYPES.put("json", "application/json");
         MIME_TYPES.put("png", "image/png");
         MIME_TYPES.put("jpg", "image/jpeg");
@@ -108,74 +133,118 @@ public final class DriverStationServer {
 
     @WebHandlerRegistrar
     public static void registerWebHandlers(Context context, WebHandlerManager manager) {
-        WebSocketManager wsManager = manager.getWebServer().getWebSocketManager();
-        DriverStation.setWebSocketManager(wsManager);
-        wsManager.registerNamespaceHandler(new DsSocketHandler());
+        try {
+            registerNamespace(manager.getWebServer().getWebSocketManager());
+        } catch (RuntimeException e) {
+            RobotLog.ee(TAG, e, "driver station websocket namespace not registered");
+        }
+        try {
+            registerRoutes(context.getAssets(), manager);
+        } catch (RuntimeException e) {
+            RobotLog.ee(TAG, e, "driver station web routes not registered");
+        }
+        if (started.compareAndSet(false, true)) {
+            startDiagnosticsPoller();
+        }
+    }
 
-        WebHandler index = assetHandler(context.getAssets(), ASSET_ROOT + "/index.html");
+    private static void registerNamespace(WebSocketManager wsManager) {
+        synchronized (REGISTRATION_LOCK) {
+            DriverStation.setWebSocketManager(wsManager);
+            if (wsManager == namespaceManager) return; // this web server already has the handler
+            wsManager.registerNamespaceHandler(new DsSocketHandler());
+            namespaceManager = wsManager;
+        }
+    }
+
+    private static void registerRoutes(AssetManager assets, WebHandlerManager manager) {
+        WebHandler index = staticAsset(assets, ASSET_ROOT + "/index.html");
         manager.register("/ds", index);
         manager.register("/ds/", index);
         manager.register("/ds/camera.mjpeg", DriverStationServer::cameraResponse);
-
         // Dispatch is exact-match, so register every file under assets/ds/.
-        registerAssetTree(context.getAssets(), manager, ASSET_ROOT);
-        if (started.compareAndSet(false, true)) {
-            startDiagnosticsPoller(wsManager);
-        }
+        registerAssetTree(assets, manager, ASSET_ROOT);
     }
 
     // ---------- static assets ----------
 
     private static void registerAssetTree(AssetManager assets, WebHandlerManager manager, String dir) {
-        String[] children;
-        try {
-            children = assets.list(dir);
-        } catch (IOException e) {
-            return;
-        }
-        if (children == null) return;
-        for (String child : children) {
+        for (String child : list(assets, dir)) {
             String path = dir + "/" + child;
-            String[] grandChildren;
-            try {
-                grandChildren = assets.list(path);
-            } catch (IOException e) {
-                grandChildren = null;
-            }
-            if (grandChildren != null && grandChildren.length > 0) {
+            if (list(assets, path).length > 0) {
                 registerAssetTree(assets, manager, path);
             } else {
                 manager.register(URI_PREFIX + path.substring(ASSET_ROOT.length() + 1),
-                        assetHandler(assets, path));
+                        staticAsset(assets, path));
             }
         }
     }
 
-    private static WebHandler assetHandler(AssetManager assets, String assetPath) {
+    private static String[] list(AssetManager assets, String dir) {
+        try {
+            String[] names = assets.list(dir);
+            return names == null ? new String[0] : names;
+        } catch (IOException e) {
+            return new String[0];
+        }
+    }
+
+    /** Reads the asset once; requests then serve the bytes from memory with a fixed length. */
+    private static WebHandler staticAsset(AssetManager assets, String assetPath) {
+        byte[] body = readAsset(assets, assetPath);
+        if (body == null) {
+            RobotLog.ee(TAG, "driver station asset missing: %s", assetPath);
+            return session -> notFound();
+        }
+        String mime = contentTypeFor(assetPath);
         return session -> {
-            String uri = session.getUri();
-            // Defensive: every URI segment must be a plain filename.
-            for (String segment : uri.split("/")) {
-                if (!segment.isEmpty() && !segment.matches("[A-Za-z0-9._-]+")) {
-                    return NanoHTTPD.newFixedLengthResponse(
-                            NanoHTTPD.Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "");
-                }
-            }
-            try {
-                InputStream stream = assets.open(assetPath);
-                return NanoHTTPD.newChunkedResponse(NanoHTTPD.Response.Status.OK,
-                        mimeType(assetPath), stream);
-            } catch (IOException e) {
-                return NanoHTTPD.newFixedLengthResponse(
-                        NanoHTTPD.Response.Status.NOT_FOUND, NanoHTTPD.MIME_PLAINTEXT, "");
-            }
+            if (!isSafeRequestPath(session.getUri())) return notFound();
+            NanoHTTPD.Response response = NanoHTTPD.newFixedLengthResponse(
+                    NanoHTTPD.Response.Status.OK, mime, new ByteArrayInputStream(body), body.length);
+            response.addHeader("Cache-Control", "no-cache");
+            return response;
         };
     }
 
-    private static String mimeType(String path) {
+    private static byte[] readAsset(AssetManager assets, String path) {
+        try (InputStream in = assets.open(path)) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buffer = new byte[8192];
+            int n;
+            while ((n = in.read(buffer)) != -1) {
+                out.write(buffer, 0, n);
+            }
+            return out.toByteArray();
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private static NanoHTTPD.Response notFound() {
+        return NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.NOT_FOUND,
+                NanoHTTPD.MIME_PLAINTEXT, "Not found");
+    }
+
+    /**
+     * True when the request path is /ds or below it and every segment is a plain file name.
+     * Asset handlers only ever serve fixed registered files, so this is defence in depth.
+     */
+    static boolean isSafeRequestPath(String uri) {
+        if (uri == null || !(uri.equals("/ds") || uri.startsWith("/ds/"))) return false;
+        for (String segment : uri.split("/")) {
+            if (segment.isEmpty()) continue;
+            if (segment.equals(".") || segment.equals("..")) return false;
+            if (!SAFE_SEGMENT.matcher(segment).matches()) return false;
+        }
+        return true;
+    }
+
+    /** Content-Type for a file name. Text types carry an explicit UTF-8 charset; unknown types are octet-stream. */
+    static String contentTypeFor(String path) {
         int dot = path.lastIndexOf('.');
-        String mime = dot < 0 ? null : MIME_TYPES.get(path.substring(dot + 1).toLowerCase());
-        return mime != null ? mime : "application/octet-stream";
+        if (dot < 0 || dot < path.lastIndexOf('/')) return OCTET_STREAM;
+        String mime = MIME_TYPES.get(path.substring(dot + 1).toLowerCase(Locale.ROOT));
+        return mime != null ? mime : OCTET_STREAM;
     }
 
     // ---------- camera MJPEG ----------
@@ -185,64 +254,171 @@ public final class DriverStationServer {
             return NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.SERVICE_UNAVAILABLE,
                     NanoHTTPD.MIME_PLAINTEXT, "no camera source");
         }
+        // Frames are pulled by the HTTP thread as the client accepts them. A client that
+        // disconnects fails the socket write and the stream is simply dropped: no thread outlives it.
+        NanoHTTPD.Response response = NanoHTTPD.newChunkedResponse(NanoHTTPD.Response.Status.OK,
+                MJPEG_MIME, new MjpegStream(DriverStationServer::nextCameraJpeg, FRAME_INTERVAL_MS));
+        response.addHeader("Cache-Control", "no-cache");
+        return response;
+    }
+
+    /**
+     * Next camera frame as JPEG. Returns null (end the stream) when there is no camera,
+     * the camera stalls, or something fails; an empty array skips one undecodable frame.
+     */
+    private static byte[] nextCameraJpeg() throws InterruptedException {
         try {
-            PipedInputStream in = new PipedInputStream(64 * 1024);
-            PipedOutputStream out = new PipedOutputStream(in);
-            Thread writer = new Thread(() -> writeFrames(out), "ds-mjpeg");
-            writer.setDaemon(true);
-            writer.start();
-            return NanoHTTPD.newChunkedResponse(NanoHTTPD.Response.Status.OK,
-                    "multipart/x-mixed-replace; boundary=frame", in);
-        } catch (IOException e) {
-            return NanoHTTPD.newFixedLengthResponse(NanoHTTPD.Response.Status.INTERNAL_ERROR,
-                    NanoHTTPD.MIME_PLAINTEXT, "stream setup failed");
+            CameraStreamSource source = DriverStation.getCameraSource();
+            if (source == null) return null;
+            FrameSlot<Bitmap> slot = new FrameSlot<>();
+            source.getFrameBitmap(Continuation.createTrivial((Consumer<Bitmap>) slot::deliver));
+            Bitmap frame = slot.await(FRAME_TIMEOUT_MS);
+            if (frame == null) return null;
+            return compressJpeg(frame);
+        } catch (RuntimeException e) {
+            RobotLog.ee(TAG, e, "camera frame failed; ending the stream");
+            return null;
         }
     }
 
-    private static void writeFrames(PipedOutputStream out) {
-        try {
-            while (true) {
-                CameraStreamSource source = DriverStation.getCameraSource();
-                if (source == null) break;
-                Bitmap frame = awaitFrame(source);
-                if (frame == null) {
-                    Thread.sleep(FRAME_INTERVAL_MS);
-                    continue;
-                }
-                byte[] jpeg = compressJpeg(frame);
-                frame.recycle();
-                out.write("--frame\r\nContent-Type: image/jpeg\r\n\r\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                out.write(jpeg);
-                out.write("\r\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                out.flush();
-                Thread.sleep(FRAME_INTERVAL_MS);
-            }
-        } catch (IOException e) {
-            // Client disconnected; normal exit.
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } finally {
-            try {
-                out.close();
-            } catch (IOException ignored) {
-            }
-        }
-    }
-
-    private static Bitmap awaitFrame(CameraStreamSource source) throws InterruptedException {
-        ArrayBlockingQueue<Bitmap> queue = new ArrayBlockingQueue<>(1);
-        source.getFrameBitmap(Continuation.createTrivial((Consumer<Bitmap>) queue::offer));
-        return queue.poll(FRAME_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-    }
-
-    private static byte[] compressJpeg(Bitmap bitmap) throws IOException {
+    private static byte[] compressJpeg(Bitmap bitmap) {
         ByteArrayOutputStream bos = new ByteArrayOutputStream(32 * 1024);
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 75, bos);
-        bos.close();
+        if (!bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, bos)) {
+            return new byte[0];
+        }
         return bos.toByteArray();
     }
 
+    /** One multipart/x-mixed-replace part: header with the JPEG length, the JPEG, and CRLF. */
+    static byte[] mjpegPart(byte[] jpeg) {
+        byte[] header = ("--" + MJPEG_BOUNDARY + "\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                + jpeg.length + "\r\n\r\n").getBytes(StandardCharsets.US_ASCII);
+        byte[] part = new byte[header.length + jpeg.length + 2];
+        System.arraycopy(header, 0, part, 0, header.length);
+        System.arraycopy(jpeg, 0, part, header.length, jpeg.length);
+        part[part.length - 2] = '\r';
+        part[part.length - 1] = '\n';
+        return part;
+    }
+
+    /**
+     * Hands one value from a callback thread to a reader that waits with a timeout.
+     * The first value wins; a value that arrives after the reader gave up, or a
+     * second value, is dropped. The slot never recycles what it holds: the camera
+     * owns the frames it hands out, as the SDK's own CameraStreamServer assumes.
+     */
+    static final class FrameSlot<T> {
+
+        private T frame;
+        private boolean closed;
+
+        /** Called on the camera's thread. */
+        void deliver(T value) {
+            if (value == null) return;
+            synchronized (this) {
+                if (closed || frame != null) return;
+                frame = value;
+                notifyAll();
+            }
+        }
+
+        /** Waits up to timeoutMs. Returns the value, or null on timeout; the slot is closed either way. */
+        synchronized T await(long timeoutMs) throws InterruptedException {
+            long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
+            while (frame == null) {
+                long left = deadline - System.nanoTime();
+                if (left <= 0) break;
+                TimeUnit.NANOSECONDS.timedWait(this, left);
+            }
+            T taken = frame;
+            frame = null;
+            closed = true;
+            return taken;
+        }
+    }
+
+    /**
+     * Pull-based multipart JPEG body. Reads block on the next frame, so the HTTP
+     * thread's socket writes set the pace and a slow client slows the camera
+     * requests instead of queueing frames. Ends on a null frame, an interrupt,
+     * or an unexpected failure.
+     */
+    static final class MjpegStream extends InputStream {
+
+        interface FrameSource {
+            /** Next encoded JPEG, an empty array to skip it, or null to end the stream. */
+            byte[] nextJpeg() throws InterruptedException;
+        }
+
+        private final FrameSource source;
+        private final long frameIntervalMs;
+        private byte[] part;
+        private int offset;
+        private boolean sentAny;
+        private boolean ended;
+
+        MjpegStream(FrameSource source, long frameIntervalMs) {
+            this.source = source;
+            this.frameIntervalMs = frameIntervalMs;
+        }
+
+        @Override
+        public int read() {
+            byte[] one = new byte[1];
+            int n = read(one, 0, 1);
+            return n == -1 ? -1 : one[0] & 0xff;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) {
+            if (len == 0) return 0;
+            while (part == null || offset >= part.length) {
+                if (ended || !nextPart()) {
+                    ended = true;
+                    return -1;
+                }
+            }
+            int n = Math.min(len, part.length - offset);
+            System.arraycopy(part, offset, b, off, n);
+            offset += n;
+            return n;
+        }
+
+        @Override
+        public void close() {
+            ended = true;
+            part = null;
+        }
+
+        private boolean nextPart() {
+            try {
+                while (true) {
+                    if (sentAny && frameIntervalMs > 0) Thread.sleep(frameIntervalMs);
+                    byte[] jpeg = source.nextJpeg();
+                    if (jpeg == null) return false;
+                    if (jpeg.length > 0) {
+                        part = mjpegPart(jpeg);
+                        offset = 0;
+                        sentAny = true;
+                        return true;
+                    }
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            } catch (RuntimeException e) {
+                return false;
+            }
+        }
+    }
+
     // ---------- opmode state tracking ----------
+
+    /** True while a user opmode (not the SDK's default "$Stop$Robot$") is the active one. */
+    private static boolean isUserOpModeActive() {
+        OpModeManagerImpl manager = listenerManager.get();
+        return manager == null || DsSocketHandler.activeOpModeName(manager) != null;
+    }
 
     /**
      * Registers {@link #opModeListener} on the current OpModeManagerImpl. The SDK
@@ -254,31 +430,33 @@ public final class DriverStationServer {
         try {
             OpModeManagerImpl manager = OpModeManagerImpl.getOpModeManagerOfActivity(
                     AppUtil.getInstance().getActivity());
-            if (manager == null || manager == listenerManager) return;
+            if (manager == null || manager == listenerManager.get()) return;
             manager.registerListener(opModeListener);
-            listenerManager = manager;
-        } catch (Exception e) {
-            // State stays null; diagnostics still report the active name.
+            listenerManager = new WeakReference<>(manager);
+        } catch (RuntimeException e) {
+            // State stays null until the next poll; diagnostics still report the active name.
         }
     }
 
     // ---------- diagnostics poller ----------
 
-    private static void startDiagnosticsPoller(WebSocketManager wsManager) {
+    private static void startDiagnosticsPoller() {
         Thread poller = new Thread(() -> {
             while (true) {
                 try {
                     Thread.sleep(POLL_PERIOD_MS);
                     ensureListenerRegistered();
-                    String json = collectDiagnostics();
-                    wsManager.broadcastToNamespace(DriverStation.NAMESPACE,
-                            new FtcWebSocketMessage(DriverStation.NAMESPACE, "diag",
-                                    DriverStation.encodePayload(json)));
+                    // Reading hardware costs USB round trips on the hub. Do it only while a browser watches.
+                    if (DriverStation.hasSubscribers()) {
+                        DriverStation.publish("diag", collectDiagnostics());
+                    }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return;
-                } catch (Exception e) {
-                    // Keep polling; a bad cycle must not kill the thread.
+                } catch (Throwable t) {
+                    // Diagnostics are optional. An uncaught throwable on a background thread
+                    // ends the whole Robot Controller app, so log it and keep polling.
+                    RobotLog.ee(TAG, t, "diagnostics poll failed");
                 }
             }
         }, "ds-diagnostics");
@@ -286,69 +464,93 @@ public final class DriverStationServer {
         poller.start();
     }
 
-    private static String collectDiagnostics() {
+    private static JSONObject collectDiagnostics() {
         JSONObject json = new JSONObject();
         try {
             json.put("type", "diag");
-
             HardwareMap map = DriverStation.getHardwareMap();
-            if (map != null) {
-                double battery = Double.NaN;
-                for (VoltageSensor sensor : map.voltageSensor) {
+            json.put("battery", map == null ? JSONObject.NULL : batteryOf(map));
+            json.put("motors", map == null ? new JSONArray() : motorsOf(map));
+            json.put("servos", map == null ? new JSONArray() : servosOf(map));
+
+            String active = DsSocketHandler.activeOpModeName(DsSocketHandler.opModeManager());
+            json.put("active", active == null ? JSONObject.NULL : active);
+            String state = DsSocketHandler.stateFor(active);
+            json.put("opmodeState", state == null ? JSONObject.NULL : state);
+        } catch (JSONException | RuntimeException e) {
+            // Keys are literals; keep whatever was built.
+        }
+        return json;
+    }
+
+    /** Highest live voltage sensor reading, or null when none responds. */
+    private static Object batteryOf(HardwareMap map) {
+        double battery = Double.NaN;
+        try {
+            for (VoltageSensor sensor : map.voltageSensor) {
+                try {
                     double v = sensor.getVoltage();
                     if (!Double.isNaN(v) && (Double.isNaN(battery) || v > battery)) {
                         battery = v;
                     }
+                } catch (RuntimeException e) {
+                    // An unplugged or failed sensor must not hide the others.
                 }
-                json.put("battery", Double.isNaN(battery) ? JSONObject.NULL : battery);
-
-                JSONArray motors = new JSONArray();
-                for (String name : map.getAllNames(DcMotor.class)) {
-                    DcMotor motor = map.get(DcMotor.class, name);
-                    if (motor == null) continue;
-                    JSONObject m = new JSONObject();
-                    m.put("name", name);
-                    m.put("power", motor.getPower());
-                    m.put("position", motor.getCurrentPosition());
-                    m.put("busy", motor.isBusy());
-                    if (motor instanceof DcMotorEx) {
-                        m.put("current", ((DcMotorEx) motor).getCurrent(CurrentUnit.MILLIAMPS));
-                    } else {
-                        m.put("current", JSONObject.NULL);
-                    }
-                    motors.put(m);
-                }
-                json.put("motors", motors);
-
-                JSONArray servos = new JSONArray();
-                for (String name : map.getAllNames(Servo.class)) {
-                    Servo servo = map.get(Servo.class, name);
-                    if (servo == null) continue;
-                    JSONObject s = new JSONObject();
-                    s.put("name", name);
-                    s.put("position", servo.getPosition());
-                    servos.put(s);
-                }
-                json.put("servos", servos);
-            } else {
-                json.put("battery", JSONObject.NULL);
-                json.put("motors", new JSONArray());
-                json.put("servos", new JSONArray());
             }
-
-            String active = null;
-            try {
-                OpModeManagerImpl manager = OpModeManagerImpl.getOpModeManagerOfActivity(
-                        AppUtil.getInstance().getActivity());
-                active = DsSocketHandler.activeOpModeName(manager);
-            } catch (Exception ignored) {
-            }
-            json.put("active", active == null ? JSONObject.NULL : active);
-            String state = active == null ? null : DriverStation.getOpModeState();
-            json.put("opmodeState", state == null ? JSONObject.NULL : state);
-        } catch (Exception e) {
-            // Return whatever was accumulated.
+        } catch (RuntimeException e) {
+            return JSONObject.NULL;
         }
-        return json.toString();
+        return finite(battery);
+    }
+
+    private static JSONArray motorsOf(HardwareMap map) {
+        JSONArray motors = new JSONArray();
+        for (String name : namesOf(map, DcMotor.class)) {
+            try {
+                DcMotor motor = map.get(DcMotor.class, name);
+                if (motor == null) continue;
+                Object current = motor instanceof DcMotorEx
+                        ? finite(((DcMotorEx) motor).getCurrent(CurrentUnit.MILLIAMPS))
+                        : JSONObject.NULL;
+                motors.put(new JSONObject()
+                        .put("name", name)
+                        .put("power", finite(motor.getPower()))
+                        .put("position", motor.getCurrentPosition())
+                        .put("busy", motor.isBusy())
+                        .put("current", current));
+            } catch (RuntimeException | JSONException e) {
+                // One missing or unplugged motor must not hide the rest.
+            }
+        }
+        return motors;
+    }
+
+    private static JSONArray servosOf(HardwareMap map) {
+        JSONArray servos = new JSONArray();
+        for (String name : namesOf(map, Servo.class)) {
+            try {
+                Servo servo = map.get(Servo.class, name);
+                if (servo == null) continue;
+                servos.put(new JSONObject()
+                        .put("name", name)
+                        .put("position", finite(servo.getPosition())));
+            } catch (RuntimeException | JSONException e) {
+                // One missing or unplugged servo must not hide the rest.
+            }
+        }
+        return servos;
+    }
+
+    private static Set<String> namesOf(HardwareMap map, Class<? extends HardwareDevice> type) {
+        try {
+            return map.getAllNames(type);
+        } catch (RuntimeException e) {
+            return Collections.emptySet();
+        }
+    }
+
+    /** JSON cannot carry NaN or infinity; those become null. */
+    private static Object finite(double v) {
+        return Double.isNaN(v) || Double.isInfinite(v) ? JSONObject.NULL : Double.valueOf(v);
     }
 }
