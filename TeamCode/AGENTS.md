@@ -25,6 +25,6 @@ Keep camera API migrations separate from shooter, intake, and drive tuning. Veri
 Run `./gradlew assembleDebug test`. Build coverage includes existing autonomous and Road Runner sources. Also run `node --test TeamCode/ds-ui/tests/app.test.js` (Node 22); CI runs it before the Gradle steps.
 
 ## Child DOX Index
-- `src/test/`: JVM target-selection regression tests.
+- `src/test/`: JVM regression tests for target selection and the Driver Station server logic.
 - `src/main/java/org/firstinspires/ftc/teamcode/ds/`: Driver Station server, websocket handler and OpMode facade.
 - `ds-ui/`: Node tests for the Driver Station browser client.
