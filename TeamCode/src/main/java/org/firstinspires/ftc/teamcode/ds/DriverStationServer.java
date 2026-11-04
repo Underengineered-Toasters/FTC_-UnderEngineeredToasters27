@@ -265,28 +265,36 @@ public final class DriverStationServer {
     /**
      * Next camera frame as JPEG. Returns null (end the stream) when there is no camera,
      * the camera stalls, or something fails; an empty array skips one undecodable frame.
+     * The frame is compressed inside the callback, because the SDK recycles the bitmap as
+     * soon as the callback returns and it must not be used from another thread afterwards.
      */
     private static byte[] nextCameraJpeg() throws InterruptedException {
         try {
             CameraStreamSource source = DriverStation.getCameraSource();
             if (source == null) return null;
-            FrameSlot<Bitmap> slot = new FrameSlot<>();
-            source.getFrameBitmap(Continuation.createTrivial((Consumer<Bitmap>) slot::deliver));
-            Bitmap frame = slot.await(FRAME_TIMEOUT_MS);
-            if (frame == null) return null;
-            return compressJpeg(frame);
+            FrameSlot<byte[]> slot = new FrameSlot<>();
+            source.getFrameBitmap(Continuation.createTrivial(
+                    (Consumer<Bitmap>) bitmap -> slot.deliver(compressJpeg(bitmap))));
+            return slot.await(FRAME_TIMEOUT_MS);
         } catch (RuntimeException e) {
             RobotLog.ee(TAG, e, "camera frame failed; ending the stream");
             return null;
         }
     }
 
+    /** Runs on the SDK's thread inside the frame callback, so it must never throw. */
     private static byte[] compressJpeg(Bitmap bitmap) {
-        ByteArrayOutputStream bos = new ByteArrayOutputStream(32 * 1024);
-        if (!bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, bos)) {
+        if (bitmap == null) return new byte[0];
+        try {
+            ByteArrayOutputStream bos = new ByteArrayOutputStream(32 * 1024);
+            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, bos)) {
+                return new byte[0];
+            }
+            return bos.toByteArray();
+        } catch (RuntimeException e) {
+            RobotLog.ee(TAG, e, "could not compress a camera frame; skipping it");
             return new byte[0];
         }
-        return bos.toByteArray();
     }
 
     /** One multipart/x-mixed-replace part: header with the JPEG length, the JPEG, and CRLF. */
@@ -304,8 +312,8 @@ public final class DriverStationServer {
     /**
      * Hands one value from a callback thread to a reader that waits with a timeout.
      * The first value wins; a value that arrives after the reader gave up, or a
-     * second value, is dropped. The slot never recycles what it holds: the camera
-     * owns the frames it hands out, as the SDK's own CameraStreamServer assumes.
+     * second value, is dropped. Callers hand over finished data, not camera bitmaps,
+     * because the SDK recycles a bitmap when its callback returns.
      */
     static final class FrameSlot<T> {
 
