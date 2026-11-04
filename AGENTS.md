@@ -58,7 +58,7 @@ Small edits that do not change behavior or contracts may leave docs unchanged, b
 
 - SDK 12 camera code uses Gradle 9.6 and Android Gradle Plugin 9.4 with JDK 25. Retain Road Runner dependencies when updating SDK tooling.
 
-- CI runs on every pull request and on every branch push (`.github/workflows/android-ci.yml`): JDK 25 (Temurin), Android SDK platform 30, `./gradlew assembleDebug`, then `./gradlew test`, and the debug APKs are uploaded as the `debug-apks` artifact. Read the job log before claiming a change builds.
+- CI runs on every pull request and on every branch push (`.github/workflows/android-ci.yml`): Node 22 client tests (`node --test TeamCode/ds-ui/tests/app.test.js`), JDK 25 (Temurin), Android SDK platform 30, `./gradlew assembleDebug`, then `./gradlew test`, and the debug APKs are uploaded as the `debug-apks` artifact. Read the job log before claiming a change builds.
 - CD runs on `v*` tags (`.github/workflows/android-release.yml`): `./gradlew assembleRelease` and the APKs are published to a GitHub Release named after the tag. It can also be started manually, which uploads the APKs as an artifact without creating a release.
 - Release builds are signed with `libs/ftc.debug.keystore` unless `APK_SIGNING_STORE_FILE` and its companion variables are set, so no signing secrets are required.
 - `open-code-review.yml` is separate: it only runs when `0xhis` comments `/code-review` on a pull request, on the self-hosted `ftc-review` runner.

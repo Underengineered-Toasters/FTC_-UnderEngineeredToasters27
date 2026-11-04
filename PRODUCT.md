@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Static HTML/CSS/JS served by the FTC Robot Controller's built-in web server (NanoHTTPD on port 8080, websocket on 8081) through the SDK `@WebHandlerRegistrar` hook in TeamCode. Tailwind CSS is compiled offline to a committed stylesheet; no CDN or runtime build step, because the robot Wi-Fi network has no internet access. Backend glue is Java in `org.firstinspires.ftc.teamcode.ds`.
+Static HTML/CSS/JS served by the FTC Robot Controller's built-in web server (NanoHTTPD on port 8080, websocket on 8081) through the SDK `@WebHandlerRegistrar` hook in TeamCode. The stylesheet is hand-written and committed; there is no CSS build, CDN or runtime build step, because the robot Wi-Fi network has no internet access. Backend glue is Java in `org.firstinspires.ftc.teamcode.ds`.
 
 ## Users
 
@@ -42,7 +42,7 @@ Team name Underengineered Toasters, team number 36424. No other binding assets.
 
 ## Evidence on Hand
 
-Robot code in `TeamCode/src/main/java/org/firstinspires/ftc/teamcode/` (opmodes, `AprilTagVision`, `Shooter`, `intake`). No existing UI assets, logos, or imagery; do not fabricate any.
+Robot code in `TeamCode/src/main/java/org/firstinspires/ftc/teamcode/` (opmodes, `AprilTagVision`, `Shooter`, `intake`). No logos or imagery; do not fabricate any.
 
 ## Product Principles
 
