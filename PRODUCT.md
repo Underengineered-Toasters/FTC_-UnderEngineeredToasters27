@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-Static HTML/CSS/JS served by the FTC Robot Controller's built-in web server (NanoHTTPD on port 8080, websocket on 8081) through the SDK `@WebHandlerRegistrar` hook in TeamCode. Tailwind CSS is compiled offline to a committed stylesheet; no CDN or runtime build step, because the robot Wi-Fi network has no internet access. Backend glue is Java in `org.firstinspires.ftc.teamcode.ds`.
+Static HTML/CSS/JS served by the FTC Robot Controller's built-in web server (NanoHTTPD on port 8080, websocket on 8081) through the SDK `@WebHandlerRegistrar` hook in TeamCode. The stylesheet is hand-written and committed; there is no CSS build, CDN or runtime build step, because the robot Wi-Fi network has no internet access. Backend glue is Java in `org.firstinspires.ftc.teamcode.ds`.
 
 ## Users
 
@@ -24,7 +24,7 @@ Served directly by the Robot Controller web server with no external library depe
 
 ## Operating Context
 
-Runs on the robot's Wi-Fi network at `http://192.168.43.1:8080/ds`. Practice and debugging only: competition rules (RS09) ban browser dashboards during matches, and gamepads stay on the official Driver Station. Deployed with the TeamCode APK over wireless ADB.
+Runs on the robot's Wi-Fi network at `http://192.168.43.1:8080/ds`. Practice and debugging only: Game Manual rule R704.D prohibits third party logging and streaming tools such as FTC Dashboard and any continuous video stream, so it must be off in matches and in the inspected robot. Gamepads stay on the official Driver Station. Deployed with the TeamCode APK over wireless ADB.
 
 ## Capabilities and Constraints
 
@@ -42,7 +42,7 @@ Team name Underengineered Toasters, team number 36424. No other binding assets.
 
 ## Evidence on Hand
 
-Robot code in `TeamCode/src/main/java/org/firstinspires/ftc/teamcode/` (opmodes, `AprilTagVision`, `Shooter`, `intake`). No existing UI assets, logos, or imagery; do not fabricate any.
+Robot code in `TeamCode/src/main/java/org/firstinspires/ftc/teamcode/` (opmodes, `AprilTagVision`, `Shooter`, `intake`). No logos or imagery; do not fabricate any.
 
 ## Product Principles
 

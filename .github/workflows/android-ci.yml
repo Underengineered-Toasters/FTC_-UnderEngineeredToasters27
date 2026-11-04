@@ -3,7 +3,6 @@ name: Android CI
 on:
   pull_request:
   push:
-    branches-ignore: [master]
   workflow_dispatch:
 
 permissions:
@@ -21,6 +20,14 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run Driver Station client tests
+        run: node --test TeamCode/ds-ui/tests/app.test.js
 
       - name: Set up JDK
         uses: actions/setup-java@v4

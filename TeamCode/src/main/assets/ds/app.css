@@ -1,0 +1,653 @@
+/* ==========================================================================
+   Underengineered Toasters 36424 — Driver Station
+   Hand-written CSS. No framework, no CDN, no external fonts or assets.
+   Served at /ds by the Robot Controller web server; index.html + app.css +
+   app.js only. app.js is owned separately — see the class contract at the
+   bottom of this file ("JS CONTRACT") before changing generated markup.
+
+   World: "Datamatics instrument". A black ruled panel. The hairline grid and
+   the numerals carry the page; an own-world typeface is impossible offline,
+   so measurement (mono) and uppercase signage labels are the voice instead.
+   Colour is spent only on robot state: ok / wait / fault. Nothing decorative.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Tokens
+   -------------------------------------------------------------------------- */
+:root {
+  color-scheme: dark;
+
+  /* ink — surfaces */
+  --ink-0: #050505;   /* page */
+  --ink-1: #0b0b0b;   /* panel */
+  --ink-2: #121212;   /* raised */
+  --ink-3: #1a1a1a;   /* hover */
+
+  /* paper — text. Contrast on ink-1: paper ~18:1, paper-2 ~7.5:1, paper-3 ~5.3:1
+     (paper-3 also has to clear 4.5:1 on the lighter ink-2 table header). */
+  --paper:   #ededed;
+  --paper-2: #a3a3a3;
+  --paper-3: #858585;
+
+  /* rules */
+  --line:   #242424;
+  --line-2: #333333;
+
+  /* state signals — functional only */
+  --ok:        #3ce07b;
+  --ok-ink:    #06140c;
+  --ok-dim:    rgba(60, 224, 123, 0.13);
+  --ok-line:   rgba(60, 224, 123, 0.42);
+
+  --wait:      #ffce45;
+  --wait-ink:  #171102;
+  --wait-dim:  rgba(255, 206, 69, 0.13);
+  --wait-line: rgba(255, 206, 69, 0.42);
+
+  --fault:      #ff5a5a;
+  --fault-ink:  #1a0606;
+  --fault-dim:  rgba(255, 90, 90, 0.13);
+  --fault-line: rgba(255, 90, 90, 0.46);
+
+  --busy: #4a4a4a;    /* idle dot, neutral */
+
+  /* metrics */
+  --gap: 12px;
+  --pad: 14px;
+  --rad: 2px;
+  --min-tap: 40px;
+
+  --fs-1: 0.6875rem;  /* 11px — labels */
+  --fs-2: 0.8125rem;  /* 13px — body */
+  --fs-3: 0.9375rem;  /* 15px — headings */
+
+  --mono: ui-monospace, "SFMono-Regular", "SF Mono", "Cascadia Mono",
+          "JetBrains Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+          Arial, sans-serif;
+
+  --dur: 0.16s;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);  /* exponential ease-out */
+}
+
+/* --------------------------------------------------------------------------
+   2. Reset and browser surfaces
+   -------------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scrollbar-color: var(--line-2) var(--ink-0);
+  scrollbar-width: thin;
+}
+
+body {
+  margin: 0;
+  background: var(--ink-0);
+  color: var(--paper);
+  font: var(--fs-2) / 1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection { background: var(--paper); color: var(--ink-0); }
+
+*::-webkit-scrollbar { inline-size: 10px; block-size: 10px; }
+*::-webkit-scrollbar-track { background: var(--ink-0); }
+*::-webkit-scrollbar-thumb { background: var(--line-2); border: 2px solid var(--ink-0); }
+*::-webkit-scrollbar-thumb:hover { background: #4d4d4d; }
+
+:focus-visible {
+  outline: 2px solid var(--paper);
+  outline-offset: 2px;
+  border-radius: var(--rad);
+}
+
+/* Utility toggled by app.js on banner / empty states / camera. */
+.hidden { display: none !important; }
+
+.skiplink {
+  position: absolute;
+  inset-block-start: -48px;
+  inset-inline-start: 8px;
+  z-index: 60;
+  padding: 8px 12px;
+  background: var(--paper);
+  color: var(--ink-0);
+  font-weight: 700;
+  text-decoration: none;
+  border-radius: var(--rad);
+  transition: inset-block-start var(--dur) var(--ease);
+}
+.skiplink:focus { inset-block-start: 8px; }
+
+.noscript {
+  margin: 0;
+  padding: 10px var(--pad);
+  background: var(--fault-dim);
+  color: var(--fault);
+  font-size: var(--fs-2);
+  text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+   3. Disconnect banner
+   -------------------------------------------------------------------------- */
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 9px var(--pad);
+  background: var(--fault-dim);
+  border-block-end: 1px solid var(--fault-line);
+  color: var(--fault);
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+.banner svg { inline-size: 16px; block-size: 16px; flex: none; }
+
+/* --------------------------------------------------------------------------
+   4. Shell + top status rail
+   -------------------------------------------------------------------------- */
+.shell {
+  min-block-size: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+}
+
+.topbar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px var(--pad);
+  background: var(--ink-0);
+  border-block-end: 1px solid var(--line);
+}
+
+.brand {
+  margin: 0;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: var(--fs-3);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.brand__team,
+.brand__role { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand__role { color: var(--paper-2); font-weight: 500; }
+.brand__sep { color: var(--paper-3); }
+.brand__num {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.statusbar { display: flex; align-items: center; gap: 8px; flex: none; }
+
+/* --------------------------------------------------------------------------
+   5. Badges (connection + opmode state)
+   -------------------------------------------------------------------------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--ink-2);
+  color: var(--paper-2);
+  font-size: var(--fs-1);
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.badge::before {
+  content: "";
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.badge--on   { color: var(--ok);   border-color: var(--ok-line);   background: var(--ok-dim); }
+.badge--off  { color: var(--fault); border-color: var(--fault-line); background: var(--fault-dim); }
+.badge--wait { color: var(--wait); border-color: var(--wait-line); background: var(--wait-dim); }
+.badge--init { color: var(--wait); border-color: var(--wait-line); background: var(--wait-dim); }
+.badge--loop { color: var(--ok);   border-color: var(--ok-line);   background: var(--ok-dim); }
+.badge--none { color: var(--paper-2); border-color: var(--line-2);  background: var(--ink-2); }
+
+/* --------------------------------------------------------------------------
+   6. Grid + rails
+   -------------------------------------------------------------------------- */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--gap);
+  padding: var(--gap);
+  min-block-size: 0;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+/* --------------------------------------------------------------------------
+   7. Panels
+   -------------------------------------------------------------------------- */
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  background: var(--ink-1);
+  border: 1px solid var(--line);
+  border-radius: var(--rad);
+}
+
+.panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px var(--pad);
+  border-block-end: 1px solid var(--line);
+}
+
+.panel__title {
+  margin: 0;
+  font-size: var(--fs-1);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--paper-2);
+}
+
+.panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: var(--pad);
+}
+
+.panel__tools { display: flex; gap: 4px; }
+
+/* --------------------------------------------------------------------------
+   8. Form field + select
+   -------------------------------------------------------------------------- */
+.label {
+  display: block;
+  margin-block-end: 6px;
+  font-size: var(--fs-1);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--paper-3);
+}
+
+.select { position: relative; }
+
+.select select {
+  inline-size: 100%;
+  min-block-size: var(--min-tap);
+  appearance: none;
+  padding: 9px 34px 9px 11px;
+  background: var(--ink-2);
+  color: var(--paper);
+  border: 1px solid var(--line-2);
+  border-radius: var(--rad);
+  font: 600 var(--fs-2) / 1.2 var(--sans);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.select select:hover { background: var(--ink-3); border-color: #4d4d4d; }
+.select select:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.select__icon {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: 11px;
+  inline-size: 14px;
+  block-size: 14px;
+  translate: 0 -50%;
+  color: var(--paper-3);
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   9. Buttons
+   -------------------------------------------------------------------------- */
+.actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+
+/* Robot command error, beside the buttons. Empty means no box at all. */
+.cmd-status {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--fault-line);
+  border-radius: var(--rad);
+  background: var(--fault-dim);
+  color: var(--fault);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.cmd-status:empty { display: none; }
+
+.btn {
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-block-size: var(--min-tap);
+  padding: 0 14px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--rad);
+  background: var(--ink-2);
+  color: var(--paper);
+  font: 700 var(--fs-2) / 1 var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
+              color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.btn:not([aria-disabled="true"]):hover { background: var(--ink-3); border-color: #4d4d4d; }
+.btn:not([aria-disabled="true"]):active { transform: translateY(1px); }
+.btn[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
+
+.btn--init  { color: var(--wait); border-color: var(--wait-line); background: var(--wait-dim); }
+.btn--init:hover:not([aria-disabled="true"]) { background: rgba(255, 206, 69, 0.22); border-color: var(--wait); }
+
+.btn--start { color: var(--ok-ink); background: var(--ok); border-color: var(--ok); }
+.btn--start:hover:not([aria-disabled="true"]) { background: #57e88f; border-color: #57e88f; }
+
+.btn--stop  { color: var(--fault-ink); background: var(--fault); border-color: var(--fault); }
+.btn--stop:hover:not([aria-disabled="true"]) { background: #ff7373; border-color: #ff7373; }
+
+.btn--ghost {
+  min-block-size: 28px;
+  padding: 0 8px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--paper-2);
+  font-size: var(--fs-1);
+}
+.btn--ghost:hover { background: var(--ink-2); border-color: var(--line-2); color: var(--paper); }
+
+/* --------------------------------------------------------------------------
+   10. Key/value row (active opmode)
+   -------------------------------------------------------------------------- */
+.kv {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding-block-start: 12px;
+  border-block-start: 1px solid var(--line);
+}
+.kv dt {
+  font-size: var(--fs-1);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--paper-3);
+}
+.kv dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--paper);
+  word-break: break-word;
+}
+
+/* --------------------------------------------------------------------------
+   11. Battery gauge
+   -------------------------------------------------------------------------- */
+.battery {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.battery__val {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.battery__unit { font-size: 1rem; font-weight: 600; color: var(--paper-2); }
+.spark { display: block; }
+.battery__spark { inline-size: 120px; block-size: 28px; }
+
+/* --------------------------------------------------------------------------
+   12. Tables
+   -------------------------------------------------------------------------- */
+.tablewrap {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  background: var(--ink-0);
+  border: 1px solid var(--line);
+  border-radius: var(--rad);
+}
+
+.table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-2);
+}
+
+.table thead th {
+  padding: 8px 10px;
+  background: var(--ink-2);
+  color: var(--paper-3);
+  font-size: var(--fs-1);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border-block-end: 1px solid var(--line);
+}
+
+.table th.c-name { text-align: start; }
+.table th.c-num,
+.table th.c-flag { text-align: end; }
+
+.table tbody tr { border-block-start: 1px solid var(--line); transition: background var(--dur) var(--ease); }
+.table tbody tr:first-child { border-block-start: 0; }
+.table tbody tr:hover { background: var(--ink-2); }
+
+.table tbody th,
+.table tbody td {
+  padding: 8px 10px;
+  text-align: end;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.table tbody th {
+  text-align: start;
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--paper);
+}
+.table tbody td { font-family: var(--mono); color: var(--paper); }
+
+/* Telemetry values may be long / non-numeric: allow wrapping. */
+.table--telemetry tbody td { white-space: normal; word-break: break-word; }
+
+.empty { margin: 0; color: var(--paper-3); }
+
+/* --------------------------------------------------------------------------
+   13. Camera stage
+   -------------------------------------------------------------------------- */
+.stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  overflow: hidden;
+}
+.cam {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+}
+.cam-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+  color: var(--paper-3);
+}
+.cam-empty svg { inline-size: 28px; block-size: 28px; }
+.cam-empty__title { margin: 0; color: var(--paper-2); font-size: var(--fs-2); font-weight: 600; }
+.cam-empty__hint { margin: 0; font-size: var(--fs-1); }
+
+/* --------------------------------------------------------------------------
+   14. Log
+   -------------------------------------------------------------------------- */
+.panel--log { min-block-size: 0; }
+.panel__body--log { padding: 0; min-block-size: 0; }
+
+.log {
+  min-block-size: 0;
+  block-size: min(38vh, 320px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 12px;
+  background: var(--ink-0);
+  border-block-start: 1px solid var(--line);
+  color: var(--paper-2);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* app.js marks error lines. .log-line--error is the contract name;
+   .text-destructive is kept so the current app.js keeps rendering. */
+.log-line--error,
+.text-destructive { color: var(--fault); }
+
+/* --------------------------------------------------------------------------
+   15. JS CONTRACT — classes for markup generated by app.js
+   -------------------------------------------------------------------------- */
+/* Busy indicator in the Motors table. */
+.dot {
+  display: inline-block;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: var(--busy);
+  vertical-align: middle;
+}
+.dot--idle { background: var(--busy); }
+.dot--busy { background: var(--wait); }
+
+/* Telemetry value + optional inline sparkline. */
+.tvalwrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.tval { word-break: break-word; }
+.tval__spark { display: block; inline-size: 64px; block-size: 16px; }
+
+/* --------------------------------------------------------------------------
+   16. Motion — one orchestrated reveal, reduced-motion aware
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  .topbar { animation: rail-drop 0.45s var(--ease) both; }
+  .grid > .rail { animation: rail-rise 0.5s var(--ease) both; }
+  .grid > .rail:nth-child(2) { animation-delay: 0.06s; }
+
+  .badge--wait::before { animation: pulse 1.4s var(--ease) infinite; }
+
+  @keyframes rail-drop {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes rail-rise {
+    from { opacity: 0; transform: translateY(10px); filter: blur(4px); }
+    to   { opacity: 1; transform: none; filter: none; }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.25; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* --------------------------------------------------------------------------
+   17. Operate layout — two rails on desktop, stacked on small screens
+   -------------------------------------------------------------------------- */
+@media (min-width: 64rem) {
+  .shell { block-size: 100dvh; overflow: hidden; }
+
+  .grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.02fr);
+    min-block-size: 0;
+  }
+
+  /* Left rail scrolls; the control panel and battery stay at its top. */
+  .rail--controls { overflow-y: auto; padding-inline-end: 2px; }
+
+  /* Right rail: camera keeps its ratio but is capped so the log always keeps
+     room under pressure; the log then fills whatever is left. */
+  .rail--observe {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow: hidden;
+  }
+  .panel--cam .stage { max-block-size: 46vh; }
+  .panel--log { display: flex; flex-direction: column; }
+  .panel__body--log { flex: 1; }
+  .log { block-size: auto; flex: 1; min-block-size: 140px; }
+}
+
+@media (max-width: 26.25rem) {
+  :root { --pad: 11px; --gap: 10px; }
+  .battery__val { font-size: 1.875rem; }
+  .brand__role { display: none; }
+  .brand__sep { display: none; }
+}
+
+/* --------------------------------------------------------------------------
+   18. Touch: 44px targets where the pointer is a finger
+   -------------------------------------------------------------------------- */
+@media (pointer: coarse) {
+  :root { --min-tap: 44px; }
+  .btn--ghost { min-block-size: var(--min-tap); }
+}
