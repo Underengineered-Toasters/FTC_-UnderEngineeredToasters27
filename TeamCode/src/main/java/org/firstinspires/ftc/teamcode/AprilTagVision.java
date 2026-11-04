@@ -42,6 +42,7 @@ public class AprilTagVision {
         try {
             visionPortal = new VisionPortal.Builder()
                     .setCamera(hardwareMap.get(WebcamName.class, "Webcam 1"))
+                    .setStreamFormat(VisionPortal.StreamFormat.YUY2)
                     .addProcessor(aprilTag)
                     .build();
         } catch (Exception e) {
