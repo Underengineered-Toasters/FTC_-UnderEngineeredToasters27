@@ -76,3 +76,9 @@ Harness coverage:
 - log pause / resume / clear, including the bounded queue while paused
 - no WebSocket support: honest badge, log line and banner copy, no reconnect storm
 - robot-supplied text rendered as text; stale sockets inert; no stacked watchdogs
+- action buttons use `aria-disabled`, so a pressed control keeps keyboard focus
+- telemetry is dropped when the active opmode stops or is replaced
+- a reconnect replaces the log view, so the robot's log replay is not doubled
+- a telemetry update keeps the table rows, so a driver's text selection survives
+- a robot command error shows beside the controls until the next command
+- Copy works without the clipboard API (plain http) and saves a file only when no copy route works

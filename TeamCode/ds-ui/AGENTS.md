@@ -11,6 +11,7 @@ Team programming owns the tests. The client assets are in `TeamCode/src/main/ass
 - There is no CSS or JS build step. `app.css` is committed as written.
 - Tests mirror `DsSocketHandler`, so a protocol change in either file needs a matching test change.
 - Assets must work offline: no external origins, fonts or CDNs.
+- Action buttons (Init, Start, Stop) use `aria-disabled`, not the `disabled` property, so a pressed button keeps keyboard focus. The harness fake treats `aria-disabled="true"` as disabled.
 
 ## Work Guidance
 Add a regression test with every behavior fix. See `tests/README.md` for what the suite covers.

@@ -342,6 +342,7 @@ const RETAINED_IDS = [
   "banner", "conn", "opmode", "opstate", "active", "battery", "motors", "motorsEmpty",
   "servos", "servosEmpty", "telemetry", "telemetryEmpty", "log", "logPause", "logClear",
   "logCopy", "cam", "camEmpty", "btnInit", "btnStart", "btnStop", "batterySpark",
+  "cmdStatus",
 ];
 
 test("app.js references every retained element id", () => {
@@ -528,9 +529,19 @@ class FakeElement {
     this.attributes = Object.create(null);
     this.listeners = Object.create(null);
     this.classList = new FakeClassList(this);
+    this.style = {};
     this._text = "";
     this._value = "";
   }
+
+  // An action button is inert when either the native property or aria-disabled
+  // says so. app.js only ever uses aria-disabled on its action buttons: a native
+  // disabled button loses keyboard focus when it is pressed.
+  get disabled() { return this._disabled || this.attributes["aria-disabled"] === "true"; }
+  set disabled(value) { this._disabled = !!value; }
+  get nativeDisabled() { return this._disabled; }
+  select() {}
+  click() {}
   get childElementCount() { return this.children.length; }
   get firstChild() { return this.children.length ? this.children[0] : null; }
   get textContent() {
@@ -659,9 +670,18 @@ function loadUI(options = {}) {
   els.get("opmode").append(placeholder);
   els.get("logPause").textContent = "Pause";
 
+  const copies = [];
+  const downloads = [];
   const document = {
     getElementById: (id) => els.get(id) || null,
     createElement: (tag) => new FakeElement(tag),
+    body: new FakeElement("body"),
+    // Record what a copy would have copied: the proxy textarea is the last child.
+    execCommand: (command) => {
+      const ta = document.body.children[document.body.children.length - 1];
+      copies.push({ command, value: ta ? ta.value : null });
+      return options.execCommandResult !== undefined ? options.execCommandResult : true;
+    },
   };
   const clock = makeClock();
   const window = {
@@ -674,8 +694,11 @@ function loadUI(options = {}) {
     console,
     document,
     window,
-    navigator: { clipboard: { writeText: () => Promise.resolve() } },
-    URL: { createObjectURL: () => "blob:test", revokeObjectURL() {} },
+    // Plain http on the robot network is not a secure context: no clipboard API.
+    navigator: options.insecure ? {} : {
+      clipboard: { writeText: () => (options.clipboardRejects ? Promise.reject(new Error("denied")) : Promise.resolve()) },
+    },
+    URL: { createObjectURL: () => { downloads.push(1); return "blob:test"; }, revokeObjectURL() {} },
     Blob: class { constructor(parts) { this.parts = parts; } },
     setTimeout: (fn, ms) => clock.setTimeout(fn, ms),
     clearTimeout: (id) => clock.clearTimeout(id),
@@ -696,6 +719,8 @@ function loadUI(options = {}) {
     clock,
     window,
     sockets: sandbox.WebSocket ? sandbox.WebSocket.instances : [],
+    copies,
+    downloads,
   };
 }
 
@@ -1140,4 +1165,117 @@ test("[harness] a stale socket is inert and reconnects never stack watchdogs", (
 
   h.window.dispatch("beforeunload");
   assert.equal(h.clock.size(), 0, "unload clears the reconnect timer and the watchdog");
+});
+
+// ---------------------------------------------------------------------------
+// harness: regression tests for the operator-audit fixes
+// ---------------------------------------------------------------------------
+
+test("[harness] a pressed action keeps keyboard focus: buttons are aria-disabled, never natively disabled", () => {
+  const { h, ws } = connectedUI();
+  ws.deliver(robotFrame("state", { opmodes: ["RobotTeleOp"], active: null, opmodeState: null }));
+  click(h, "btnInit");
+  // A native disabled button drops focus the moment it is pressed, so the guard
+  // must be aria-disabled: the focused button stays focusable and inert.
+  assert.equal(h.els.get("btnInit").nativeDisabled, false, "no native disabled on a pressed action");
+  assert.equal(h.els.get("btnInit").getAttribute("aria-disabled"), "true");
+  assert.equal(ws.sent.length, 2);
+  click(h, "btnInit");
+  assert.equal(ws.sent.length, 2, "an aria-disabled action is inert");
+
+  ws.deliver(robotFrame("state", { opmodes: ["RobotTeleOp"], active: "RobotTeleOp", opmodeState: "INIT" }));
+  assert.equal(h.els.get("btnStart").getAttribute("aria-disabled"), "false");
+  assert.equal(h.els.get("btnStart").nativeDisabled, false);
+});
+
+test("[harness] telemetry is dropped when the active opmode stops or is replaced", () => {
+  const { h, ws } = connectedUI();
+  ws.deliver(robotFrame("state", { opmodes: ["RobotTeleOp", "Auto"], active: "RobotTeleOp", opmodeState: "LOOPING" }));
+  ws.deliver(robotFrame("telemetryDump", { entries: { Heading: "42" } }));
+  assert.deepEqual(telemetryKeys(h), ["Heading"]);
+
+  // The robot clears its snapshot on stop and sends nothing for it.
+  ws.deliver(robotFrame("diag", { battery: 12.6, motors: [], servos: [], active: null, opmodeState: null }));
+  assert.deepEqual(telemetryKeys(h), [], "a stopped opmode's values are not presented as live");
+
+  ws.deliver(robotFrame("state", { opmodes: ["RobotTeleOp", "Auto"], active: "Auto", opmodeState: "INIT" }));
+  ws.deliver(robotFrame("telemetryDump", { entries: { Mode: "auto" } }));
+  ws.deliver(robotFrame("diag", { battery: 12.6, motors: [], servos: [], active: "Auto", opmodeState: "LOOPING" }));
+  assert.deepEqual(telemetryKeys(h), ["Mode"]);
+  ws.deliver(robotFrame("diag", { battery: 12.6, motors: [], servos: [], active: "RobotTeleOp", opmodeState: "INIT" }));
+  assert.deepEqual(telemetryKeys(h), [], "a replaced opmode's values are dropped too");
+});
+
+test("[harness] a reconnect replaces the log view instead of stacking the robot's replay on it", () => {
+  const { h, ws } = connectedUI();
+  ws.deliver(robotFrame("log", { line: "first" }));
+  ws.deliver(robotFrame("log", { line: "second" }));
+  ws.drop();
+  h.clock.advance(1000);
+  const ws2 = h.sockets[1];
+  ws2.open();
+  // The robot replays its log ring on every subscribe.
+  ws2.deliver(robotFrame("log", { line: "first" }));
+  ws2.deliver(robotFrame("log", { line: "second" }));
+  assert.deepEqual(logLines(h), ["first", "second"], "each replayed line appears once");
+});
+
+test("[harness] a telemetry update does not rebuild the table, so a driver's text selection survives", () => {
+  const { h, ws } = connectedUI();
+  ws.deliver(robotFrame("telemetryDump", { entries: { A: "1", B: "2" } }));
+  // A real browser drops a selection when the rows it sits in are removed. Count
+  // every wipe of the table body: a rebuild is a textContent = "" on it.
+  const body = h.els.get("telemetry");
+  const rowsBefore = body.children.slice();
+  let wipes = 0;
+  const proto = Object.getOwnPropertyDescriptor(FakeElement.prototype, "textContent");
+  Object.defineProperty(body, "textContent", {
+    get() { return proto.get.call(this); },
+    set(v) { if (v === "") wipes += 1; proto.set.call(this, v); },
+  });
+  ws.deliver(robotFrame("telemetryDump", { entries: { A: "5", B: "2" } }));
+  assert.equal(wipes, 0, "an update with the same keys must not rebuild the table");
+  assert.deepEqual(body.children, rowsBefore, "the same row elements stay attached");
+  assert.equal(telemetryValue(h, "A"), "5");
+});
+
+test("[harness] a robot command error is shown beside the controls and cleared by the next command", () => {
+  const { h, ws } = connectedUI();
+  ws.deliver(robotFrame("state", { opmodes: ["RobotTeleOp"], active: null, opmodeState: null }));
+  assert.equal(h.els.get("cmdStatus").textContent, "", "nothing shown before a command fails");
+  click(h, "btnInit");
+  ws.deliver(robotFrame("error", { message: "initOpMode: unknown opmode 'RobotTeleOp'" }));
+  assert.match(h.els.get("cmdStatus").textContent, /unknown opmode/, "the failure is visible without the log");
+  click(h, "btnInit");
+  assert.equal(h.els.get("cmdStatus").textContent, "", "the next command clears the old error");
+});
+
+test("[harness] Copy works on plain http, where navigator.clipboard is unavailable", async () => {
+  const h = loadUI({ insecure: true });
+  h.sockets[0].open();
+  h.sockets[0].deliver(robotFrame("log", { line: "one" }));
+  h.sockets[0].deliver(robotFrame("log", { line: "two" }));
+  click(h, "logCopy");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(h.copies, [{ command: "copy", value: "one\ntwo" }]);
+  assert.equal(h.downloads.length, 0, "the text is copied, not saved as a file");
+});
+
+test("[harness] Copy saves the log only when no copy route works", async () => {
+  const h = loadUI({ insecure: true, execCommandResult: false });
+  h.sockets[0].open();
+  h.sockets[0].deliver(robotFrame("log", { line: "one" }));
+  click(h, "logCopy");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(h.downloads.length, 1, "falls back to a file download when copying is refused");
+});
+
+test("[harness] Copy falls back to the textarea when the clipboard API rejects", async () => {
+  const h = loadUI({ clipboardRejects: true });
+  h.sockets[0].open();
+  h.sockets[0].deliver(robotFrame("log", { line: "one" }));
+  click(h, "logCopy");
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(h.copies, [{ command: "copy", value: "one" }]);
+  assert.equal(h.downloads.length, 0);
 });
