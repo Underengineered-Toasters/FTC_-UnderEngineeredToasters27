@@ -2,8 +2,21 @@ name: Android CI
 
 on:
   pull_request:
+    branches: [main, dev]
+    paths:
+      - 'TeamCode/**'
+      - 'FtcRobotController/**'
+      - '*.gradle*'
+      - 'gradle/**'
+      - '.github/workflows/android-ci.yml'
   push:
-    branches-ignore: [master]
+    branches: [main, dev]
+    paths:
+      - 'TeamCode/**'
+      - 'FtcRobotController/**'
+      - '*.gradle*'
+      - 'gradle/**'
+      - '.github/workflows/android-ci.yml'
   workflow_dispatch:
 
 permissions:
@@ -52,7 +65,16 @@ jobs:
           path: |
             TeamCode/build/outputs/apk/debug/*.apk
             FtcRobotController/build/outputs/apk/debug/*.apk
+          retention-days: 7
           if-no-files-found: error
+
+      - name: Add build summary
+        run: |
+          echo "### Robot App Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Branch / Ref: `${{ github.ref_name }}`" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: `${{ github.sha }}`" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: Tests and APK build passed." >> $GITHUB_STEP_SUMMARY
+          echo "Debug APK is attached as an artifact in this run." >> $GITHUB_STEP_SUMMARY
 
       - name: Upload build reports
         if: failure()
@@ -62,4 +84,5 @@ jobs:
           path: |
             **/build/reports/**
             **/build/outputs/logs/**
+          retention-days: 3
           if-no-files-found: ignore
