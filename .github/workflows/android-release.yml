@@ -53,7 +53,6 @@ jobs:
           name: release-apk-${{ steps.version.outputs.name }}
           path: |
             TeamCode/build/outputs/apk/release/*.apk
-            FtcRobotController/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
       - name: Publish GitHub release
@@ -61,8 +60,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
-            --title "Robot app ${GITHUB_REF_NAME} (versionName ${{ steps.version.outputs.name }})" \
-            --notes "Signed release build of the FTC 36424 robot app, produced by the Android Release workflow. Install the APK on the Control Hub to update the robot." \
-            TeamCode/build/outputs/apk/release/*.apk \
-            FtcRobotController/build/outputs/apk/release/*.apk
+          gh release create "${GITHUB_REF_NAME}"             --title "Robot app ${GITHUB_REF_NAME} (versionName ${{ steps.version.outputs.name }})"             --notes "Signed release build of the FTC 36424 robot app, produced by the Android Release workflow. Install the APK on the Control Hub to update the robot."             TeamCode/build/outputs/apk/release/*.apk
