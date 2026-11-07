@@ -7,6 +7,10 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 /** Timed autonomous template; tune on the actual field before competition use. */
 public abstract class BioBuzzTimedAuto extends LinearOpMode {
     protected final Robot robot = new Robot();
+    private final FlowerArm flowerArm = new FlowerArm();
+    private final ElapsedTime match = new ElapsedTime();
+    private static final double ARM_LOWER_SECONDS = 1.2;
+    private static final double ARM_RAISE_TIMEOUT_SECONDS = 4.0;
 
     public static double INCHES_PER_SECOND_AT_HALF_POWER = 20.0;
     public static double TURN_POWER = 0.45;
@@ -30,45 +34,56 @@ public abstract class BioBuzzTimedAuto extends LinearOpMode {
     protected abstract Plan plan();
 
     @Override public final void runOpMode() {
+        flowerArm.init(hardwareMap);
+        if (!flowerArm.homeDuringInit(this)) return;
         robot.init(hardwareMap);
-        telemetry.addLine("BIOBUZZ timed auto — calibrate distance and turns before use");
-        telemetry.addData("Alliance", isRed() ? "RED" : "BLUE");
-        telemetry.addData("Route", plan());
-        telemetry.addLine("Start aimed toward the alliance FLOWER");
-        telemetry.update();
-        waitForStart();
-        if (!opModeIsActive()) { robot.close(); return; }
-
-        ElapsedTime match = new ElapsedTime();
-        match.reset();
-        Plan selected = plan();
-        if (selected == Plan.WAIT_SHOOT_RETURN_SHOOT || selected == Plan.WAIT_SHOOT_CROSS_PARK) {
-            waitSeconds(7.0);
-        }
-
-        shoot(SHOOT_SECONDS); // Up to four preloaded POLLEN
-        goToFlowerAndIntake();
-
-        if (selected == Plan.WAIT_SHOOT_RETURN_SHOOT || selected == Plan.SHOOT_RETURN_WAIT_SHOOT) {
-            turn(180);
-            driveInches(FLOWER_LEG_INCHES, MOVE_POWER);
-            turn(180);
-            if (selected == Plan.SHOOT_RETURN_WAIT_SHOOT) waitSeconds(2.0);
-            if (match.seconds() < 27.0) shoot(Math.min(SHOOT_SECONDS, 29.0 - match.seconds()));
-        } else {
-            crossAndPark();
-        }
-
-        stopAll();
-        if (opModeIsActive()) {
-            telemetry.addData("AUTO elapsed", "%.1fs", match.seconds());
+        try {
+            telemetry.addLine("BIOBUZZ timed auto — calibrate distance and turns before use");
+            telemetry.addData("Alliance", isRed() ? "RED" : "BLUE");
+            telemetry.addData("Route", plan());
+            telemetry.addLine("Start aimed toward the alliance FLOWER");
             telemetry.update();
+            waitForStart();
+            if (!opModeIsActive()) return;
+
+            if (!flowerArm.isUpperLimitPressed()) {
+                telemetry.addLine("Flower arm must touch upper sensor at START; autonomous aborted");
+                telemetry.update();
+                return;
+            }
+            match.reset();
+            Plan selected = plan();
+            if (selected == Plan.WAIT_SHOOT_RETURN_SHOOT || selected == Plan.WAIT_SHOOT_CROSS_PARK) {
+                waitSeconds(7.0);
+            }
+
+            shoot(SHOOT_SECONDS); // Up to four preloaded POLLEN
+            if (!goToFlowerAndIntake()) return;
+
+            if (selected == Plan.WAIT_SHOOT_RETURN_SHOOT || selected == Plan.SHOOT_RETURN_WAIT_SHOOT) {
+                turn(180);
+                driveInches(FLOWER_LEG_INCHES, MOVE_POWER);
+                turn(180);
+                if (selected == Plan.SHOOT_RETURN_WAIT_SHOOT) waitSeconds(2.0);
+                if (match.seconds() < 27.0) shoot(Math.min(SHOOT_SECONDS, 29.0 - match.seconds()));
+            } else {
+                crossAndPark();
+            }
+
+            if (opModeIsActive()) {
+                telemetry.addData("AUTO elapsed", "%.1fs", match.seconds());
+                telemetry.update();
+            }
+        } finally {
+            flowerArm.stop();
+            stopAll();
+            robot.close();
         }
-        robot.close();
     }
 
-    private void goToFlowerAndIntake() {
+    private boolean goToFlowerAndIntake() {
         driveInches(FLOWER_LEG_INCHES, MOVE_POWER);
+        if (!moveFlowerArm(false, ARM_LOWER_SECONDS)) return false;
         robot.setMatchLoaderDown(true);
         waitSeconds(LOADER_SETTLE_SECONDS);
         robot.intakeSystem.intakeIn();
@@ -76,6 +91,30 @@ public abstract class BioBuzzTimedAuto extends LinearOpMode {
         robot.intakeSystem.stopIntake();
         robot.setMatchLoaderDown(false);
         waitSeconds(LOADER_SETTLE_SECONDS);
+        return moveFlowerArm(true, ARM_RAISE_TIMEOUT_SECONDS);
+    }
+
+    private boolean moveFlowerArm(boolean up, double seconds) {
+        ElapsedTime timer = new ElapsedTime();
+        while (opModeIsActive() && match.seconds() < 29.0 && timer.seconds() < seconds) {
+            if (up && flowerArm.isUpperLimitPressed()) {
+                flowerArm.stop();
+                return true;
+            }
+            flowerArm.update(up, !up);
+            telemetry.addData("Flower arm", up ? "RAISING" : "LOWERING");
+            telemetry.addData("Flower upper limit", flowerArm.isUpperLimitPressed());
+            telemetry.update();
+            idle();
+        }
+        flowerArm.stop();
+        boolean success = opModeIsActive() && match.seconds() < 29.0
+                && (!up || flowerArm.isUpperLimitPressed());
+        if (!success) {
+            telemetry.addLine("Flower arm stopped: STOP, deadline, or upper sensor timeout; route aborted");
+            telemetry.update();
+        }
+        return success;
     }
 
     private void crossAndPark() {
