@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.PwmControl;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.TouchSensor;
 
@@ -31,6 +32,12 @@ public final class FlowerArm {
         if (!limit.isPressed()) {
             throw new IllegalStateException("Place flower arm against upper touch sensor before INIT");
         }
+        if (!(armServo instanceof PwmControl)) {
+            throw new IllegalArgumentException("Flower arm requires a PWM-range-capable servo controller");
+        }
+        // goBILDA 2000-0025-0002 supports 500–2500 us.
+        // Extend only the raising end; keep the previous 2400 us lowering endpoint.
+        ((PwmControl) armServo).setPwmRange(new PwmControl.PwmRange(500, 2400));
         servo = armServo;
         upperLimit = limit;
         servo.setDirection(Servo.Direction.FORWARD);

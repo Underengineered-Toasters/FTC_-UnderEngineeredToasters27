@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.PwmControl;
 import com.qualcomm.robotcore.hardware.TouchSensor;
 import java.lang.reflect.Proxy;
 import org.junit.Test;
@@ -9,14 +10,23 @@ import static org.junit.Assert.*;
 public class FlowerArmTest {
     private boolean pressed = true;
     private double position = Double.NaN;
+    private PwmControl.PwmRange pwmRange;
     private final Servo servo = (Servo) Proxy.newProxyInstance(Servo.class.getClassLoader(),
-            new Class<?>[] {Servo.class}, (proxy, method, args) -> {
+            new Class<?>[] {Servo.class, PwmControl.class}, (proxy, method, args) -> {
                 if (method.getName().equals("setPosition")) position = (Double) args[0];
+                if (method.getName().equals("setPwmRange")) pwmRange = (PwmControl.PwmRange) args[0];
                 return null;
             });
     private final TouchSensor sensor = (TouchSensor) Proxy.newProxyInstance(
             TouchSensor.class.getClassLoader(), new Class<?>[] {TouchSensor.class},
             (proxy, method, args) -> method.getName().equals("isPressed") ? pressed : null);
+
+    @Test public void extendsOnlyUpwardPwmEndpoint() {
+        new FlowerArm().configure(servo, sensor);
+        assertNotNull(pwmRange);
+        assertEquals(500, pwmRange.usPulseLower, 0);
+        assertEquals(2400, pwmRange.usPulseUpper, 0);
+    }
 
     @Test public void startsAtUpperLimitAndHoldingBDoesNotMove() {
         FlowerArm arm = new FlowerArm();
