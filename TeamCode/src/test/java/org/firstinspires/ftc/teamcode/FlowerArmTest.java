@@ -114,6 +114,27 @@ public class FlowerArmTest {
         assertEquals(contact, position, 0);
     }
 
+    @Test public void lowerCommandStopsAtShorterEndpoint() {
+        FlowerArm arm = new FlowerArm();
+        arm.configure(servo, sensor);
+        pressed = false;
+        for (int i = 0; i < 40; i++) arm.update(false, true, 0.05);
+        assertEquals(0.2, position, 0);
+        arm.update(false, true, 0.05);
+        assertEquals(0.2, position, 0);
+    }
+
+    @Test public void homedArmStaysUpUntilBIsPressed() {
+        FlowerArm arm = new FlowerArm();
+        arm.configure(servo, sensor);
+        arm.homeStep(0, 0, false);
+        double up = position;
+        for (int i = 0; i < 20; i++) arm.updateToggle(false, 0.05);
+        assertEquals(up, position, 0);
+        arm.updateToggle(true, 0.05);
+        assertTrue(position < up);
+    }
+
     @Test public void homingTimeoutOrStopDoesNotIssueAnotherUpwardStep() {
         pressed = false;
         FlowerArm arm = new FlowerArm();

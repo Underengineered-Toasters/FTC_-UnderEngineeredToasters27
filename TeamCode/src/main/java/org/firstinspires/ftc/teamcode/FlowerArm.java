@@ -10,6 +10,8 @@ import com.qualcomm.robotcore.hardware.TouchSensor;
 public final class FlowerArm {
     // Installed direction confirmed on robot: larger positions raise the arm.
     public static final double UPPER_POSITION = 1.0;
+    // Reduce downward travel by 20% of the full commanded range.
+    public static final double LOWER_POSITION = 0.2;
     // Full commanded range in about 0.67 seconds; actual speed depends on the servo.
     private static final double POSITION_PER_SECOND = 1.5;
     private Servo servo;
@@ -114,7 +116,9 @@ public final class FlowerArm {
         if (isUpperLimitPressed()) upperStopped = true;
         if (up != down) {
             if (down && dt > 0) {
-                target -= POSITION_PER_SECOND * dt;
+                if (target > LOWER_POSITION) {
+                    target = Math.max(LOWER_POSITION, target - POSITION_PER_SECOND * dt);
+                }
                 // Only downward motion permits a later upward attempt.
                 upperStopped = isUpperLimitPressed();
             } else if (up && !upperStopped) {
