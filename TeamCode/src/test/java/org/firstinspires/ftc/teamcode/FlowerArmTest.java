@@ -25,8 +25,8 @@ public class FlowerArmTest {
     @Test public void extendsOnlyUpwardPwmEndpoint() {
         new FlowerArm().configure(servo, sensor);
         assertNotNull(pwmRange);
-        assertEquals(500, pwmRange.usPulseLower, 0);
-        assertEquals(2400, pwmRange.usPulseUpper, 0);
+        assertEquals(600, pwmRange.usPulseLower, 0);
+        assertEquals(2500, pwmRange.usPulseUpper, 0);
     }
 
     @Test public void startsAtUpperLimitAndHoldingBDoesNotMove() {
@@ -44,7 +44,7 @@ public class FlowerArmTest {
         for (int i = 0; i < 10; i++) arm.update(false, true, 0.05);
         double lowered = position;
         arm.update(true, false, 0.05);
-        assertTrue(position < lowered);
+        assertTrue(position > lowered);
         pressed = true;
         double contact = position;
         arm.update(true, false, 0.05);
@@ -57,7 +57,7 @@ public class FlowerArmTest {
         FlowerArm arm = new FlowerArm();
         arm.configure(servo, sensor);
         arm.update(false, true, 0.05);
-        assertTrue(position > FlowerArm.UPPER_POSITION);
+        assertTrue(position < FlowerArm.UPPER_POSITION);
         double lowered = position;
         arm.update(false, false, 0.05);
         assertEquals(lowered, position, 0);
@@ -72,16 +72,16 @@ public class FlowerArmTest {
         double firstStep = position;
         pressed = false;
         arm.updateToggle(true, 0.05);
-        assertTrue(position > firstStep);
+        assertTrue(position < firstStep);
         double heldStep = position;
         arm.updateToggle(false, 0.05);
-        assertTrue(position > heldStep);
+        assertTrue(position < heldStep);
         double lowered = position;
         arm.updateToggle(true, 0.05);
-        assertTrue(position < lowered);
+        assertTrue(position > lowered);
         double raising = position;
         arm.updateToggle(false, 0.05);
-        assertTrue(position < raising);
+        assertTrue(position > raising);
     }
 
     @Test public void toggleRaiseStopsAtContactUntilNextPressLowers() {
@@ -98,7 +98,7 @@ public class FlowerArmTest {
         arm.updateToggle(false, 0.05);
         assertEquals(contact, position, 0);
         arm.updateToggle(true, 0.05);
-        assertTrue(position > contact);
+        assertTrue(position < contact);
     }
 
     @Test public void unpressedStartupRaisesUntilContactInsteadOfThrowing() {
@@ -107,7 +107,7 @@ public class FlowerArmTest {
         arm.configure(servo, sensor);
         assertTrue(Double.isNaN(position)); // Configure itself never sweeps the arm.
         assertEquals(FlowerArm.HomingState.MOVING, arm.homeStep(0.1, 0.05, false));
-        assertTrue(position < 0.5);
+        assertTrue(position > 0.5);
         double contact = position;
         pressed = true;
         assertEquals(FlowerArm.HomingState.READY, arm.homeStep(0.2, 0.05, false));

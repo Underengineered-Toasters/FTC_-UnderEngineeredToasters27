@@ -8,8 +8,8 @@ import com.qualcomm.robotcore.hardware.TouchSensor;
 
 /** Incremental position control with a latched upper touch limit. */
 public final class FlowerArm {
-    // Installed direction: smaller positions raise the arm. Calibrate before deployment.
-    public static final double UPPER_POSITION = 0.0;
+    // Installed direction confirmed on robot: larger positions raise the arm.
+    public static final double UPPER_POSITION = 1.0;
     // Full commanded range in about 0.67 seconds; actual speed depends on the servo.
     private static final double POSITION_PER_SECOND = 1.5;
     private Servo servo;
@@ -33,8 +33,8 @@ public final class FlowerArm {
             throw new IllegalArgumentException("Flower arm requires a PWM-range-capable servo controller");
         }
         // goBILDA 2000-0025-0002 supports 500–2500 us.
-        // Extend only the raising end; keep the previous 2400 us lowering endpoint.
-        ((PwmControl) armServo).setPwmRange(new PwmControl.PwmRange(500, 2400));
+        // Extend the actual raising end to 2500 us; retain generic 600 us downward limit.
+        ((PwmControl) armServo).setPwmRange(new PwmControl.PwmRange(600, 2500));
         servo = armServo;
         upperLimit = limit;
         servo.setDirection(Servo.Direction.FORWARD);
@@ -114,11 +114,11 @@ public final class FlowerArm {
         if (isUpperLimitPressed()) upperStopped = true;
         if (up != down) {
             if (down && dt > 0) {
-                target += POSITION_PER_SECOND * dt;
+                target -= POSITION_PER_SECOND * dt;
                 // Only downward motion permits a later upward attempt.
                 upperStopped = isUpperLimitPressed();
             } else if (up && !upperStopped) {
-                target -= POSITION_PER_SECOND * dt;
+                target += POSITION_PER_SECOND * dt;
             }
         }
         target = Math.max(0, Math.min(1, target));
