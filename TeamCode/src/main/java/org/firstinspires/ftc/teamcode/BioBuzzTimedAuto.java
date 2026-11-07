@@ -37,42 +37,42 @@ public abstract class BioBuzzTimedAuto extends LinearOpMode {
         flowerArm.init(hardwareMap);
         robot.init(hardwareMap);
         try {
-        telemetry.addLine("BIOBUZZ timed auto — calibrate distance and turns before use");
-        telemetry.addData("Alliance", isRed() ? "RED" : "BLUE");
-        telemetry.addData("Route", plan());
-        telemetry.addLine("Start aimed toward the alliance FLOWER");
-        telemetry.update();
-        waitForStart();
-        if (!opModeIsActive()) return;
-
-        if (!flowerArm.isUpperLimitPressed()) {
-            telemetry.addLine("Flower arm must touch upper sensor at START; autonomous aborted");
+            telemetry.addLine("BIOBUZZ timed auto — calibrate distance and turns before use");
+            telemetry.addData("Alliance", isRed() ? "RED" : "BLUE");
+            telemetry.addData("Route", plan());
+            telemetry.addLine("Start aimed toward the alliance FLOWER");
             telemetry.update();
-            return;
-        }
-        match.reset();
-        Plan selected = plan();
-        if (selected == Plan.WAIT_SHOOT_RETURN_SHOOT || selected == Plan.WAIT_SHOOT_CROSS_PARK) {
-            waitSeconds(7.0);
-        }
+            waitForStart();
+            if (!opModeIsActive()) return;
 
-        shoot(SHOOT_SECONDS); // Up to four preloaded POLLEN
-        if (!goToFlowerAndIntake()) return;
+            if (!flowerArm.isUpperLimitPressed()) {
+                telemetry.addLine("Flower arm must touch upper sensor at START; autonomous aborted");
+                telemetry.update();
+                return;
+            }
+            match.reset();
+            Plan selected = plan();
+            if (selected == Plan.WAIT_SHOOT_RETURN_SHOOT || selected == Plan.WAIT_SHOOT_CROSS_PARK) {
+                waitSeconds(7.0);
+            }
 
-        if (selected == Plan.WAIT_SHOOT_RETURN_SHOOT || selected == Plan.SHOOT_RETURN_WAIT_SHOOT) {
-            turn(180);
-            driveInches(FLOWER_LEG_INCHES, MOVE_POWER);
-            turn(180);
-            if (selected == Plan.SHOOT_RETURN_WAIT_SHOOT) waitSeconds(2.0);
-            if (match.seconds() < 27.0) shoot(Math.min(SHOOT_SECONDS, 29.0 - match.seconds()));
-        } else {
-            crossAndPark();
-        }
+            shoot(SHOOT_SECONDS); // Up to four preloaded POLLEN
+            if (!goToFlowerAndIntake()) return;
 
-        if (opModeIsActive()) {
-            telemetry.addData("AUTO elapsed", "%.1fs", match.seconds());
-            telemetry.update();
-        }
+            if (selected == Plan.WAIT_SHOOT_RETURN_SHOOT || selected == Plan.SHOOT_RETURN_WAIT_SHOOT) {
+                turn(180);
+                driveInches(FLOWER_LEG_INCHES, MOVE_POWER);
+                turn(180);
+                if (selected == Plan.SHOOT_RETURN_WAIT_SHOOT) waitSeconds(2.0);
+                if (match.seconds() < 27.0) shoot(Math.min(SHOOT_SECONDS, 29.0 - match.seconds()));
+            } else {
+                crossAndPark();
+            }
+
+            if (opModeIsActive()) {
+                telemetry.addData("AUTO elapsed", "%.1fs", match.seconds());
+                telemetry.update();
+            }
         } finally {
             flowerArm.stop();
             stopAll();
