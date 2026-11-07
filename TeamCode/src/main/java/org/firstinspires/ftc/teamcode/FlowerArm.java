@@ -8,7 +8,8 @@ import com.qualcomm.robotcore.hardware.TouchSensor;
 public final class FlowerArm {
     // Installed direction: smaller positions raise the arm. Calibrate before deployment.
     public static final double UPPER_POSITION = 0.0;
-    private static final double POSITION_PER_SECOND = 0.5;
+    // Full commanded range in about 0.67 seconds; actual speed depends on the servo.
+    private static final double POSITION_PER_SECOND = 1.5;
     private Servo servo;
     private TouchSensor upperLimit;
     private double target;
