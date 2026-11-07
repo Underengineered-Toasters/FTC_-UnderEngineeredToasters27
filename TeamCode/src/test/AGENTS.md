@@ -1,7 +1,7 @@
 # TeamCode Tests
 
 ## Purpose
-JVM regression tests for SDK 12 target identity selection.
+JVM regression tests for SDK 12 target identity selection and flower-arm upper-limit control.
 
 ## Ownership
 Owns test sources; production behavior belongs to TeamCode.
@@ -10,7 +10,7 @@ Owns test sources; production behavior belongs to TeamCode.
 Use actual SDK detection objects and the SDK game database to verify cluster identities, member lookup, and unknown detection handling. Tests do not prove camera calibration or physical aiming.
 
 ## Work Guidance
-Avoid hardware access in JVM tests.
+Avoid hardware access in JVM tests. FlowerArmTest uses Servo/TouchSensor interface doubles to check homed startup, contact latching, switch bounce, downward escape and release hold; physical angle and stopping accuracy require robot validation.
 
 ## Verification
 Run `./gradlew :TeamCode:testDebugUnitTest`.

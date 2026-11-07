@@ -17,6 +17,7 @@ import java.util.List;
 public class RedTeleOp extends LinearOpMode {
 
     private final Robot robot = new Robot();
+    private final FlowerArm flowerArm = new FlowerArm();
 
     // Intake direction state
     private boolean intakeInDirection = true;
@@ -29,7 +30,10 @@ public class RedTeleOp extends LinearOpMode {
     @Override
     public void runOpMode() {
 
+        flowerArm.init(hardwareMap);
         robot.init(hardwareMap);
+        telemetry.addLine("Flower arm: hold B = UP, D-pad down = DOWN; release = HOLD");
+        telemetry.addData("Flower upper limit", flowerArm.isUpperLimitPressed());
 
         // Record initial static turret position
         final int initialTurretPos = robot.turretSystem.getCurrentPosition();
@@ -50,6 +54,9 @@ public class RedTeleOp extends LinearOpMode {
 
         while (opModeIsActive()) {
 
+            flowerArm.update(gamepad1.b, gamepad1.dpad_down);
+            telemetry.addData("Flower upper limit", flowerArm.isUpperLimitPressed());
+            telemetry.addData("Flower arm target", flowerArm.getTargetPosition());
             List<AprilTagDetection> detections = robot.getAprilTagDetections();
 
             double drive = -gamepad1.left_stick_y;
@@ -171,6 +178,7 @@ public class RedTeleOp extends LinearOpMode {
             telemetry.update();
         }
 
+        flowerArm.stop();
         robot.intakeSystem.stopIntake();
         robot.shooter1System.spinDown();
         robot.shooter2System.spinDown();
