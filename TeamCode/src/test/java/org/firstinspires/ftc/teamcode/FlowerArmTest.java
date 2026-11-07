@@ -13,6 +13,7 @@ public class FlowerArmTest {
     private PwmControl.PwmRange pwmRange;
     private final Servo servo = (Servo) Proxy.newProxyInstance(Servo.class.getClassLoader(),
             new Class<?>[] {Servo.class, PwmControl.class}, (proxy, method, args) -> {
+                if (method.getName().equals("getPosition")) return Double.isNaN(position) ? 0.5 : position;
                 if (method.getName().equals("setPosition")) position = (Double) args[0];
                 if (method.getName().equals("setPwmRange")) pwmRange = (PwmControl.PwmRange) args[0];
                 return null;
@@ -31,7 +32,7 @@ public class FlowerArmTest {
     @Test public void startsAtUpperLimitAndHoldingBDoesNotMove() {
         FlowerArm arm = new FlowerArm();
         arm.configure(servo, sensor);
-        double initial = position;
+        double initial = arm.getTargetPosition();
         arm.update(true, false, 0.05);
         assertEquals(initial, position, 0);
     }
@@ -100,13 +101,28 @@ public class FlowerArmTest {
         assertTrue(position > contact);
     }
 
-    @Test public void refusesUnhomedStartupBeforeCommandingServo() {
+    @Test public void unpressedStartupRaisesUntilContactInsteadOfThrowing() {
         pressed = false;
-        try {
-            new FlowerArm().configure(servo, sensor);
-            fail("Unhomed startup must be rejected");
-        } catch (IllegalStateException expected) {
-            assertTrue(Double.isNaN(position));
-        }
+        FlowerArm arm = new FlowerArm();
+        arm.configure(servo, sensor);
+        assertTrue(Double.isNaN(position)); // Configure itself never sweeps the arm.
+        assertEquals(FlowerArm.HomingState.MOVING, arm.homeStep(0.1, 0.05, false));
+        assertTrue(position < 0.5);
+        double contact = position;
+        pressed = true;
+        assertEquals(FlowerArm.HomingState.READY, arm.homeStep(0.2, 0.05, false));
+        assertEquals(contact, position, 0);
+    }
+
+    @Test public void homingTimeoutOrStopDoesNotIssueAnotherUpwardStep() {
+        pressed = false;
+        FlowerArm arm = new FlowerArm();
+        arm.configure(servo, sensor);
+        arm.homeStep(0.1, 0.05, false);
+        double last = position;
+        assertEquals(FlowerArm.HomingState.FAILED, arm.homeStep(4.0, 0.05, false));
+        assertEquals(last, position, 0);
+        assertEquals(FlowerArm.HomingState.FAILED, arm.homeStep(0.2, 0.05, true));
+        assertEquals(last, position, 0);
     }
 }

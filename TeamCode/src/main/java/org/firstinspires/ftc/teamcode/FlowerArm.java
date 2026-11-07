@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.PwmControl;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -28,10 +29,6 @@ public final class FlowerArm {
         if (armServo == null || limit == null) {
             throw new IllegalArgumentException("Configure flower arm servo and flowerUpperLimit");
         }
-        // The arm must already be at the upper switch; never sweep it during INIT.
-        if (!limit.isPressed()) {
-            throw new IllegalStateException("Place flower arm against upper touch sensor before INIT");
-        }
         if (!(armServo instanceof PwmControl)) {
             throw new IllegalArgumentException("Flower arm requires a PWM-range-capable servo controller");
         }
@@ -41,12 +38,55 @@ public final class FlowerArm {
         servo = armServo;
         upperLimit = limit;
         servo.setDirection(Servo.Direction.FORWARD);
-        target = UPPER_POSITION;
-        upperStopped = true;
+        // getPosition is the last command, not measured arm angle.
+        target = servo.getPosition();
+        if (!Double.isFinite(target)) target = 0.5;
+        target = Math.max(0, Math.min(1, target));
+        upperStopped = limit.isPressed();
         toggleDown = false;
         previousB = false;
-        servo.setPosition(target);
         previousNanos = System.nanoTime();
+    }
+
+    enum HomingState { MOVING, READY, FAILED }
+
+    HomingState homeStep(double elapsedSeconds, double stepSeconds, boolean cancelled) {
+        if (cancelled) {
+            stop();
+            return HomingState.FAILED;
+        }
+        if (isUpperLimitPressed()) {
+            upperStopped = true;
+            stop();
+            return HomingState.READY;
+        }
+        if (elapsedSeconds >= 4.0) {
+            stop();
+            return HomingState.FAILED;
+        }
+        update(true, false, stepSeconds);
+        return HomingState.MOVING;
+    }
+
+    /** Raise during INIT; contact completes homing. STOP/early START/timeout aborts. */
+    public boolean homeDuringInit(LinearOpMode opMode) {
+        long started = System.nanoTime();
+        previousNanos = started;
+        while (true) {
+            long now = System.nanoTime();
+            HomingState state = homeStep((now - started) / 1_000_000_000.0,
+                    (now - previousNanos) / 1_000_000_000.0,
+                    opMode.isStopRequested() || !opMode.opModeInInit());
+            previousNanos = now;
+            opMode.telemetry.addData("Flower arm", state == HomingState.MOVING
+                    ? "Raising to upper touch sensor" : state);
+            if (state == HomingState.FAILED) {
+                opMode.telemetry.addLine("Homing stopped. Check upper sensor, then retry INIT; wait for READY before START.");
+            }
+            opMode.telemetry.update();
+            if (state != HomingState.MOVING) return state == HomingState.READY;
+            opMode.idle();
+        }
     }
 
     /** Each B press selects the opposite endpoint; release continues the selected movement. */

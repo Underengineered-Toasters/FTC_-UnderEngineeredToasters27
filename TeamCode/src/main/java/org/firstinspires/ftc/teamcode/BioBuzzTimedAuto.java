@@ -35,6 +35,7 @@ public abstract class BioBuzzTimedAuto extends LinearOpMode {
 
     @Override public final void runOpMode() {
         flowerArm.init(hardwareMap);
+        if (!flowerArm.homeDuringInit(this)) return;
         robot.init(hardwareMap);
         try {
             telemetry.addLine("BIOBUZZ timed auto — calibrate distance and turns before use");

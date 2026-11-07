@@ -31,6 +31,7 @@ public class RedTeleOp extends LinearOpMode {
     public void runOpMode() {
 
         flowerArm.init(hardwareMap);
+        if (!flowerArm.homeDuringInit(this)) return;
         robot.init(hardwareMap);
         telemetry.addLine("Flower arm: press B to toggle DOWN / UP; upper touch stops UP");
         telemetry.addData("Flower upper limit", flowerArm.isUpperLimitPressed());
