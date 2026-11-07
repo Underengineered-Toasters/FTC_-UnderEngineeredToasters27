@@ -14,6 +14,8 @@ public final class FlowerArm {
     private TouchSensor upperLimit;
     private double target;
     private boolean upperStopped;
+    private boolean toggleDown;
+    private boolean previousB;
     private long previousNanos;
 
     public void init(HardwareMap hardwareMap) {
@@ -34,8 +36,23 @@ public final class FlowerArm {
         servo.setDirection(Servo.Direction.FORWARD);
         target = UPPER_POSITION;
         upperStopped = true;
+        toggleDown = false;
+        previousB = false;
         servo.setPosition(target);
         previousNanos = System.nanoTime();
+    }
+
+    /** Each B press selects the opposite endpoint; release continues the selected movement. */
+    public void updateToggle(boolean bPressed) {
+        long now = System.nanoTime();
+        updateToggle(bPressed, (now - previousNanos) / 1_000_000_000.0);
+        previousNanos = now;
+    }
+
+    void updateToggle(boolean bPressed, double elapsedSeconds) {
+        if (bPressed && !previousB) toggleDown = !toggleDown;
+        previousB = bPressed;
+        update(!toggleDown, toggleDown, elapsedSeconds);
     }
 
     public void update(boolean up, boolean down) {

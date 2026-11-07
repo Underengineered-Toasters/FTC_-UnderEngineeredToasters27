@@ -54,6 +54,42 @@ public class FlowerArmTest {
         assertEquals(lowered, position, 0);
     }
 
+    @Test public void bPressTogglesAndReleaseContinuesWithoutRepeatedToggles() {
+        FlowerArm arm = new FlowerArm();
+        arm.configure(servo, sensor);
+        arm.updateToggle(true, 0.05);
+        double firstStep = position;
+        pressed = false;
+        arm.updateToggle(true, 0.05);
+        assertTrue(position > firstStep);
+        double heldStep = position;
+        arm.updateToggle(false, 0.05);
+        assertTrue(position > heldStep);
+        double lowered = position;
+        arm.updateToggle(true, 0.05);
+        assertTrue(position < lowered);
+        double raising = position;
+        arm.updateToggle(false, 0.05);
+        assertTrue(position < raising);
+    }
+
+    @Test public void toggleRaiseStopsAtContactUntilNextPressLowers() {
+        FlowerArm arm = new FlowerArm();
+        arm.configure(servo, sensor);
+        arm.updateToggle(true, 0.05);
+        pressed = false;
+        for (int i = 0; i < 5; i++) arm.updateToggle(false, 0.05);
+        arm.updateToggle(true, 0.05);
+        pressed = true;
+        double contact = position;
+        arm.updateToggle(false, 0.05);
+        pressed = false;
+        arm.updateToggle(false, 0.05);
+        assertEquals(contact, position, 0);
+        arm.updateToggle(true, 0.05);
+        assertTrue(position > contact);
+    }
+
     @Test public void refusesUnhomedStartupBeforeCommandingServo() {
         pressed = false;
         try {

@@ -30,7 +30,7 @@ public class RobotTeleOp extends LinearOpMode {
 
         flowerArm.init(hardwareMap);
         robot.init(hardwareMap);
-        telemetry.addLine("Flower arm: hold B = UP, D-pad down = DOWN; release = HOLD");
+        telemetry.addLine("Flower arm: press B to toggle DOWN / UP; upper touch stops UP");
         telemetry.addData("Flower upper limit", flowerArm.isUpperLimitPressed());
 
         telemetry.addLine("==============================");
@@ -56,7 +56,7 @@ public class RobotTeleOp extends LinearOpMode {
 
         while (opModeIsActive()) {
 
-            flowerArm.update(gamepad1.b, gamepad1.dpad_down);
+            flowerArm.updateToggle(gamepad1.b);
             telemetry.addData("Flower upper limit", flowerArm.isUpperLimitPressed());
             telemetry.addData("Flower arm target", flowerArm.getTargetPosition());
             List<AprilTagDetection> detections = robot.getAprilTagDetections();
