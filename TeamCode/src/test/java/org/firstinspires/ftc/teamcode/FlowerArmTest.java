@@ -66,6 +66,7 @@ public class FlowerArmTest {
     }
 
     @Test public void bPressTogglesAndReleaseContinuesWithoutRepeatedToggles() {
+        position = 0.9; // Leave enough travel to observe press, hold and release before the lower stop.
         FlowerArm arm = new FlowerArm();
         arm.configure(servo, sensor);
         arm.updateToggle(true, 0.05);
@@ -119,9 +120,9 @@ public class FlowerArmTest {
         arm.configure(servo, sensor);
         pressed = false;
         for (int i = 0; i < 40; i++) arm.update(false, true, 0.05);
-        assertEquals(0.2, position, 0);
+        assertEquals(0.35, position, 0);
         arm.update(false, true, 0.05);
-        assertEquals(0.2, position, 0);
+        assertEquals(0.35, position, 0);
     }
 
     @Test public void homedArmStaysUpUntilBIsPressed() {
