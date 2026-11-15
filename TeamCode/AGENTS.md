@@ -13,7 +13,7 @@ Team programming owns production code and its physical calibration.
 - SDK migration preserves main's hardware controls and existing route timing. AprilTagAutonomous targets Red Audience then Red Scoring using corrected SDK identities.
 - Alliance TeleOps retain main's static turret behavior; SDK compatibility alone does not enable their commented-out alignment.
 
-- BasicParkingAutonomous registers as Basic Autonomous with the restored forward 7/46/7/46-inch legs, right/left/left/left 90-degree turns, then backward 7 inches. ParkingAutonomous registers separately as Parking Autonomous: backward 7 inches, right 90 degrees, then backward 46 inches. Both initialize only left/right drive motors. Existing BasicAutonomous remains unchanged. Uses main Robot's motor directions; timed distances/turns require field calibration. STOP/finally zeros both motors.
+- Legacy tank-drive and timed autonomous programs live in `old`. Their local DOX owns retained route contracts; shared hardware and vision remain in the parent package.
 
 ## Work Guidance
 Keep camera API migrations separate from shooter, intake, and drive tuning. Verify physical aiming after deployment.
@@ -23,3 +23,4 @@ Run `./gradlew assembleDebug test`. Build coverage includes existing autonomous 
 
 ## Child DOX Index
 - `src/test/`: JVM target-selection regression tests.
+- `old`: retained tank-drive and timed autonomous OpModes.

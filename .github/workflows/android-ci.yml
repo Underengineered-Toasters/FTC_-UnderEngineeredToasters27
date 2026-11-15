@@ -59,6 +59,7 @@ jobs:
         run: ./gradlew test
 
       - name: Upload debug APKs
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: debug-apks
@@ -74,10 +75,11 @@ jobs:
           echo "- Branch / Ref: `${{ github.ref_name }}`" >> $GITHUB_STEP_SUMMARY
           echo "- Commit: `${{ github.sha }}`" >> $GITHUB_STEP_SUMMARY
           echo "- Status: Tests and APK build passed." >> $GITHUB_STEP_SUMMARY
-          echo "Debug APK is attached as an artifact in this run." >> $GITHUB_STEP_SUMMARY
+          echo "Artifact uploads are best-effort; check the upload step for APK availability." >> $GITHUB_STEP_SUMMARY
 
       - name: Upload build reports
         if: failure()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: build-reports
