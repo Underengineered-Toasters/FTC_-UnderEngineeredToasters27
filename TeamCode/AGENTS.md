@@ -16,6 +16,7 @@ Team programming owns production code and its physical calibration.
 - Legacy tank-drive and timed autonomous programs live in `old`. Their local DOX owns retained route contracts; shared hardware and vision remain in the parent package.
 
 ## Work Guidance
+Start from the repo-root `DESIGN.md` for architecture and flow; keep it current when changing subsystems, hardware names, OpModes or control flow.
 Keep camera API migrations separate from shooter, intake, and drive tuning. Verify physical aiming after deployment.
 
 ## Verification
