@@ -1,25 +1,75 @@
 package org.firstinspires.ftc.teamcode.old;
 
-import org.firstinspires.ftc.teamcode.robot.Robot;
-
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-/** Timed autonomous template; tune on the actual field before competition use. */
+import org.firstinspires.ftc.teamcode.robot.AutoSequence;
+import org.firstinspires.ftc.teamcode.robot.Robot;
+import org.firstinspires.ftc.teamcode.robot.TimedMotion;
+
+/**
+ * BIOBUZZ timed autonomous template.
+ *
+ * <p>Distance, turn and battery handling live in {@link TimedMotion}; feeding the preload lives in
+ * {@link AutoSequence#shootBalls}. Previously this class only spun the flywheels for 2.8 s and
+ * never released a ball, and it never called {@code Robot.update()}, so the match-loader touch
+ * safeguard could not fire. Both are fixed here.
+ *
+ * <p>Route shape is unchanged: optional 7 s wait, score the preload, drive to the flower and
+ * intake, then either return and score again or cross and park.
+ */
 public abstract class BioBuzzTimedAuto extends LinearOpMode {
     protected final Robot robot = new Robot();
 
-    public static double INCHES_PER_SECOND_AT_HALF_POWER = 20.0;
-    public static double TURN_POWER = 0.45;
-    public static double SECONDS_PER_90_DEGREES = 0.60;
+    // ============================================================
+    // Route shape - CALIBRATE on the field
+    // ============================================================
+
+    /** Travel power for the 28 in flower leg. */
     public static double MOVE_POWER = 0.42;
-    public static double SHOOT_SECONDS = 2.8;
-    public static double INTAKE_SECONDS = 2.4;
-    public static double LOADER_SETTLE_SECONDS = 0.35;
+
+    /** Cross/park legs use this fraction of {@link #MOVE_POWER}. */
+    public static double PARK_POWER_SCALE = 0.80;
+
+    /** Distance from the start to the alliance FLOWER, in inches. */
     public static double FLOWER_LEG_INCHES = 28.0;
+
+    /** Cross-field park leg, in inches. */
     public static double PARK_LEG_INCHES = 26.0;
-    public static double NOMINAL_BATTERY_VOLTS = 12.0;
+
+    /** How long the intake runs at the flower. */
+    public static double INTAKE_SECONDS = 2.4;
+
+    /** Delay before the first shot for the WAIT routes. */
+    public static double WAIT_BEFORE_SHOOT_SECONDS = 7.0;
+
+    /** Extra settle time for the SHOOT_RETURN_WAIT_SHOOT route. */
+    public static double WAIT_AFTER_RETURN_SECONDS = 2.0;
+
+    /** Balls in a full preload. */
+    public static int PRELOAD_BALLS = 4;
+
+    /** Time budget for spin-up plus feeding every preload ball. */
+    public static double PRELOAD_SHOOT_SECONDS = 4.0;
+
+    /** Time budget for the second scoring pass after returning. */
+    public static double SECOND_SHOT_SECONDS = 3.0;
+
+    // ============================================================
+    // Match guard - never start a shot that would run past the buzzer
+    // ============================================================
+
+    /** Legal match length. */
+    public static double MATCH_SECONDS = 30.0;
+
+    /** Do not start a second scoring pass at or after this elapsed time. */
+    public static double SECOND_SHOT_EARLIEST = 27.0;
+
+    /** Hard stop for any shot still running at this elapsed time. */
+    public static double LAST_SHOT_DEADLINE = 29.0;
+
+    private TimedMotion motion;
+    private AutoSequence sequence;
 
     protected enum Plan {
         WAIT_SHOOT_RETURN_SHOOT,
@@ -32,107 +82,72 @@ public abstract class BioBuzzTimedAuto extends LinearOpMode {
     protected abstract Plan plan();
 
     @Override public final void runOpMode() {
-        robot.init(hardwareMap);
-        telemetry.addLine("BIOBUZZ timed auto — calibrate distance and turns before use");
-        telemetry.addData("Alliance", isRed() ? "RED" : "BLUE");
-        telemetry.addData("Route", plan());
-        telemetry.addLine("Start aimed toward the alliance FLOWER");
-        telemetry.update();
-        waitForStart();
-        if (!opModeIsActive()) { robot.close(); return; }
+        try {
+            robot.init(hardwareMap);
+            motion = TimedMotion.forRobot(robot, this);
+            sequence = new AutoSequence(robot, motion, this::opModeIsActive);
 
-        ElapsedTime match = new ElapsedTime();
-        match.reset();
-        Plan selected = plan();
-        if (selected == Plan.WAIT_SHOOT_RETURN_SHOOT || selected == Plan.WAIT_SHOOT_CROSS_PARK) {
-            waitSeconds(7.0);
-        }
-
-        shoot(SHOOT_SECONDS); // Up to four preloaded POLLEN
-        goToFlowerAndIntake();
-
-        if (selected == Plan.WAIT_SHOOT_RETURN_SHOOT || selected == Plan.SHOOT_RETURN_WAIT_SHOOT) {
-            turn(180);
-            driveInches(FLOWER_LEG_INCHES, MOVE_POWER);
-            turn(180);
-            if (selected == Plan.SHOOT_RETURN_WAIT_SHOOT) waitSeconds(2.0);
-            if (match.seconds() < 27.0) shoot(Math.min(SHOOT_SECONDS, 29.0 - match.seconds()));
-        } else {
-            crossAndPark();
-        }
-
-        stopAll();
-        if (opModeIsActive()) {
-            telemetry.addData("AUTO elapsed", "%.1fs", match.seconds());
+            telemetry.addLine("BIOBUZZ timed auto - calibrate distance and turns before use");
+            telemetry.addData("Alliance", isRed() ? "RED" : "BLUE");
+            telemetry.addData("Route", plan());
+            telemetry.addLine("Start aimed toward the alliance FLOWER");
             telemetry.update();
+
+            waitForStart();
+            if (!opModeIsActive()) {
+                return;
+            }
+
+            Plan selected = plan();
+            ElapsedTime match = new ElapsedTime();
+
+            if (startsByWaiting(selected)) {
+                motion.waitSeconds(WAIT_BEFORE_SHOOT_SECONDS);
+            }
+
+            // Up to four preloaded POLLEN.
+            sequence.shootBalls(PRELOAD_BALLS, PRELOAD_SHOOT_SECONDS);
+            sequence.intakeAtFlower(INTAKE_SECONDS);
+
+            if (returnsToShoot(selected)) {
+                motion.turnDegrees(180.0);
+                motion.driveInches(FLOWER_LEG_INCHES, MOVE_POWER);
+                motion.turnDegrees(180.0);
+
+                if (selected == Plan.SHOOT_RETURN_WAIT_SHOOT) {
+                    motion.waitSeconds(WAIT_AFTER_RETURN_SECONDS);
+                }
+
+                if (match.seconds() < SECOND_SHOT_EARLIEST) {
+                    double budget = Math.min(SECOND_SHOT_SECONDS,
+                            LAST_SHOT_DEADLINE - match.seconds());
+                    sequence.shootBalls(PRELOAD_BALLS, Math.max(0.0, budget));
+                }
+            } else {
+                crossAndPark();
+            }
+
+            telemetry.addData("AUTO elapsed", "%.1fs / %.0fs", match.seconds(), MATCH_SECONDS);
+            telemetry.update();
+        } finally {
+            if (sequence != null) {
+                sequence.stopAll();
+            }
+            robot.close();
         }
-        robot.close();
     }
 
-    private void goToFlowerAndIntake() {
-        driveInches(FLOWER_LEG_INCHES, MOVE_POWER);
-        robot.setMatchLoaderDown(true);
-        waitSeconds(LOADER_SETTLE_SECONDS);
-        robot.intakeSystem.intakeIn();
-        waitSeconds(INTAKE_SECONDS);
-        robot.intakeSystem.stopIntake();
-        robot.setMatchLoaderDown(false);
-        waitSeconds(LOADER_SETTLE_SECONDS);
+    private static boolean startsByWaiting(Plan plan) {
+        return plan == Plan.WAIT_SHOOT_RETURN_SHOOT || plan == Plan.WAIT_SHOOT_CROSS_PARK;
+    }
+
+    private static boolean returnsToShoot(Plan plan) {
+        return plan == Plan.WAIT_SHOOT_RETURN_SHOOT || plan == Plan.SHOOT_RETURN_WAIT_SHOOT;
     }
 
     private void crossAndPark() {
-        turn(isRed() ? -90 : 90);
-        driveInches(PARK_LEG_INCHES, MOVE_POWER * 0.80);
-        turn(isRed() ? 90 : -90);
-    }
-
-    private void shoot(double seconds) {
-        if (seconds <= 0 || !opModeIsActive()) return;
-        robot.shooter1System.spinForwardMaxSpeed();
-        robot.shooter2System.spinForwardMaxSpeed();
-        waitSeconds(seconds);
-        robot.shooter1System.spinDown();
-        robot.shooter2System.spinDown();
-    }
-
-    private void driveInches(double inches, double power) {
-        double scale = Math.max(0.10, Math.abs(power) / 0.50);
-        double seconds = Math.abs(inches) / (INCHES_PER_SECOND_AT_HALF_POWER * scale);
-        driveFor(inches >= 0 ? power : -power, 0, seconds);
-    }
-
-    private void turn(double degrees) {
-        driveFor(0, Math.copySign(TURN_POWER, degrees),
-                Math.abs(degrees) / 90.0 * SECONDS_PER_90_DEGREES);
-    }
-
-    private void driveFor(double forward, double turn, double seconds) {
-        double batteryVolts = NOMINAL_BATTERY_VOLTS;
-        for (VoltageSensor sensor : hardwareMap.voltageSensor) {
-            double reading = sensor.getVoltage();
-            if (reading > 1.0 && reading < batteryVolts) batteryVolts = reading;
-        }
-        double compensatedSeconds = seconds * NOMINAL_BATTERY_VOLTS / batteryVolts;
-        ElapsedTime timer = new ElapsedTime();
-        timer.reset();
-        while (opModeIsActive() && timer.seconds() < compensatedSeconds) {
-            robot.drive(forward, turn);
-            idle();
-        }
-        robot.drive(0, 0);
-    }
-
-    private void waitSeconds(double seconds) {
-        ElapsedTime timer = new ElapsedTime();
-        timer.reset();
-        while (opModeIsActive() && timer.seconds() < seconds) idle();
-    }
-
-    private void stopAll() {
-        robot.drive(0, 0);
-        robot.intakeSystem.stopIntake();
-        robot.shooter1System.spinDown();
-        robot.shooter2System.spinDown();
-        robot.setMatchLoaderDown(false);
+        motion.turnDegrees(isRed() ? -90.0 : 90.0);
+        motion.driveInches(PARK_LEG_INCHES, MOVE_POWER * PARK_POWER_SCALE);
+        motion.turnDegrees(isRed() ? 90.0 : -90.0);
     }
 }

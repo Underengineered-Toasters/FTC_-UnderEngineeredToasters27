@@ -3,196 +3,174 @@ package org.firstinspires.ftc.teamcode.robot;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
-import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
-
-import java.util.List;
 
 /**
- * Autonomous OpMode for FTC testing.
- * Navigates a hardcoded waypoint path, using SDK 12 BIOBUZZ clusters
- * for relative closed-loop alignment (distance and heading), not absolute field localization.
+ * Autonomous route that positions with the BIOBUZZ AprilTag clusters, then scores the preload.
+ *
+ * <p>Route: drive to the audience side, align to the alliance audience cluster, reposition to the
+ * scoring side, align to the alliance scoring cluster, score the preload, park.
+ *
+ * <p>Fixed relative to the previous version:
+ * <ul>
+ *   <li>Alliance is selectable before start (A = RED, B = BLUE) instead of hardcoded Red.</li>
+ *   <li>It actually scores: {@link AutoSequence#shootBalls} settles the turret, spins the
+ *       flywheels up and feeds the balls. The old route only drove around.</li>
+ *   <li>Alignment is bounded and time-guarded, and uses {@link Robot#SDK_YAW_TO_TURN} so it turns
+ *       toward the tag instead of away from it.</li>
+ *   <li>Every step is wrapped in a {@code finally} that stops all mechanisms and closes vision, so
+ *       a stopped OpMode no longer leaves the camera open or a flywheel running.</li>
+ * </ul>
+ *
+ * <p>Distances are the previous timed legs converted to inches at the shared calibration; they are
+ * still estimates and must be measured on the field.
  */
 @Autonomous(name = "AprilTag Autonomous Path", group = "Autonomous")
 public class AprilTagAutonomous extends LinearOpMode {
 
+    // ============================================================
+    // Route - CALIBRATE on the field
+    // ============================================================
+
+    /** First leg toward the audience wall (was 1.5 s at 0.4 power). */
+    public static double audienceLegInches = 24.0;
+
+    /** Turn from the start heading toward the audience cluster (was 0.8 s at 0.3 power). */
+    public static double audienceTurnDegrees = 80.0;
+
+    /** Back away from the audience wall before crossing (was 1.0 s at 0.3 power). */
+    public static double audienceBackoffInches = 12.0;
+
+    /** Turn from the audience side toward the scoring side (was 1.2 s at 0.3 power). */
+    public static double scoringTurnDegrees = -120.0;
+
+    /** Cross-field leg to the scoring side (was 2.0 s at 0.4 power). */
+    public static double scoringLegInches = 32.0;
+
+    /** Final park nudge away from the goal (was 0.8 s at 0.3 power). */
+    public static double parkInches = -10.0;
+
+    /** Travel power for the timed legs. */
+    public static double routePower = 0.40;
+
+    /** Approach range while aligning to the audience cluster. */
+    public static double audienceRangeInches = 12.0;
+
+    /** Shooting range to the scoring cluster; must match what the flywheel can actually reach. */
+    public static double scoringRangeInches = 12.0;
+
+    /** Longest time any single alignment may take. */
+    public static double alignTimeoutSeconds = 4.0;
+
+    /** Time budget for settling the turret, spinning up and feeding the preload. */
+    public static double shootBudgetSeconds = 4.0;
+
+    // Match guard
+    public static double lastActionSeconds = 27.0;
+    public static double matchSeconds = 30.0;
+
+    /** BIOBUZZ cluster member ids; any member selects the whole cluster's pose. */
+    public static int redAudienceTag = 34;
+    public static int redScoringTag = 30;
+    public static int blueAudienceTag = 38;
+    public static int blueScoringTag = 42;
+
     private final Robot robot = new Robot();
-    private final ElapsedTime timer = new ElapsedTime();
-
-    // Alignment tuning constants (Proportional control)
-    private static final double DESIRED_DISTANCE_INCHES = 12.0; // Target distance to tag
-    private static final double P_DRIVE_GAIN = 0.03;            // Proportional gain for driving forward/back
-    private static final double P_TURN_GAIN  = 0.02;            // Proportional gain for turning
-    private static final double MAX_AUTO_SPEED = 0.40;           // Max drive power during alignment
-    private static final double MAX_AUTO_TURN  = 0.30;           // Max turn power during alignment
-
-    // Tolerances
-    private static final double DISTANCE_TOLERANCE_INCHES = 1.5;
-    private static final double BEARING_TOLERANCE_DEGREES = 2.0;
-
-    // Target Tag IDs based on Game Map
-    // Red Alliance: 34-37 (Audience), 30-33 (Scoring)
-    // Blue Alliance: 38-41 (Audience), 42-45 (Scoring)
-    private static final int TARGET_TAG_WAYPOINT_1 = 34; // Red Audience Tag
-    private static final int TARGET_TAG_WAYPOINT_2 = 30; // Red Scoring Tag
+    private TimedMotion motion;
+    private AutoSequence sequence;
+    private boolean redAlliance = true;
 
     @Override
     public void runOpMode() {
+        try {
+            robot.init(hardwareMap);
+            motion = TimedMotion.forRobot(robot, this);
+            sequence = new AutoSequence(robot, motion, this::opModeIsActive);
 
-        // Initialize robot hardware and AprilTag vision
-        robot.init(hardwareMap);
+            selectAlliance();
+            waitForStart();
 
-        telemetry.addLine("=================================");
-        telemetry.addLine("  APRILTAG AUTONOMOUS INITIALIZED");
-        telemetry.addLine("  Target Tag 1: ID " + TARGET_TAG_WAYPOINT_1 + " (Red Audience)");
-        telemetry.addLine("  Target Tag 2: ID " + TARGET_TAG_WAYPOINT_2 + " (Red Scoring)");
-        telemetry.addLine("=================================");
-        telemetry.update();
-
-        waitForStart();
-
-        if (isStopRequested()) {
+            if (opModeIsActive()) {
+                runRoute();
+            }
+        } finally {
+            if (sequence != null) {
+                sequence.stopAll();
+            }
             robot.close();
-            return;
         }
-
-        // ===============================================
-        // STEP 1: Drive from Start to Waypoint 1 Area
-        // ===============================================
-        telemetry.addLine("Step 1: Driving forward toward Waypoint 1...");
-        telemetry.update();
-        driveTime(0.4, 0.0, 1.5); // Drive forward 1.5 seconds
-
-        // Turn towards Waypoint 1 (Red Audience Area)
-        telemetry.addLine("Step 1b: Turning toward Tag " + TARGET_TAG_WAYPOINT_1 + "...");
-        telemetry.update();
-        driveTime(0.0, 0.3, 0.8); // Turn right ~45 degrees
-
-        // ===============================================
-        // STEP 2: Verify Position & Align using Red Audience
-        // ===============================================
-        telemetry.addLine("Step 2: Searching & Aligning to AprilTag " + TARGET_TAG_WAYPOINT_1 + "...");
-        telemetry.update();
-        alignToTag(TARGET_TAG_WAYPOINT_1, 4.0); // Try aligning for up to 4 seconds
-
-        sleep(500); // Pause briefly to observe telemetry
-
-        // ===============================================
-        // STEP 3: Navigate from Waypoint 1 to Waypoint 2
-        // ===============================================
-        telemetry.addLine("Step 3: Repositioning toward Waypoint 2...");
-        telemetry.update();
-        // Back up slightly from Tag 1
-        driveTime(-0.3, 0.0, 1.0);
-        // Turn left toward Scoring Area (Red Scoring)
-        driveTime(0.0, -0.3, 1.2);
-        // Drive forward across field
-        driveTime(0.4, 0.0, 2.0);
-
-        // ===============================================
-        // STEP 4: Verify Position & Align using Red Scoring
-        // ===============================================
-        telemetry.addLine("Step 4: Searching & Aligning to AprilTag " + TARGET_TAG_WAYPOINT_2 + "...");
-        telemetry.update();
-        alignToTag(TARGET_TAG_WAYPOINT_2, 4.0); // Try aligning for up to 4 seconds
-
-        sleep(500);
-
-        // ===============================================
-        // STEP 5: Final Park Step
-        // ===============================================
-        telemetry.addLine("Step 5: Parking robot...");
-        telemetry.update();
-        driveTime(-0.3, 0.0, 0.8); // Back up safely
-        robot.drive(0, 0);         // Stop all motors
-
-        telemetry.addLine("=================================");
-        telemetry.addLine("    AUTONOMOUS PATH COMPLETED    ");
-        telemetry.addLine("=================================");
-        telemetry.update();
-
-        // Keep vision active while idle to display final tags
-        while (opModeIsActive()) {
-            List<AprilTagDetection> current = robot.getAprilTagDetections();
-            telemetry.addData("Final Visible AprilTags", current != null ? current.size() : 0);
-            telemetry.update();
-            sleep(100);
-        }
-
-        robot.close();
     }
 
-    /**
-     * Drives the robot with given forward and turn powers for specified duration.
-     */
-    private void driveTime(double forward, double turn, double durationSeconds) {
-        timer.reset();
-        while (opModeIsActive() && timer.seconds() < durationSeconds) {
-            robot.drive(forward, turn);
-            telemetry.addData("Path Execution", "Driving (Fwd: %.2f, Turn: %.2f) - %.1fs / %.1fs",
-                    forward, turn, timer.seconds(), durationSeconds);
+    /** Alliance is chosen on the Driver Hub before START; defaults to RED. */
+    private void selectAlliance() {
+        while (!isStarted() && !isStopRequested()) {
+            if (gamepad1.a) {
+                redAlliance = true;
+            }
+            if (gamepad1.b) {
+                redAlliance = false;
+            }
+
+            telemetry.addLine("APRILTAG AUTONOMOUS READY");
+            telemetry.addData("A = RED / B = BLUE", redAlliance ? "RED selected" : "BLUE selected");
+            telemetry.addData("Audience tag", redAlliance ? redAudienceTag : blueAudienceTag);
+            telemetry.addData("Scoring tag", redAlliance ? redScoringTag : blueScoringTag);
+            telemetry.addLine("Press START to run.");
             telemetry.update();
+            sleep(20);
         }
-        robot.drive(0, 0);
     }
 
-    /**
-     * Uses AprilTag feedback to verify robot position and dynamically align to a target tag.
-     * Adjusts heading (bearing) and distance (range) using proportional control.
-     */
-    private void alignToTag(int targetTagId, double maxTimeoutSeconds) {
-        timer.reset();
+    private void runRoute() {
+        ElapsedTime match = new ElapsedTime();
+        int audienceTag = redAlliance ? redAudienceTag : blueAudienceTag;
+        int scoringTag = redAlliance ? redScoringTag : blueScoringTag;
+
+        // 1. Drive toward the audience wall and align on its cluster.
+        if (!outOfTime(match)) {
+            motion.driveInches(audienceLegInches, routePower);
+        }
+        if (!outOfTime(match)) {
+            motion.turnDegrees(audienceTurnDegrees);
+        }
+        if (!outOfTime(match)) {
+            sequence.alignToTag(audienceTag, audienceRangeInches, alignTimeoutSeconds);
+        }
+
+        // 2. Reposition across the field toward the scoring side.
+        if (!outOfTime(match)) {
+            motion.driveInches(-audienceBackoffInches, routePower);
+        }
+        if (!outOfTime(match)) {
+            motion.turnDegrees(scoringTurnDegrees);
+        }
+        if (!outOfTime(match)) {
+            motion.driveInches(scoringLegInches, routePower);
+        }
+
+        // 3. Align on the scoring cluster at shooting range.
         boolean aligned = false;
-
-        while (opModeIsActive() && timer.seconds() < maxTimeoutSeconds && !aligned) {
-            List<AprilTagDetection> detections = robot.getAprilTagDetections();
-            AprilTagDetection targetTag = findTagById(detections, targetTagId);
-
-            if (targetTag != null && targetTag.ftcPose != null) {
-                double rangeError = targetTag.ftcPose.range - DESIRED_DISTANCE_INCHES;
-                double bearingError = targetTag.ftcPose.bearing;
-
-                // Calculate drive and turn corrections
-                double drivePower = rangeError * P_DRIVE_GAIN;
-                double turnPower = bearingError * P_TURN_GAIN;
-
-                // Clip power to safe limits
-                drivePower = Math.max(-MAX_AUTO_SPEED, Math.min(MAX_AUTO_SPEED, drivePower));
-                turnPower = Math.max(-MAX_AUTO_TURN, Math.min(MAX_AUTO_TURN, turnPower));
-
-                robot.drive(drivePower, turnPower);
-
-                // Check if aligned within tolerance
-                if (Math.abs(rangeError) < DISTANCE_TOLERANCE_INCHES &&
-                        Math.abs(bearingError) < BEARING_TOLERANCE_DEGREES) {
-                    aligned = true;
-                    robot.drive(0, 0);
-                    telemetry.addLine(">> VERIFIED & ALIGNED TO TAG " + targetTagId + " <<");
-                } else {
-                    telemetry.addData("Tag " + targetTagId + " Verified", "Range Error: %.1fin, Bearing Error: %.1fdeg",
-                            rangeError, bearingError);
-                }
-            } else {
-                // If tag is not in view yet, slowly rotate to search for it
-                robot.drive(0, 0.15);
-                telemetry.addData("Tag " + targetTagId, "Not in view - Scanning...");
-            }
-
-            telemetry.update();
+        if (!outOfTime(match)) {
+            aligned = sequence.alignToTag(scoringTag, scoringRangeInches, alignTimeoutSeconds);
         }
 
-        robot.drive(0, 0);
+        // 4. Score the preload.
+        if (!outOfTime(match)) {
+            double budget = Math.min(shootBudgetSeconds, matchSeconds - match.seconds());
+            sequence.shootBalls(AutoSequence.preloadBalls, Math.max(0.0, budget));
+        }
+
+        // 5. Park clear of the goal.
+        if (!outOfTime(match)) {
+            motion.driveInches(parkInches, routePower);
+        }
+
+        telemetry.addData("Alliance", redAlliance ? "RED" : "BLUE");
+        telemetry.addData("Scoring align", aligned ? "ON TARGET" : "TIMED OUT");
+        telemetry.addData("AUTO elapsed", "%.1fs / %.0fs", match.seconds(), matchSeconds);
+        telemetry.update();
     }
 
-    /**
-     * Helper to locate a specific AprilTag by ID from current detections.
-     */
-    private AprilTagDetection findTagById(List<AprilTagDetection> detections, int id) {
-        if (detections == null) return null;
-        for (AprilTagDetection detection : detections) {
-            if (AprilTagTargets.matchesId(detection, id)) {
-                return detection;
-            }
-        }
-        return null;
+    private boolean outOfTime(ElapsedTime match) {
+        return match.seconds() >= lastActionSeconds || !opModeIsActive();
     }
 }

@@ -2,7 +2,7 @@
 
 Single reference for how the robot code is built and how it runs. Read this before exploring the source. All team code lives in `TeamCode/`; `FtcRobotController/` is the stock FIRST SDK app (activity, empty `FtcOpModeRegister`, `@Disabled` samples) and holds no robot logic.
 
-- Verified against commit `30e02c0` (branch `dev-avinash-test`, November 2026). Re-check the "Known issues" section after drivetrain or hardware-name changes.
+- Verified against branch `dev-avinash-test` (November 2026), including the autonomous rework described in section 7. Re-check the "Known issues" section after drivetrain or hardware-name changes.
 - Team 36424 Underengineered Toasters. Game: BIOBUZZ (score POLLEN, intake at the FLOWER; RED/BLUE NECTAR also exist).
 - Stack: FTC SDK 12.0.0, Road Runner core/actions 1.0.1 + ftc 0.1.25, FTC Dashboard 0.5.1, JDK 25, Gradle 9.6, AGP 9.4.
 - Build and test: `./gradlew assembleDebug test`. CI runs both on every push/PR.
@@ -13,7 +13,7 @@ All Java is under `TeamCode/src/main/java/org/firstinspires/ftc/teamcode/`.
 
 | Package | Role | Uses |
 |---|---|---|
-| `robot/` | Production subsystems, main OpModes, AprilTag vision, Road Runner drive classes and localizers | `Robot` hub |
+| `robot/` | Production subsystems, main OpModes, AprilTag vision, Road Runner drive classes/localizers, shared autonomous helpers (`TimedMotion`, `AutoSequence`) | `Robot` hub |
 | `old/` | Legacy tank-drive and timed autonomous OpModes (still registered and runnable) | `Robot` or raw `left`/`right` motors |
 | `testing/` | Single-purpose hardware check OpModes for the new mecanum robot | Hardware directly, not `Robot` |
 | `tuning/` | Road Runner quickstart tuning OpModes | `MecanumDrive` / `TankDrive` |
@@ -83,9 +83,9 @@ Wireless ADB: Control Hub `192.168.43.1:5555`, Driver Hub `192.168.43.141:5555` 
 
 | Class | Responsibility | Control type |
 |---|---|---|
-| `Robot` | Builds every subsystem in `init(hardwareMap)`. Tank `drive(forward, turn)`: `left = f + t`, `right = f - t`, clipped to ±1, BRAKE. Directions: left FORWARD, right REVERSE. Match loader `setMatchLoaderDown()` (UP 0.00, DOWN 0.61 ≈ 110°) with touch-sensor retract in `update()`. Dead-wheel tick reads for telemetry only. `close()` stops vision. | Open loop |
+| `Robot` | Builds every subsystem in `init(hardwareMap)`. Tank `drive(forward, turn)`: `left = f + t`, `right = f - t`, clipped to ±1, BRAKE. Directions: left FORWARD, right REVERSE, so positive power and positive turn are forward and clockwise. `SDK_YAW_TO_TURN` (-1) converts SDK yaw/bearing to the `turn` argument. Match loader `setMatchLoaderDown()` (UP 0.00, DOWN 0.61 ≈ 110°) with touch-sensor retract in `update()`. `getBatteryVolts()`, `spinUpShooters()`/`spinDownShooters()`. Dead-wheel tick reads for telemetry only. `close()` stops vision. | Open loop |
 | `intake` | One motor: IN +1, OUT -1, STOP 0 | Open loop |
-| `turret` | Motor at ±0.40, encoder reset at init, `mag` limit switch read but not enforced | Open loop |
+| `turret` | Motor at ±0.40, encoder reset at init. `setPower` enforces the `mag` limit: movement continuing into an active stop is refused, reversing out is always allowed. `holdPosition`/`holdInitPosition` drive back to encoder zero (HOLD_POWER 0.30, HOLD_TOLERANCE_TICKS 40) for the static hold and autonomous aiming. | Open loop |
 | `shooter1` / `shooter2` | Flywheel at 100% or 0. shooter2 motor is REVERSE. RPM estimate assumes 28 ticks/rev | Open loop |
 | `Shooter` | Combined wrapper over the same names. Not used by any OpMode | Open loop |
 | `AprilTagVision` | VisionPortal + AprilTagProcessor with `AprilTagGameDatabase.getCurrentGameTagLibrary()`, inch/degree output. `findTagByName`, `findTagInGroup`, `getCameraSource()` | Sensor |
@@ -118,7 +118,7 @@ SDK 12 reports BIOBUZZ goal tags as cluster detections, not single tags. Do not 
 | Drive + Shooter | TeleOp | `robot/ShooterTeleOp` | Raw `left`/`right` | Opposite motor directions and turn sign to Robot |
 | Intake TeleOp | TeleOp | `robot/IntakeTeleOp` | none | Intake only |
 | Driver Station Test | Vision | `robot/DriverStationTestOpMode` | none | Tag telemetry |
-| AprilTag Autonomous Path | Autonomous | `robot/AprilTagAutonomous` | Robot tank | Red only, timed legs + tag alignment |
+| AprilTag Autonomous Path | Autonomous | `robot/AprilTagAutonomous` | Robot tank | Alliance chosen before start (A = RED, B = BLUE). Timed legs + audience/scoring alignment + preload shot + park. No flower/intake leg |
 | Red/Blue Alliance - Wait + Return Shoot | Red/Blue | `old/RedAutonomous`, `old/BlueAutonomous` | Robot tank | `BioBuzzTimedAuto` plan WAIT_SHOOT_RETURN_SHOOT |
 | Red/Blue Alliance - Shoot Now + Return | Red/Blue | `old/RedShootNowAuto`, `old/BlueShootNowAuto` | Robot tank | SHOOT_RETURN_WAIT_SHOOT |
 | Red/Blue Alliance - Wait + Cross + Park | Red/Blue | `old/RedCrossWaitAuto`, `old/BlueCrossWaitAuto` | Robot tank | WAIT_SHOOT_CROSS_PARK |
@@ -157,23 +157,36 @@ Red/Blue TeleOp differ: no auto-align; when the D-pad is idle the turret returns
 
 ## 7. Autonomous control flows
 
-### AprilTagAutonomous (Red)
+### Shared timed-route layer (`robot/TimedMotion`, `robot/AutoSequence`)
+
+Every timed route converts motion in one place instead of carrying its own constants.
+
+- `TimedMotion` owns the calibration and the movement loop: `inchesPerSecondAtHalfPower` 20, `turnPower` 0.45, `degreesPerSecondAtTurnPower` 150, `nominalBatteryVolts` 12. Every move applies `seconds x 12 V / actual volts`, calls `Robot.update()` each iteration (so loader touch safety works in autonomous too) and always stops the drivetrain before returning. `forRobot(...)` adapts `Robot`; `forRawMotors(...)` adapts the legacy `left`/`right` OpModes. The conversions are unit tested in `TimedMotionTest`.
+- `AutoSequence` owns autonomous actions: `settleTurret` (return to encoder zero), `shootBalls` (spin up, then feed one ball per cycle inside a time budget), `intakeAtFlower`, `alignToTag` (range/bearing P-control with a bounded two-sided search sweep) and `stopAll`.
+- `Robot.SDK_YAW_TO_TURN` is -1. SDK yaw/bearing is positive counter-clockwise; `Robot.drive`'s turn is positive clockwise. Every SDK-derived heading must be multiplied by it.
+
+### AprilTagAutonomous (alliance selectable)
 
 ```mermaid
 flowchart TD
-    S["Init + waitForStart"] --> T1["Timed: forward 0.4 for 1.5 s, turn 0.3 for 0.8 s"]
-    T1 --> A1["alignToTag(34 = RED AUDIENCE, 4 s)"]
-    A1 --> T2["Timed: back 1.0 s, turn -0.3 for 1.2 s, forward 2.0 s"]
-    T2 --> A2["alignToTag(30 = RED SCORING, 4 s)"]
-    A2 --> P["Timed: back 0.8 s, stop, idle with tag telemetry"]
+    S["Init; A = RED, B = BLUE before start"] --> W["waitForStart"]
+    W --> T1["Drive 24 in @ 0.4, turn +80"]
+    T1 --> A1["Align audience 34/38 at 12 in, 4 s"]
+    A1 --> T2["Back 12 in, turn -120, drive 32 in"]
+    T2 --> A2["Align scoring 30/42 at 12 in, 4 s"]
+    A2 --> T3{"Elapsed under 27 s?"}
+    T3 -- yes --> SH["shootBalls: turret settle, spin up, feed 4 (4 s budget)"]
+    T3 -- no --> P
+    SH --> P["Park: back 10 in"]
+    P --> END["finally: stopAll, vision close"]
 
     subgraph ALIGN["alignToTag loop"]
-        Q{"Cluster in view?"} -- no --> SP["Spin at turn 0.15"] --> Q
-        Q -- yes --> PC["P-control on range and bearing<br/>gains 0.03 / 0.02, clips 0.4 / 0.3"]
-        PC --> TOL{"range error under 1.5 in and bearing under 2 deg?"}
+        Q{"Cluster with pose in view?"} -- no --> SP["Bounded sweep<br/>+0.15 for 1.5 s, then -0.15"] --> Q
+        Q -- yes --> PC["P-control on range and bearing<br/>gains 0.03 / 0.02, clips 0.4 / 0.3<br/>turn x SDK_YAW_TO_TURN"]
+        PC --> TOL{"Within 1.5 in and 2 deg?"}
         TOL -- no --> Q
-        TOL -- yes --> DONE["Stop, return"]
-        TIME["4 s timeout"] -.-> DONE
+        TOL -- yes --> DONE["Stop, return true"]
+        TIME["Timeout or sweep exhausted"] -.-> STOP["Stop, return false"]
     end
 ```
 
@@ -183,18 +196,18 @@ flowchart TD
 flowchart TD
     I["Init + waitForStart, start match timer"] --> W{"Plan starts with WAIT?"}
     W -- yes --> WS["Wait 7 s"] --> SH
-    W -- no --> SH["Shoot preload 2.8 s (both flywheels 100%)"]
+    W -- no --> SH["Score preload: settle turret, spin up, feed up to 4 balls (4 s budget)"]
     SH --> FL["Drive 28 in to FLOWER, loader down, intake 2.4 s, loader up"]
     FL --> R{"Plan returns to shoot?"}
-    R -- yes --> RT["Turn 180, drive 28 in back, turn 180<br/>(+2 s wait for SHOOT_RETURN_WAIT_SHOOT)"] --> S2{"Match time < 27 s?"}
-    S2 -- yes --> SH2["Shoot up to 2.8 s, ending by 29 s"] --> END
+    R -- yes --> RT["Turn 180, drive 28 in back, turn 180<br/>(+2 s wait for SHOOT_RETURN_WAIT_SHOOT)"] --> S2{"Elapsed under 27 s?"}
+    S2 -- yes --> SH2["Score again, ending by 29 s"] --> END
     S2 -- no --> END
-    R -- no --> CP["Cross and park: turn ±90, drive 26 in at 0.8 x power, turn back"] --> END["Stop all"]
+    R -- no --> CP["Cross and park: turn ±90, drive 26 in at 0.8 x power, turn back"] --> END["finally: stopAll, vision close"]
 ```
 
-Distance is converted to time: `seconds = inches / (20 in/s x power/0.5)`, scaled by `12 V / battery voltage`. Turns are `0.60 s per 90°` at power 0.45. All values need field calibration.
+Distance and heading are converted by `TimedMotion`: `seconds = inches / (20 in/s x power/0.5)` and `seconds = degrees / (150 deg/s x power/0.45)`, both scaled by `12 V / battery voltage`. One calibration now serves every route, including both legacy parking OpModes; calibrate it once (measure an actual 90° turn at 0.45 power) and all routes follow.
 
-All current autonomous routines are dead reckoning by time; only `alignToTag` uses sensor feedback. None use Road Runner.
+All autonomous routines are still dead reckoning by time. Only `alignToTag` uses sensor feedback, only `AprilTagAutonomous` (and any route calling `AutoSequence.shootBalls`) releases a ball, and no route knows its starting pose. None use Road Runner.
 
 ## 8. Road Runner motion stack
 
@@ -250,29 +263,33 @@ Notes:
 ## 9. Known issues and inconsistencies
 
 1. Four drivetrain naming schemes (section 3). One robot configuration cannot satisfy `Robot`, `MecanumDrive` and `testing/` at once; OpModes for the other scheme crash at init.
-2. Tank drive direction and turn sign disagree across files:
-   - `Robot`: left FORWARD, right REVERSE, comment says positive = forward. `ParkingAutonomous` agrees.
-   - `BasicTankDrive`, `ShooterTeleOp`: left REVERSE, right FORWARD.
-   - `BasicAutonomous` negates both axes ("chassis moves backward for positive power").
-   - TeleOps use `turn = -right_stick_x` (positive turn = left, which is what bearing-based alignment needs); `ShooterTeleOp` uses `+right_stick_x`; autos treat positive turn as right (`turn90(true)`, "Turn right ~45°").
-   Verify on blocks before trusting any route.
-3. `MecanumDriveTest` reverses FL and BR (usual pattern reverses both left motors). Confirm per wheel. Its on-screen help text swaps the rotate/strafe sticks.
-4. `shooter1`, `shooter2` and `Shooter` all claim the same flywheel hardware; `Shooter` is unused.
-5. Flywheels are open-loop 100% power; shot speed drops with battery (see branch `feature/shooter-pidf`).
-6. Turret limit switch is never enforced; Red/Blue turret hold is bang-bang with a 150-tick deadband.
-7. Road Runner is untuned and unused by competition OpModes; `TankDrive` with `inPerTick = 0` produces infinite feedforward.
-8. Dead wheels are read only for telemetry.
-9. `AlignLog` is unused. Red and Blue TeleOps are identical. Camera init failures are silent.
-10. Empty directory `FTC_-UnderEngineeredToasters27/` at the repo root is a clone artifact.
+2. Tank drive direction and turn sign still disagree across files:
+   - `Robot` (and every route built on it): left FORWARD, right REVERSE, positive power = forward, positive turn = clockwise.
+   - `BasicTankDrive`, `ShooterTeleOp`: left REVERSE, right FORWARD. `BasicTankDrive` is self-consistent; `ShooterTeleOp` negates both stick axes on top, so it drives backward on forward stick and steers upside down.
+   - TeleOps use `turn = -right_stick_x`, which makes pushing the stick right turn the robot left. At most one of these conventions is right; verify on blocks and fix once.
+3. `RobotTeleOp` auto-align is still inverted: it uses `turn = bearing * P_TURN_GAIN` without `Robot.SDK_YAW_TO_TURN`, so LB/RB steers away from the tag while `AutoSequence.alignToTag` steers toward it. Autonomous is fixed; TeleOp is not.
+4. `MecanumDriveTest` reverses FL and BR (usual pattern reverses both left motors). Confirm per wheel. Its on-screen help text swaps the rotate/strafe sticks.
+5. `shooter1`, `shooter2` and `Shooter` all claim the same flywheel hardware, and `Robot.init` initializes all three even though no OpMode uses `Shooter`.
+6. Flywheels are open-loop 100% power; shot speed drops with battery (see branch `feature/shooter-pidf`).
+7. `AutoSequence.loaderIsFeed` assumes the match loader is the ball feed (down = release, up = re-arm). Confirm on the robot; if the ball is released in the up position, flip that flag instead of editing the sequence.
+8. AprilTag cluster IDs resolve to the cluster centroid, not to an individual tag. `AprilTagAutonomous` also uses 12 in for both approach and shooting range; set `scoringRangeInches` to the flywheel's effective range.
+9. `AprilTagAutonomous` has no flower leg, so it scores the preload only. `BioBuzzTimedAuto` scores twice but has no vision.
+10. New autonomous calibration that still needs a field measurement: `TimedMotion` turn/distance constants, `turret.HOLD_TOLERANCE_TICKS`, `AutoSequence` feed/spin-up times.
+11. Red/Blue turret hold is still a 0.30-power bang-bang rather than `turret.holdPosition`; Red and Blue TeleOps are identical. The turret limit is now enforced inside `setPower`, so the bang-bang can no longer stall into the stop.
+12. Road Runner is untuned and unused by competition OpModes; `DRIVE_CLASS` is `MecanumDrive` on a two-motor robot, and `TankDrive` with `inPerTick = 0` produces infinite feedforward.
+13. Dead wheels are read only for telemetry. `AlignLog`, `Drawing.getCameraSource`, `AprilTagVision.findTagInGroup` and `Shooter` are unused.
+14. Camera init failures are silent, and AprilTag decimation/exposure are unset, so detections drop out during fast movement.
+15. Empty directory `FTC_-UnderEngineeredToasters27/` at the repo root is a clone artifact.
 
 ## 10. Direction of work
 
 The team is moving from the 2-motor tank to a 4-motor mecanum chassis (see `old/AGENTS.md`, `testing/`, branch `feature/mecanum-drive-controls`). Suggested order:
 
 1. Pick the drivetrain on the field and one hardware naming scheme; update `Robot`, Road Runner and `testing/` to match.
-2. Fix motor directions and turn sign once, in one place.
-3. Tune Road Runner (section 8) and enable dead-wheel localization.
-4. Rebuild autonomous as Road Runner trajectories, using AprilTag alignment only for final correction.
-5. Replace open-loop flywheels with velocity control.
+2. Fix motor directions and turn sign once, in one place: apply `Robot.SDK_YAW_TO_TURN` to the TeleOp alignment and settle the stick/`drive()` convention (issue 2 and 3 above).
+3. Calibrate the shared autonomous constants (`TimedMotion` distance/turn, `AutoSequence` feed times, `turret` hold) and confirm `loaderIsFeed`; then verify a full BIOBUZZ route scores.
+4. Tune Road Runner (section 8) and enable dead-wheel localization.
+5. Rebuild autonomous as Road Runner trajectories, using AprilTag alignment only for final correction, and add the flower/intake leg to `AprilTagAutonomous`.
+6. Replace open-loop flywheels with velocity control.
 
 Active remote branches: `dev`, `dev-avinash-test`, `feature/driver-station-port`, `feature/flower-touch-stop`, `feature/mecanum-drive-controls`, `feature/mono-camera-bringup`, `feature/shooter-pidf`.

@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.TouchSensor;
+import com.qualcomm.robotcore.hardware.VoltageSensor;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 
 import java.util.Collections;
@@ -28,7 +29,22 @@ public class Robot {
     public static final double MATCH_LOADER_UP       = 0.00; // Rest position
     public static final double MATCH_LOADER_DOWN_110  = 0.61; // 110 degrees rotation to the left
 
+    /**
+     * Sign that converts an SDK-style yaw command (positive = counter-clockwise) into the
+     * {@link #drive(double, double)} turn argument.
+     *
+     * {@code drive} mixes {@code left = forward + turn} and {@code right = forward - turn} with
+     * the left motor FORWARD and the right motor REVERSE, so a positive turn drives the left
+     * wheel forward and the right wheel backward: the chassis rotates CLOCKWISE (to the robot's
+     * right). The SDK vision/pose convention is the opposite (positive yaw/bearing is to the
+     * left), so SDK-derived headings must be multiplied by this constant before reaching
+     * {@code drive}. Autonomous alignment uses it; AprilTag-bearing TeleOp code must use it too.
+     */
+    public static final double SDK_YAW_TO_TURN = -1.0;
+
     public AprilTagVision vision = new AprilTagVision();
+
+    private VoltageSensor batterySensor;
 
     // 2 Odometry Encoders (unpowered dead wheels plugged into motor encoder ports)
     public DcMotor parallelEncoder;     // Parallel to drive direction (forward/backward)
@@ -87,6 +103,15 @@ public class Robot {
         shooter2System.init(hardwareMap);
         shooter.init(hardwareMap);
         turretSystem.init(hardwareMap);
+
+        try {
+            for (VoltageSensor sensor : hardwareMap.voltageSensor) {
+                batterySensor = sensor;
+                break;
+            }
+        } catch (Exception e) {
+            batterySensor = null;
+        }
 
         try {
             vision.init(hardwareMap);
@@ -155,6 +180,36 @@ public class Robot {
             return vision.getDetections();
         }
         return Collections.emptyList();
+    }
+
+    /**
+     * Battery voltage used for autonomous time compensation.
+     * Returns 12.0 (nominal) when no voltage sensor is configured, which makes the
+     * compensation a no-op instead of dividing by zero.
+     */
+    public double getBatteryVolts() {
+        if (batterySensor == null) {
+            return 12.0;
+        }
+        double volts;
+        try {
+            volts = batterySensor.getVoltage();
+        } catch (Exception e) {
+            return 12.0;
+        }
+        return volts > 1.0 ? volts : 12.0;
+    }
+
+    /** Spins both flywheels up to full power. */
+    public void spinUpShooters() {
+        shooter1System.spinForwardMaxSpeed();
+        shooter2System.spinForwardMaxSpeed();
+    }
+
+    /** Stops both flywheels. */
+    public void spinDownShooters() {
+        shooter1System.spinDown();
+        shooter2System.spinDown();
     }
 
     public double getLeftPower() {
