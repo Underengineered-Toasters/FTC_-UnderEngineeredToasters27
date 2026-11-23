@@ -54,8 +54,9 @@ public class RobotTeleOp extends LinearOpMode {
 
             List<AprilTagDetection> detections = robot.getAprilTagDetections();
 
-            double drive = -gamepad1.left_stick_y;
-            double turn  = -gamepad1.right_stick_x;
+            double drive  = -gamepad1.left_stick_y;
+            double strafe = gamepad1.left_stick_x;
+            double turn   = -gamepad1.right_stick_x;
 
             // ==================================
             // CAMERA APRILTAG AUTO-ALIGNMENT (LB / RB)
@@ -81,8 +82,9 @@ public class RobotTeleOp extends LinearOpMode {
                     double rangeError   = targetTag.ftcPose.range - DESIRED_DISTANCE_INCHES;
                     double bearingError = targetTag.ftcPose.bearing;
 
-                    drive = rangeError * P_DRIVE_GAIN;
-                    turn  = bearingError * P_TURN_GAIN;
+                    drive  = rangeError * P_DRIVE_GAIN;
+                    turn   = bearingError * P_TURN_GAIN;
+                    strafe = 0.0;
 
                     drive = Math.max(-0.4, Math.min(0.4, drive));
                     turn  = Math.max(-0.3, Math.min(0.3, turn));
@@ -93,13 +95,14 @@ public class RobotTeleOp extends LinearOpMode {
                     telemetry.addData("Align Heading Error", "%.1f deg", bearingError);
 
                 } else {
-                    drive = 0.0;
-                    turn  = 0.0;
+                    drive  = 0.0;
+                    turn   = 0.0;
+                    strafe = 0.0;
                     telemetry.addData("Auto-Align Status", "Target tag not in view!");
                 }
             }
 
-            robot.drive(drive, turn);
+            robot.drive(drive, strafe, turn);
 
             // ==================================
             // TURRET ROTATION CONTROL (D-Pad Left / Right)
@@ -176,6 +179,7 @@ public class RobotTeleOp extends LinearOpMode {
             }
 
             robot.update();
+            robot.updateOdometry();
 
             // ==================================
             // TELEMETRY
@@ -202,8 +206,17 @@ public class RobotTeleOp extends LinearOpMode {
             telemetry.addData("Match Loader Pos", "%.2f", robot.getMatchLoaderPosition());
 
             telemetry.addLine("------------------------------");
+            telemetry.addData("IMU", robot.isImuReady()
+                    ? "OK (" + robot.getImuName() + ")"
+                    : "NOT FOUND - check robot config");
+            telemetry.addData("X Odom", robot.isStrafePodMoving() ? "in motion" : "stopped");
+            telemetry.addData("Y Odom", robot.isForwardPodMoving() ? "in motion" : "stopped");
             telemetry.addData("Parallel Odom Ticks", robot.getParallelEncoderTicks());
             telemetry.addData("Perpendicular Odom Ticks", robot.getPerpendicularEncoderTicks());
+            telemetry.addData("Field X (in)", "%.1f", robot.getFieldX());
+            telemetry.addData("Field Y (in)", "%.1f", robot.getFieldY());
+            telemetry.addData("Heading (deg)", "%.1f", Math.toDegrees(robot.getHeadingRadians()));
+            telemetry.addData("Distance Traveled (in)", "%.1f", robot.getDistanceTraveled());
 
             telemetry.addLine("------------------------------");
             telemetry.addData("AprilTags Visible", detections != null ? detections.size() : 0);

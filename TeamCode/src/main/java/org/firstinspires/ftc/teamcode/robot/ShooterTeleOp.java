@@ -4,6 +4,9 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
+import org.firstinspires.ftc.teamcode.robot.subsystems.shooter1;
+import org.firstinspires.ftc.teamcode.robot.subsystems.shooter2;
+
 @TeleOp(name = "Drive + Shooter", group = "TeleOp")
 public class ShooterTeleOp extends LinearOpMode {
 

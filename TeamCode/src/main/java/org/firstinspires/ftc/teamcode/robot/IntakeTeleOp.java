@@ -3,6 +3,8 @@ package org.firstinspires.ftc.teamcode.robot;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
+import org.firstinspires.ftc.teamcode.robot.subsystems.intake;
+
 @TeleOp(name = "Intake TeleOp", group = "TeleOp")
 public class IntakeTeleOp extends LinearOpMode {
 
