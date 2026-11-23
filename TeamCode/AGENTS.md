@@ -10,9 +10,12 @@ Team programming owns production code and its physical calibration.
 - FTC SDK 12 uses separate AprilTagSingleDetection and AprilTagClusterDetection types. Use AprilTagTargets for identity/name access through the base type.
 - AprilTagVision uses the SDK current-game library. BIOBUZZ clusters are Red Scoring 30-33, Red Audience 34-37, Blue Audience 38-41, Blue Scoring 42-45. Do not register these as individual tags.
 - ID lookup for BIOBUZZ returns the containing cluster pose; it does not prove that particular member tag was visible. Poses are relative to moving targets, not absolute field locations.
-- `Robot.drive(forward, turn)` is positive forward and positive clockwise. SDK yaw/bearing is positive counter-clockwise. Multiply any SDK-derived heading by `Robot.SDK_YAW_TO_TURN` before calling `drive`.
+- The drivetrain is four mecanum wheels named `leftFront`, `leftBack`, `rightFront`, `rightBack`, defined once as `Robot` motor-name constants. Every OpMode, the Road Runner classes and the tests use those constants; do not reintroduce `left`/`right` or `frontleft` styles.
+- `Robot.drive(forward, strafe, turn)` is positive forward, positive strafe to the right, positive turn clockwise; the 2-arg overload strafes 0. The mix exists only in `Robot.mecanumWheelPowers`, which also normalizes saturation. Raw-motor OpModes call `Robot.driveMecanum` instead of hand-rolling the mixing.
+- Wheel directions are normalized only in `Robot.applyMecanumDirections` (left FORWARD, right REVERSE). Fix a wrong-spinning wheel there, never by changing the mixing or a stick sign.
+- SDK yaw/bearing is positive counter-clockwise. Multiply any SDK-derived heading by `Robot.SDK_YAW_TO_TURN` before calling `drive`.
 - Autonomous distance/heading conversion lives only in `robot/TimedMotion`; scoring, intake and tag-alignment actions live only in `robot/AutoSequence`. Do not reintroduce per-OpMode distance, turn or battery constants.
-- Timed autonomous movement must go through `TimedMotion`, which calls `Robot.update()` every iteration (match-loader touch safety) and stops the drivetrain on every exit. Raw `left`/`right` routes use `TimedMotion.forRawMotors`.
+- Timed autonomous movement must go through `TimedMotion`, which calls `Robot.update()` every iteration (match-loader touch safety) and stops the drivetrain on every exit. Raw-motor routes use `TimedMotion.forRawMotors` with a `Robot.driveMecanum` sink.
 - `turret.setPower` is the only place the `mag` limit switch is enforced: movement continuing into an active stop is refused, reversing out is allowed. Do not bypass it with `turretMotor.setPower`.
 - AprilTagAutonomous selects the alliance before start (A = RED, B = BLUE) and scores the preload; it has no flower leg.
 - One `VisionPortal` per camera. An OpMode that owns the webcam itself (yellow-ball detection) must call `Robot.init(hardwareMap, false)` so the AprilTag portal stays closed; two portals cannot hold the same camera.
@@ -21,7 +24,7 @@ Team programming owns production code and its physical calibration.
 - Yellow-ball range is monocular: it is only correct when `YellowBallVision.ballDiameterInches` and `diagonalFovDegrees` match the real ball and camera. Calibrate with `Yellow Ball Camera Test` before trusting the chase.
 - Alliance TeleOps retain main's static turret behavior; SDK compatibility alone does not enable their commented-out alignment.
 
-- Legacy tank-drive and timed autonomous programs live in `old`. Their local DOX owns retained route contracts; shared hardware and vision remain in the parent package.
+- Legacy simple-drive and timed autonomous programs live in `old`, also on the mecanum drivetrain. Their local DOX owns retained route contracts; shared hardware and vision remain in the parent package.
 
 ## Work Guidance
 Start from the repo-root `DESIGN.md` for architecture and flow; keep it current when changing subsystems, hardware names, OpModes or control flow.
@@ -29,8 +32,8 @@ Keep camera API migrations separate from shooter, intake, and drive tuning. Veri
 Before relying on an autonomous route, calibrate `TimedMotion` on the field: measure an actual 90° turn at `TimedMotion.turnPower` and a measured-distance drive, then confirm `AprilTagAutonomous.scoringRangeInches` matches the flywheel's effective range. For the yellow-ball chase, confirm range accuracy at a measured distance with `Yellow Ball Camera Test`.
 
 ## Verification
-Run `./gradlew assembleDebug test`. JVM tests cover AprilTag cluster identity (`AprilTagTargetsTest`), the autonomous conversion/battery contract (`TimedMotionTest`), and the yellow-ball geometry plus chase control law (`YellowBallVisionTest`); hardware timing, feeding, aiming and colour thresholds still require the robot.
+Run `./gradlew assembleDebug test`. JVM tests cover the mecanum mixing (`RobotDriveTest`), AprilTag cluster identity (`AprilTagTargetsTest`), the autonomous conversion/battery contract (`TimedMotionTest`), and the yellow-ball geometry plus chase control law (`YellowBallVisionTest`); hardware timing, feeding, aiming and colour thresholds still require the robot.
 
 ## Child DOX Index
-- `src/test/`: JVM regression tests for target selection, autonomous motion conversion and yellow-ball camera geometry.
-- `old`: retained tank-drive and timed autonomous OpModes.
+- `src/test/`: JVM regression tests for the mecanum mixing, target selection, autonomous motion conversion and yellow-ball camera geometry.
+- `old`: retained simple-drive and timed autonomous OpModes on the mecanum drivetrain.

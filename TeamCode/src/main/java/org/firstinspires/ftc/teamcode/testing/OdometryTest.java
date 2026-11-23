@@ -8,19 +8,20 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.IMU;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.teamcode.robot.Robot;
 
 @TeleOp(name = "Odometry Sensor Test", group = "Testing")
 public class OdometryTest extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        // Pod encoder plugged into motor encoder port 0.
+        // Pod encoder plugged into the left-front motor encoder port.
         DcMotorEx forwardEncoder =
-                hardwareMap.get(DcMotorEx.class, "frontleft");
+                hardwareMap.get(DcMotorEx.class, Robot.LEFT_FRONT_MOTOR);
 
-        // Pod encoder plugged into motor encoder port 1.
+        // Pod encoder plugged into the right-front motor encoder port.
         DcMotorEx sidewaysEncoder =
-                hardwareMap.get(DcMotorEx.class, "frontright");
+                hardwareMap.get(DcMotorEx.class, Robot.RIGHT_FRONT_MOTOR);
 
         IMU imu = hardwareMap.get(IMU.class, "imu");
 
@@ -33,10 +34,10 @@ public class OdometryTest extends LinearOpMode {
 
         // Ensure all four drive motors remain unpowered.
         DcMotor[] driveMotors = {
-                hardwareMap.get(DcMotor.class, "frontleft"),
-                hardwareMap.get(DcMotor.class, "frontright"),
-                hardwareMap.get(DcMotor.class, "backleft"),
-                hardwareMap.get(DcMotor.class, "backright")
+                hardwareMap.get(DcMotor.class, Robot.LEFT_FRONT_MOTOR),
+                hardwareMap.get(DcMotor.class, Robot.LEFT_BACK_MOTOR),
+                hardwareMap.get(DcMotor.class, Robot.RIGHT_FRONT_MOTOR),
+                hardwareMap.get(DcMotor.class, Robot.RIGHT_BACK_MOTOR)
         };
 
         for (DcMotor motor : driveMotors) {

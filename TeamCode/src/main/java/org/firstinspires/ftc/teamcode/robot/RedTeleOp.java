@@ -52,11 +52,12 @@ public class RedTeleOp extends LinearOpMode {
 
             List<AprilTagDetection> detections = robot.getAprilTagDetections();
 
-            double drive = -gamepad1.left_stick_y;
-            double turn  = -gamepad1.right_stick_x;
+            double drive  = -gamepad1.left_stick_y;
+            double strafe = gamepad1.left_stick_x;
+            double turn   = -gamepad1.right_stick_x;
 
             // Apply chassis drive
-            robot.drive(drive, turn);
+            robot.drive(drive, strafe, turn);
 
             // =========================================================================
             // STATIC TURRET POSITION HOLD & MANUAL D-PAD OVERRIDE
@@ -153,8 +154,10 @@ public class RedTeleOp extends LinearOpMode {
             // =========================================================================
 
             telemetry.addLine("------------------------------");
-            telemetry.addData("Drive Left Power", "%.2f", robot.getLeftPower());
-            telemetry.addData("Drive Right Power", "%.2f", robot.getRightPower());
+            telemetry.addData("Drive LF / LB", "%.2f / %.2f",
+                    robot.getLeftFrontPower(), robot.getLeftBackPower());
+            telemetry.addData("Drive RF / RB", "%.2f / %.2f",
+                    robot.getRightFrontPower(), robot.getRightBackPower());
 
             telemetry.addLine("------------------------------");
             telemetry.addData("Turret Ticks", "%d (Initial: %d)", robot.turretSystem.getCurrentPosition(), initialTurretPos);

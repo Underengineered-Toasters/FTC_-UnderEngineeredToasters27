@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
+import org.firstinspires.ftc.teamcode.robot.Robot;
 import org.firstinspires.ftc.teamcode.robot.TimedMotion;
 
 /**
@@ -20,27 +21,32 @@ public class ParkingAutonomous extends LinearOpMode {
     public static final double SHORT_LEG_POWER = 0.30;
     public static final double LONG_LEG_POWER = 0.50;
 
-    private DcMotor left;
-    private DcMotor right;
+    private DcMotor leftFront;
+    private DcMotor leftBack;
+    private DcMotor rightFront;
+    private DcMotor rightBack;
     private TimedMotion motion;
 
     @Override
     public void runOpMode() {
         try {
             // Do not initialize Robot: it also initializes shooters, intake, camera and loader.
-            left = hardwareMap.get(DcMotor.class, "left");
-            left.setPower(0);
-            right = hardwareMap.get(DcMotor.class, "right");
-            right.setPower(0);
-            // Match main's Robot drive configuration: positive power is forward.
-            left.setDirection(DcMotor.Direction.FORWARD);
-            right.setDirection(DcMotor.Direction.REVERSE);
-            left.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            right.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-            left.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            right.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            // Only the four mecanum drive motors, using Robot's shared names and directions.
+            leftFront = hardwareMap.get(DcMotor.class, Robot.LEFT_FRONT_MOTOR);
+            leftBack = hardwareMap.get(DcMotor.class, Robot.LEFT_BACK_MOTOR);
+            rightFront = hardwareMap.get(DcMotor.class, Robot.RIGHT_FRONT_MOTOR);
+            rightBack = hardwareMap.get(DcMotor.class, Robot.RIGHT_BACK_MOTOR);
 
-            motion = TimedMotion.forRawMotors(this::applyDrive, this, hardwareMap);
+            Robot.applyMecanumDirections(leftFront, leftBack, rightFront, rightBack);
+
+            for (DcMotor motor : new DcMotor[]{leftFront, leftBack, rightFront, rightBack}) {
+                motor.setPower(0);
+                motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+                motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            }
+
+            motion = TimedMotion.forRawMotors(
+                    (forward, turn) -> applyDrive(forward, 0.0, turn), this, hardwareMap);
 
             telemetry.addLine("Parking Autonomous - drive only, estimated distances");
             telemetry.addLine("Backward 7 inches, right 90 degrees, backward 46 inches");
@@ -64,17 +70,15 @@ public class ParkingAutonomous extends LinearOpMode {
             if (motion != null) {
                 motion.stop();
             }
-            if (left != null) left.setPower(0);
-            if (right != null) right.setPower(0);
+            for (DcMotor motor : new DcMotor[]{leftFront, leftBack, rightFront, rightBack}) {
+                if (motor != null) {
+                    motor.setPower(0);
+                }
+            }
         }
     }
 
-    private void applyDrive(double forward, double turn) {
-        left.setPower(clip(forward + turn));
-        right.setPower(clip(forward - turn));
-    }
-
-    private static double clip(double power) {
-        return Math.max(-1.0, Math.min(1.0, power));
+    private void applyDrive(double forward, double strafe, double turn) {
+        Robot.driveMecanum(leftFront, leftBack, rightFront, rightBack, forward, strafe, turn);
     }
 }

@@ -33,14 +33,20 @@ public class Robot {
      * Sign that converts an SDK-style yaw command (positive = counter-clockwise) into the
      * {@link #drive(double, double)} turn argument.
      *
-     * {@code drive} mixes {@code left = forward + turn} and {@code right = forward - turn} with
-     * the left motor FORWARD and the right motor REVERSE, so a positive turn drives the left
-     * wheel forward and the right wheel backward: the chassis rotates CLOCKWISE (to the robot's
-     * right). The SDK vision/pose convention is the opposite (positive yaw/bearing is to the
-     * left), so SDK-derived headings must be multiplied by this constant before reaching
-     * {@code drive}. Autonomous alignment uses it; AprilTag-bearing TeleOp code must use it too.
+     * {@code drive} gives a positive turn to the left wheels and the opposite to the right
+     * wheels, so the chassis rotates CLOCKWISE (to the robot's right). The SDK vision/pose
+     * convention is the opposite (positive yaw/bearing is to the left), so SDK-derived headings
+     * must be multiplied by this constant before reaching {@code drive}. Autonomous alignment uses
+     * it; AprilTag-bearing TeleOp code must use it too.
      */
     public static final double SDK_YAW_TO_TURN = -1.0;
+
+    // Mecanum drivetrain hardware names. They must match the Driver Hub robot configuration and
+    // the names MecanumDrive uses, so every OpMode and Road Runner share one configuration.
+    public static final String LEFT_FRONT_MOTOR = "leftFront";
+    public static final String LEFT_BACK_MOTOR = "leftBack";
+    public static final String RIGHT_FRONT_MOTOR = "rightFront";
+    public static final String RIGHT_BACK_MOTOR = "rightBack";
 
     public AprilTagVision vision = new AprilTagVision();
 
@@ -50,11 +56,15 @@ public class Robot {
     public DcMotor parallelEncoder;     // Parallel to drive direction (forward/backward)
     public DcMotor perpendicularEncoder;// Perpendicular to drive direction (strafing/side-to-side)
 
-    private DcMotor leftDrive;
-    private DcMotor rightDrive;
+    private DcMotor leftFrontDrive;
+    private DcMotor leftBackDrive;
+    private DcMotor rightFrontDrive;
+    private DcMotor rightBackDrive;
 
-    private double leftPower = 0.0;
-    private double rightPower = 0.0;
+    private double leftFrontPower = 0.0;
+    private double leftBackPower = 0.0;
+    private double rightFrontPower = 0.0;
+    private double rightBackPower = 0.0;
 
     public void init(HardwareMap hardwareMap) {
         init(hardwareMap, true);
@@ -67,15 +77,17 @@ public class Robot {
      *        left uninitialized and reports no detections.
      */
     public void init(HardwareMap hardwareMap, boolean enableAprilTagVision) {
-        leftDrive = hardwareMap.get(DcMotor.class, "left");
-        rightDrive = hardwareMap.get(DcMotor.class, "right");
+        leftFrontDrive = hardwareMap.get(DcMotor.class, LEFT_FRONT_MOTOR);
+        leftBackDrive = hardwareMap.get(DcMotor.class, LEFT_BACK_MOTOR);
+        rightFrontDrive = hardwareMap.get(DcMotor.class, RIGHT_FRONT_MOTOR);
+        rightBackDrive = hardwareMap.get(DcMotor.class, RIGHT_BACK_MOTOR);
 
-        // Corrected motor directions so positive power drives the robot FORWARD
-        leftDrive.setDirection(DcMotor.Direction.FORWARD);
-        rightDrive.setDirection(DcMotor.Direction.REVERSE);
+        applyMecanumDirections(leftFrontDrive, leftBackDrive, rightFrontDrive, rightBackDrive);
 
-        leftDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rightDrive.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        for (DcMotor motor : new DcMotor[]{
+                leftFrontDrive, leftBackDrive, rightFrontDrive, rightBackDrive}) {
+            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        }
 
         // Initialize Match Loader Servo ("matchLoader")
         try {
@@ -151,12 +163,99 @@ public class Robot {
         return perpendicularEncoder != null ? perpendicularEncoder.getCurrentPosition() : 0;
     }
 
-    public void drive(double forward, double turn) {
-        leftPower = Math.max(-1.0, Math.min(1.0, forward + turn));
-        rightPower = Math.max(-1.0, Math.min(1.0, forward - turn));
+    /**
+     * Points every drive motor forward for positive power. The mecanum mixing in
+     * {@link #drive(double, double, double)} assumes this normalization.
+     *
+     * <p>The left and right motors are mounted mirrored, so the right pair is reversed. If one
+     * wheel turns the wrong way on the bench, flip that single line here - never the mixing.
+     */
+    public static void applyMecanumDirections(DcMotor leftFront, DcMotor leftBack,
+                                              DcMotor rightFront, DcMotor rightBack) {
+        leftFront.setDirection(DcMotor.Direction.FORWARD);
+        leftBack.setDirection(DcMotor.Direction.FORWARD);
+        rightFront.setDirection(DcMotor.Direction.REVERSE);
+        rightBack.setDirection(DcMotor.Direction.REVERSE);
+    }
 
-        leftDrive.setPower(leftPower);
-        rightDrive.setPower(rightPower);
+    /** Mecanum drive with no strafe; the timed autonomous routes use this. */
+    public void drive(double forward, double turn) {
+        drive(forward, 0.0, turn);
+    }
+
+    /**
+     * Mecanum drive.
+     *
+     * @param forward positive = away from the driver (all four wheels forward)
+     * @param strafe  positive = to the robot's right
+     * @param turn    positive = clockwise, to the robot's right
+     */
+    public void drive(double forward, double strafe, double turn) {
+        double[] powers = mecanumWheelPowers(forward, strafe, turn);
+
+        leftFrontPower = powers[0];
+        leftBackPower = powers[1];
+        rightFrontPower = powers[2];
+        rightBackPower = powers[3];
+
+        leftFrontDrive.setPower(leftFrontPower);
+        leftBackDrive.setPower(leftBackPower);
+        rightFrontDrive.setPower(rightFrontPower);
+        rightBackDrive.setPower(rightBackPower);
+    }
+
+    /**
+     * Mecanum wheel mixing for one 3-axis command, already normalized to [-1, 1].
+     *
+     * <p>Positive forward drives all four wheels forward, positive strafe moves the robot right,
+     * and positive turn rotates it clockwise. Clipping each wheel separately would bend the
+     * requested arc whenever two axes are near full power, so all four are scaled by the same
+     * factor instead.
+     *
+     * <p>Powers follow {@code MecanumDrive}'s wheel order: left front, left back, right front,
+     * right back. This is the single mix used by every raw-motor OpMode as well as {@link #drive}.
+     */
+    public static double[] mecanumWheelPowers(double forward, double strafe, double turn) {
+        double f = clip(forward);
+        double s = clip(strafe);
+        double t = clip(turn);
+
+        double leftFront = f + s + t;
+        double leftBack = f - s + t;
+        double rightFront = f - s - t;
+        double rightBack = f + s - t;
+
+        double largest = Math.max(
+                Math.max(Math.abs(leftFront), Math.abs(leftBack)),
+                Math.max(Math.abs(rightFront), Math.abs(rightBack)));
+        if (largest > 1.0) {
+            double scale = 1.0 / largest;
+            leftFront *= scale;
+            leftBack *= scale;
+            rightFront *= scale;
+            rightBack *= scale;
+        }
+
+        return new double[]{leftFront, leftBack, rightFront, rightBack};
+    }
+
+    /**
+     * Mixes one 3-axis command and writes it to four raw drive motors. Used by the OpModes that
+     * keep their own motors instead of building the whole {@link Robot} hub.
+     */
+    public static void driveMecanum(DcMotor leftFront, DcMotor leftBack,
+                                    DcMotor rightFront, DcMotor rightBack,
+                                    double forward, double strafe, double turn) {
+        double[] powers = mecanumWheelPowers(forward, strafe, turn);
+        leftFront.setPower(powers[0]);
+        leftBack.setPower(powers[1]);
+        rightFront.setPower(powers[2]);
+        rightBack.setPower(powers[3]);
+    }
+
+    /** Clamps a requested axis to the legal power range. */
+    public static double clip(double power) {
+        return Math.max(-1.0, Math.min(1.0, power));
     }
 
     public void setMatchLoaderDown(boolean down) {
@@ -224,12 +323,20 @@ public class Robot {
         shooter2System.spinDown();
     }
 
-    public double getLeftPower() {
-        return leftPower;
+    public double getLeftFrontPower() {
+        return leftFrontPower;
     }
 
-    public double getRightPower() {
-        return rightPower;
+    public double getLeftBackPower() {
+        return leftBackPower;
+    }
+
+    public double getRightFrontPower() {
+        return rightFrontPower;
+    }
+
+    public double getRightBackPower() {
+        return rightBackPower;
     }
 
     public void close() {

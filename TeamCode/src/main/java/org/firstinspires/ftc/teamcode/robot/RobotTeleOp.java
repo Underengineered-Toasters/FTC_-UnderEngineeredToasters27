@@ -33,6 +33,7 @@ public class RobotTeleOp extends LinearOpMode {
         telemetry.addLine("       ROBOT INITIALIZED");
         telemetry.addLine("==============================");
         telemetry.addLine("Left Stick Y  = Manual Drive");
+        telemetry.addLine("Left Stick X  = Strafe");
         telemetry.addLine("Right Stick X = Manual Turn");
         telemetry.addLine("LB / RB       = Camera AprilTag Auto-Align");
         telemetry.addLine("D-Pad Left/Right = Rotate Turret 360°");
@@ -54,8 +55,9 @@ public class RobotTeleOp extends LinearOpMode {
 
             List<AprilTagDetection> detections = robot.getAprilTagDetections();
 
-            double drive = -gamepad1.left_stick_y;
-            double turn  = -gamepad1.right_stick_x;
+            double drive  = -gamepad1.left_stick_y;
+            double strafe = gamepad1.left_stick_x;
+            double turn   = -gamepad1.right_stick_x;
 
             // ==================================
             // CAMERA APRILTAG AUTO-ALIGNMENT (LB / RB)
@@ -65,6 +67,9 @@ public class RobotTeleOp extends LinearOpMode {
             boolean rightBumper = gamepad1.right_bumper;
 
             if (leftBumper || rightBumper) {
+
+                // Alignment owns all three axes while a bumper is held.
+                strafe = 0.0;
 
                 String targetTagGroup = leftBumper
                         ? AprilTagVision.RED_AUDIENCE
@@ -99,7 +104,7 @@ public class RobotTeleOp extends LinearOpMode {
                 }
             }
 
-            robot.drive(drive, turn);
+            robot.drive(drive, strafe, turn);
 
             // ==================================
             // TURRET ROTATION CONTROL (D-Pad Left / Right)
@@ -182,8 +187,10 @@ public class RobotTeleOp extends LinearOpMode {
             // ==================================
 
             telemetry.addLine("------------------------------");
-            telemetry.addData("Drive Left Power", "%.2f", robot.getLeftPower());
-            telemetry.addData("Drive Right Power", "%.2f", robot.getRightPower());
+            telemetry.addData("Drive LF / LB", "%.2f / %.2f",
+                    robot.getLeftFrontPower(), robot.getLeftBackPower());
+            telemetry.addData("Drive RF / RB", "%.2f / %.2f",
+                    robot.getRightFrontPower(), robot.getRightBackPower());
 
             telemetry.addLine("------------------------------");
             telemetry.addData("Turret Power", "%.2f", robot.turretSystem.getPower());

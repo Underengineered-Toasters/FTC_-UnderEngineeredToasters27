@@ -232,11 +232,14 @@ public final class TankDrive {
             module.setBulkCachingMode(LynxModule.BulkCachingMode.AUTO);
         }
 
-        // TODO: make sure your config has motors with these names (or change them)
-        //   add additional motors on each side if you have them
-        //   see https://ftc-docs.firstinspires.org/en/latest/hardware_and_software_configuration/configuring/index.html
-        leftMotors = Arrays.asList(hardwareMap.get(DcMotorEx.class, "left"));
-        rightMotors = Arrays.asList(hardwareMap.get(DcMotorEx.class, "right"));
+        // Same four mecanum wheels as Robot/MecanumDrive, grouped into tank sides.
+        DcMotorEx leftFront = hardwareMap.get(DcMotorEx.class, Robot.LEFT_FRONT_MOTOR);
+        DcMotorEx leftBack = hardwareMap.get(DcMotorEx.class, Robot.LEFT_BACK_MOTOR);
+        DcMotorEx rightFront = hardwareMap.get(DcMotorEx.class, Robot.RIGHT_FRONT_MOTOR);
+        DcMotorEx rightBack = hardwareMap.get(DcMotorEx.class, Robot.RIGHT_BACK_MOTOR);
+
+        leftMotors = Arrays.asList(leftFront, leftBack);
+        rightMotors = Arrays.asList(rightFront, rightBack);
 
         for (DcMotorEx m : leftMotors) {
             m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -245,8 +248,8 @@ public final class TankDrive {
             m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }
 
-        // TODO: reverse motor directions if needed
-        //   leftMotors.get(0).setDirection(DcMotorSimple.Direction.REVERSE);
+        // Same direction normalization as every other drivetrain: positive power is forward.
+        Robot.applyMecanumDirections(leftFront, leftBack, rightFront, rightBack);
 
         // TODO: make sure your config has an IMU with this name (can be BNO or BHI)
         //   see https://ftc-docs.firstinspires.org/en/latest/hardware_and_software_configuration/configuring/index.html

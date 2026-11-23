@@ -42,7 +42,7 @@ flowchart TD
     TS -. bypasses Robot .-> HW
 
     subgraph R["Robot.java hub (built in init)"]
-        DRV["Tank drive<br/>left, right"]
+        DRV["Mecanum drive<br/>leftFront, leftBack, rightFront, rightBack"]
         INT["intake"]
         TUR["turret + mag switch"]
         SHO["shooter1 / shooter2<br/>(Shooter wrapper unused)"]
@@ -65,9 +65,7 @@ The Driver Hub robot configuration must contain these names. Conflicting names a
 
 | Device | Name(s) used | Used by |
 |---|---|---|
-| Tank drive motors | `left`, `right` | `Robot`, `TankDrive`, `old/*`, `ShooterTeleOp` |
-| Mecanum drive motors (Road Runner) | `leftFront`, `leftBack`, `rightBack`, `rightFront` | `MecanumDrive` |
-| Mecanum drive motors (tests) | `frontleft`, `frontright`, `backleft`, `backright` | `testing/MecanumDriveTest`, `testing/OdometryTest` |
+| Drive motors (one mechanism, four wheels) | `leftFront`, `leftBack`, `rightFront`, `rightBack` — named once in `Robot`'s constants | `Robot`, `MecanumDrive`, `TankDrive`, `old/*`, `ShooterTeleOp`, `testing/*` |
 | Intake motor | `intake` | `intake` |
 | Turret motor / limit switch | `turret` / `mag` (fallback `turretLimit` in test) | `turret`, `MagneticLimitSwitchTest` |
 | Flywheels | `shooter1` (fallback `shooter`), `shooter2`; CRServo (SPARK Mini) tried first, then DcMotorEx | `shooter1`, `shooter2`, `Shooter` |
@@ -84,7 +82,7 @@ Wireless ADB: Control Hub `192.168.43.1:5555`, Driver Hub `192.168.43.141:5555` 
 
 | Class | Responsibility | Control type |
 |---|---|---|
-| `Robot` | Builds every subsystem in `init(hardwareMap)`. Tank `drive(forward, turn)`: `left = f + t`, `right = f - t`, clipped to ±1, BRAKE. Directions: left FORWARD, right REVERSE, so positive power and positive turn are forward and clockwise. `SDK_YAW_TO_TURN` (-1) converts SDK yaw/bearing to the `turn` argument. Match loader `setMatchLoaderDown()` (UP 0.00, DOWN 0.61 ≈ 110°) with touch-sensor retract in `update()`. `getBatteryVolts()`, `spinUpShooters()`/`spinDownShooters()`. Dead-wheel tick reads for telemetry only. `close()` stops vision. | Open loop |
+| `Robot` | Builds every subsystem in `init(hardwareMap)`. Mecanum `drive(forward, strafe, turn)` (2-arg overload strafes 0) through the single tested mix `mecanumWheelPowers`: positive forward drives all wheels forward, positive strafe is right, positive turn is clockwise; saturated commands scale all four wheels instead of clipping. `applyMecanumDirections` normalizes left FORWARD / right REVERSE so positive power is forward, and is the one place a wrong-spinning wheel gets fixed. `driveMecanum` serves the raw-motor OpModes. `SDK_YAW_TO_TURN` (-1) converts SDK yaw/bearing to `turn`. Match loader `setMatchLoaderDown()` (UP 0.00, DOWN 0.61 ≈ 110°) with touch-sensor retract in `update()`. `getBatteryVolts()`, `spinUpShooters()`/`spinDownShooters()`, per-wheel power getters. Dead-wheel tick reads for telemetry only. `close()` stops vision. | Open loop |
 | `intake` | One motor: IN +1, OUT -1, STOP 0 | Open loop |
 | `turret` | Motor at ±0.40, encoder reset at init. `setPower` enforces the `mag` limit: movement continuing into an active stop is refused, reversing out is always allowed. `holdPosition`/`holdInitPosition` drive back to encoder zero (HOLD_POWER 0.30, HOLD_TOLERANCE_TICKS 40) for the static hold and autonomous aiming. | Open loop |
 | `shooter1` / `shooter2` | Flywheel at 100% or 0. shooter2 motor is REVERSE. RPM estimate assumes 28 ticks/rev | Open loop |
@@ -115,24 +113,24 @@ SDK 12 reports BIOBUZZ goal tags as cluster detections, not single tags. Do not 
 
 | Name | Group | Class | Drive | Notes |
 |---|---|---|---|---|
-| Robot TeleOp | Main | `robot/RobotTeleOp` | Robot tank | Most complete. LB = align to RED AUDIENCE, RB = RED SCORING (falls back to first visible tag). Gamepad 1 or 2 for mechanisms |
-| Red Alliance TeleOp | Red | `robot/RedTeleOp` | Robot tank | Turret static hold. Gamepad 1 only. Identical to Blue except names |
-| Blue Alliance TeleOp | Blue | `robot/BlueTeleOp` | Robot tank | Same as Red |
-| Drive + Shooter | TeleOp | `robot/ShooterTeleOp` | Raw `left`/`right` | Opposite motor directions and turn sign to Robot |
+| Robot TeleOp | Main | `robot/RobotTeleOp` | Robot mecanum | Most complete. LB = align to RED AUDIENCE, RB = RED SCORING (falls back to first visible tag). Gamepad 1 or 2 for mechanisms |
+| Red Alliance TeleOp | Red | `robot/RedTeleOp` | Robot mecanum | Turret static hold. Gamepad 1 only. Identical to Blue except names |
+| Blue Alliance TeleOp | Blue | `robot/BlueTeleOp` | Robot mecanum | Same as Red |
+| Drive + Shooter | TeleOp | `robot/ShooterTeleOp` | Raw `leftFront`... | Same wheel names and mixing as Robot; own flywheel instances |
 | Intake TeleOp | TeleOp | `robot/IntakeTeleOp` | none | Intake only |
 | Driver Station Test | Vision | `robot/DriverStationTestOpMode` | none | Tag telemetry |
-| AprilTag Autonomous Path | Autonomous | `robot/AprilTagAutonomous` | Robot tank | Alliance chosen before start (A = RED, B = BLUE). Timed legs + audience/scoring alignment + preload shot + park. No flower/intake leg |
-| Yellow Ball Autonomous | Autonomous | `robot/YellowBallAutonomous` | Robot tank | C270 yellow-ball chase: wait for stream, sweep, chase to 8 in, intake creep to 3 in, one retry. Owns the camera (`Robot.init(hw, false)`) |
-| Red/Blue Alliance - Wait + Return Shoot | Red/Blue | `old/RedAutonomous`, `old/BlueAutonomous` | Robot tank | `BioBuzzTimedAuto` plan WAIT_SHOOT_RETURN_SHOOT |
-| Red/Blue Alliance - Shoot Now + Return | Red/Blue | `old/RedShootNowAuto`, `old/BlueShootNowAuto` | Robot tank | SHOOT_RETURN_WAIT_SHOOT |
-| Red/Blue Alliance - Wait + Cross + Park | Red/Blue | `old/RedCrossWaitAuto`, `old/BlueCrossWaitAuto` | Robot tank | WAIT_SHOOT_CROSS_PARK |
-| Red/Blue Alliance - Shoot Now + Cross + Park | Red/Blue | `old/RedCrossNowAuto`, `old/BlueCrossNowAuto` | Robot tank | SHOOT_CROSS_PARK |
-| Basic Out and Back Auto | Autonomous | `old/BasicAutonomous` | Robot tank | Negates both drive axes (comment says chassis moves backward on positive power) |
-| Basic Autonomous | Autonomous | `old/BasicParkingAutonomous` | Raw `left`/`right` | Forward 7/46/7/46 in with turns, back 7 in |
-| Parking Autonomous | Autonomous | `old/ParkingAutonomous` | Raw `left`/`right` | Back 7 in, right 90°, back 46 in |
-| Basic Tank Drive | TeleOp | `old/BasicTankDrive` | Raw `left`/`right` | Opposite motor directions to Robot |
-| Mecanum Drive Test | Testing | `testing/MecanumDriveTest` | 4 mecanum motors | Left stick: forward + strafe, right stick X: rotate. FL and BR reversed |
-| Odometry Sensor Test | Testing | `testing/OdometryTest` | none (push by hand) | Pods on `frontleft`/`frontright` encoder ports + IMU |
+| AprilTag Autonomous Path | Autonomous | `robot/AprilTagAutonomous` | Robot mecanum | Alliance chosen before start (A = RED, B = BLUE). Timed legs + audience/scoring alignment + preload shot + park. No flower/intake leg |
+| Yellow Ball Autonomous | Autonomous | `robot/YellowBallAutonomous` | Robot mecanum | C270 yellow-ball chase: wait for stream, sweep, chase to 8 in, intake creep to 3 in, one retry. Owns the camera (`Robot.init(hw, false)`) |
+| Red/Blue Alliance - Wait + Return Shoot | Red/Blue | `old/RedAutonomous`, `old/BlueAutonomous` | Robot mecanum | `BioBuzzTimedAuto` plan WAIT_SHOOT_RETURN_SHOOT |
+| Red/Blue Alliance - Shoot Now + Return | Red/Blue | `old/RedShootNowAuto`, `old/BlueShootNowAuto` | Robot mecanum | SHOOT_RETURN_WAIT_SHOOT |
+| Red/Blue Alliance - Wait + Cross + Park | Red/Blue | `old/RedCrossWaitAuto`, `old/BlueCrossWaitAuto` | Robot mecanum | WAIT_SHOOT_CROSS_PARK |
+| Red/Blue Alliance - Shoot Now + Cross + Park | Red/Blue | `old/RedCrossNowAuto`, `old/BlueCrossNowAuto` | Robot mecanum | SHOOT_CROSS_PARK |
+| Basic Out and Back Auto | Autonomous | `old/BasicAutonomous` | Robot mecanum | Out-and-back route on `TimedMotion`; no longer negates the axes |
+| Basic Autonomous | Autonomous | `old/BasicParkingAutonomous` | Raw `leftFront`... | Forward 7/46/7/46 in with turns, back 7 in |
+| Parking Autonomous | Autonomous | `old/ParkingAutonomous` | Raw `leftFront`... | Back 7 in, right 90°, back 46 in |
+| Basic Tank Drive | TeleOp | `old/BasicTankDrive` | Raw `leftFront`... | Same wheel names, directions and mixing as Robot |
+| Mecanum Drive Test | Testing | `testing/MecanumDriveTest` | 4 mecanum motors | Left stick: forward + strafe, right stick X: rotate. Uses Robot's names, directions and mixing |
+| Odometry Sensor Test | Testing | `testing/OdometryTest` | none (push by hand) | Pods on the `leftFront`/`rightFront` encoder ports + IMU |
 | Ball Identifier | (none) | `testing/ColorSensorTest` | none | RGB ratios → RED NECTAR / POLLEN / BLUE NECTAR |
 | Magnetic Limit Switch Test | Test | `testing/MagneticLimitSwitchTest` | none | `mag` as TouchSensor or DigitalChannel |
 | AprilTag Test | Vision | `testing/AprilTagTestOpMode` | none | Tag telemetry |
@@ -266,12 +264,12 @@ Each `FollowTrajectoryAction.run()` / `TurnAction.run()` call is one loop iterat
 
 | | MecanumDrive | TankDrive |
 |---|---|---|
-| Motors | `leftFront`, `leftBack`, `rightBack`, `rightFront` | `left`, `right` (lists; add motors per side if needed) |
+| Motors | `leftFront`, `leftBack`, `rightFront`, `rightBack` | same four wheels grouped into left/right sides |
 | Motion | Holonomic: forward, strafe, turn independently (`strafeTo` works) | Non-holonomic: paths must be tangent-continuous; separate `turn()` for heading |
 | Path controller | `HolonomicController` (axial/lateral/heading position + velocity gains) | `RamseteController` (`ramseteZeta`, `ramseteBBar`) |
 | Turn controller | Same holonomic gains | `turnGain`, `turnVelGain` |
 | Default localizer | 4 drive encoders + IMU heading | Left/right drive encoders |
-| Motor directions | TODO, none set | TODO, none set (Robot uses right REVERSE) |
+| Motor directions | `Robot.applyMecanumDirections` | `Robot.applyMecanumDirections` |
 
 ### Parameters and tuning status (all untuned)
 
@@ -296,13 +294,10 @@ Notes:
 
 ## 9. Known issues and inconsistencies
 
-1. Four drivetrain naming schemes (section 3). One robot configuration cannot satisfy `Robot`, `MecanumDrive` and `testing/` at once; OpModes for the other scheme crash at init.
-2. Tank drive direction and turn sign still disagree across files:
-   - `Robot` (and every route built on it): left FORWARD, right REVERSE, positive power = forward, positive turn = clockwise.
-   - `BasicTankDrive`, `ShooterTeleOp`: left REVERSE, right FORWARD. `BasicTankDrive` is self-consistent; `ShooterTeleOp` negates both stick axes on top, so it drives backward on forward stick and steers upside down.
-   - TeleOps use `turn = -right_stick_x`, which makes pushing the stick right turn the robot left. At most one of these conventions is right; verify on blocks and fix once.
+1. One drivetrain scheme now: four wheels named `leftFront`/`leftBack`/`rightFront`/`rightBack` in `Robot`, used by every OpMode, the Road Runner classes and the tests. The wheel directions still have to be confirmed on the bench: `applyMecanumDirections` reverses the right pair, which extends the old two-motor `left`/`right` configuration. If a wheel spins the wrong way, flip that one line - not the mixing.
+2. Manual steering sign is still unresolved and now consistent across all TeleOps (`turn = -right_stick_x`). With the normalized directions the mathematically correct mapping is `+right_stick_x`; if the robot currently steers correctly with `-`, then `applyMecanumDirections` is reversed instead. Settle it with one bench test and change one of the two.
 3. `RobotTeleOp` auto-align is still inverted: it uses `turn = bearing * P_TURN_GAIN` without `Robot.SDK_YAW_TO_TURN`, so LB/RB steers away from the tag while `AutoSequence.alignToTag` steers toward it. Autonomous is fixed; TeleOp is not.
-4. `MecanumDriveTest` reverses FL and BR (usual pattern reverses both left motors). Confirm per wheel. Its on-screen help text swaps the rotate/strafe sticks.
+4. `TankDrive` is now the same four wheels grouped into tank sides, so the Road Runner tank path no longer needs a second robot configuration.
 5. `shooter1`, `shooter2` and `Shooter` all claim the same flywheel hardware, and `Robot.init` initializes all three even though no OpMode uses `Shooter`.
 6. Flywheels are open-loop 100% power; shot speed drops with battery (see branch `feature/shooter-pidf`).
 7. `AutoSequence.loaderIsFeed` assumes the match loader is the ball feed (down = release, up = re-arm). Confirm on the robot; if the ball is released in the up position, flip that flag instead of editing the sequence.
@@ -323,7 +318,7 @@ Notes:
 
 The team is moving from the 2-motor tank to a 4-motor mecanum chassis (see `old/AGENTS.md`, `testing/`, branch `feature/mecanum-drive-controls`). Suggested order:
 
-1. Pick the drivetrain on the field and one hardware naming scheme; update `Robot`, Road Runner and `testing/` to match.
+1. Confirm the four wheel directions on blocks and fix `applyMecanumDirections` if needed; the naming scheme is now single (`leftFront`...`rightBack`).
 2. Fix motor directions and turn sign once, in one place: apply `Robot.SDK_YAW_TO_TURN` to the TeleOp alignment and settle the stick/`drive()` convention (issue 2 and 3 above).
 3. Calibrate the shared autonomous constants (`TimedMotion` distance/turn, `AutoSequence` feed times, `turret` hold) and confirm `loaderIsFeed`; then verify a full BIOBUZZ route scores.
 4. Tune Road Runner (section 8) and enable dead-wheel localization.
