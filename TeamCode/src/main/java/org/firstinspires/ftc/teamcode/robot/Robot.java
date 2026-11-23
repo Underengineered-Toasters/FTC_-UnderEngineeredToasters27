@@ -57,6 +57,16 @@ public class Robot {
     private double rightPower = 0.0;
 
     public void init(HardwareMap hardwareMap) {
+        init(hardwareMap, true);
+    }
+
+    /**
+     * @param enableAprilTagVision false when the OpMode drives its own camera wrapper (for example
+     *        {@link YellowBallVision}). Only one {@code VisionPortal} can hold a camera at a time,
+     *        so the AprilTag portal must stay closed in that case; {@code robot.vision} is then
+     *        left uninitialized and reports no detections.
+     */
+    public void init(HardwareMap hardwareMap, boolean enableAprilTagVision) {
         leftDrive = hardwareMap.get(DcMotor.class, "left");
         rightDrive = hardwareMap.get(DcMotor.class, "right");
 
@@ -113,10 +123,12 @@ public class Robot {
             batterySensor = null;
         }
 
-        try {
-            vision.init(hardwareMap);
-        } catch (Exception e) {
-            // Allows teleop to run if camera is disconnected
+        if (enableAprilTagVision) {
+            try {
+                vision.init(hardwareMap);
+            } catch (Exception e) {
+                // Allows teleop to run if camera is disconnected
+            }
         }
     }
 

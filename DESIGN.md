@@ -30,13 +30,14 @@ flowchart TD
 
     subgraph OM["OpModes (TeamCode)"]
         TO["TeleOp<br/>RobotTeleOp, Red/BlueTeleOp, ShooterTeleOp, IntakeTeleOp"]
-        AU["Autonomous<br/>AprilTagAutonomous, old/* timed autos"]
+        AU["Autonomous<br/>AprilTagAutonomous, YellowBallAutonomous, old/* timed autos"]
         TS["testing/<br/>hardware checks"]
         TU["tuning/<br/>Road Runner tuners"]
     end
 
     TO --> R
     AU --> R
+    AU --> YBV["YellowBallVision<br/>C270 + ColorBlobLocatorProcessor<br/>own VisionPortal"]
     TU --> RR
     TS -. bypasses Robot .-> HW
 
@@ -74,7 +75,7 @@ The Driver Hub robot configuration must contain these names. Conflicting names a
 | Dead wheels | `parOdom`, `perpOdom` (Robot); `par`, `perp` (TwoDeadWheelLocalizer); `par0`, `par1`, `perp` (ThreeDeadWheelLocalizer); `frontleft`/`frontright` encoder ports (OdometryTest) | various |
 | IMU | `imu` | Road Runner drives, `OdometryTest` |
 | OTOS | `sensor_otos` | `OTOSLocalizer` |
-| Camera | `Webcam 1` | `AprilTagVision` |
+| Camera (Logitech C270, USB UVC) | `Webcam 1` | `AprilTagVision`, `YellowBallVision` |
 | Color sensor | `colorSensor` | `testing/ColorSensorTest` |
 
 Wireless ADB: Control Hub `192.168.43.1:5555`, Driver Hub `192.168.43.141:5555` (robot Wi-Fi `36424-RC`). FTC Dashboard: `http://192.168.43.1:8080/dash`.
@@ -90,6 +91,8 @@ Wireless ADB: Control Hub `192.168.43.1:5555`, Driver Hub `192.168.43.141:5555` 
 | `Shooter` | Combined wrapper over the same names. Not used by any OpMode | Open loop |
 | `AprilTagVision` | VisionPortal + AprilTagProcessor with `AprilTagGameDatabase.getCurrentGameTagLibrary()`, inch/degree output. `findTagByName`, `findTagInGroup`, `getCameraSource()` | Sensor |
 | `AprilTagTargets` | SDK 12 helpers: `nameOf`, `identityOf`, `centerOf`, `matchesId`, `bioBuzzClusterForId` | Pure logic (unit tested) |
+| `YellowBallVision` | Own `VisionPortal` + `ColorBlobLocatorProcessor` (`ColorRange.YELLOW`) on the C270. Filters blobs by radius/area/circularity/aspect ratio, then converts to distance (similar triangles) and bearing (positive = robot right). `bestTarget()`, `isStreaming()`, `getStatus()`, `getFps()`, `close()` | Sensor (unit tested geometry) |
+| `YellowBallChase` | Search sweep + closed-loop chase: re-reads range/bearing every iteration and calls `Robot.drive`. Coast-on-lost, grab window, `REACHED`/`LOST`/`TIMEOUT`/`STOPPED` | Closed loop |
 | `AlignLog` | Per-run CSV logger to `/sdcard/FIRST/debug_logs/align_<ms>.csv`. Not called anywhere | Utility |
 | `Drawing` | Draws robot pose on the Dashboard field | Utility |
 
@@ -119,6 +122,7 @@ SDK 12 reports BIOBUZZ goal tags as cluster detections, not single tags. Do not 
 | Intake TeleOp | TeleOp | `robot/IntakeTeleOp` | none | Intake only |
 | Driver Station Test | Vision | `robot/DriverStationTestOpMode` | none | Tag telemetry |
 | AprilTag Autonomous Path | Autonomous | `robot/AprilTagAutonomous` | Robot tank | Alliance chosen before start (A = RED, B = BLUE). Timed legs + audience/scoring alignment + preload shot + park. No flower/intake leg |
+| Yellow Ball Autonomous | Autonomous | `robot/YellowBallAutonomous` | Robot tank | C270 yellow-ball chase: wait for stream, sweep, chase to 8 in, intake creep to 3 in, one retry. Owns the camera (`Robot.init(hw, false)`) |
 | Red/Blue Alliance - Wait + Return Shoot | Red/Blue | `old/RedAutonomous`, `old/BlueAutonomous` | Robot tank | `BioBuzzTimedAuto` plan WAIT_SHOOT_RETURN_SHOOT |
 | Red/Blue Alliance - Shoot Now + Return | Red/Blue | `old/RedShootNowAuto`, `old/BlueShootNowAuto` | Robot tank | SHOOT_RETURN_WAIT_SHOOT |
 | Red/Blue Alliance - Wait + Cross + Park | Red/Blue | `old/RedCrossWaitAuto`, `old/BlueCrossWaitAuto` | Robot tank | WAIT_SHOOT_CROSS_PARK |
@@ -132,6 +136,7 @@ SDK 12 reports BIOBUZZ goal tags as cluster detections, not single tags. Do not 
 | Ball Identifier | (none) | `testing/ColorSensorTest` | none | RGB ratios → RED NECTAR / POLLEN / BLUE NECTAR |
 | Magnetic Limit Switch Test | Test | `testing/MagneticLimitSwitchTest` | none | `mag` as TouchSensor or DigitalChannel |
 | AprilTag Test | Vision | `testing/AprilTagTestOpMode` | none | Tag telemetry |
+| Yellow Ball Camera Test | Vision | `testing/YellowBallDetectionTest` | none | Live detections, distance/bearing, FPS, focal length and expected radius for calibration |
 | quickstart group | quickstart | `tuning/TuningOpModes` | `DRIVE_CLASS` (currently `MecanumDrive`) | Registers Road Runner tuners, `LocalizationTest`, `ManualFeedbackTuner`, `SplineTest` |
 
 ## 6. TeleOp control flow
@@ -209,6 +214,35 @@ Distance and heading are converted by `TimedMotion`: `seconds = inches / (20 in/
 
 All autonomous routines are still dead reckoning by time. Only `alignToTag` uses sensor feedback, only `AprilTagAutonomous` (and any route calling `AutoSequence.shootBalls`) releases a ball, and no route knows its starting pose. None use Road Runner.
 
+### Yellow-ball chase (vision-guided, C270)
+
+`YellowBallAutonomous` is the only route that closes the loop on a camera for the whole move.
+
+- Camera: `WebcamName "Webcam 1"` (Logitech C270 or any UVC webcam). No vendor SDK is involved: the FTC SDK opens it through `VisionPortal`, and `ColorBlobLocatorProcessor` does the colour matching with `ColorRange.YELLOW` (a YCrCb range, which is far more stable than raw RGB under gym lighting).
+- One `VisionPortal` per camera: this OpMode calls `Robot.init(hardwareMap, false)` so the AprilTag portal stays closed and the C270 belongs to the ball detector. Running both wrappers at once would fail to open the second portal.
+- Geometry (all pure functions, unit tested in `YellowBallVisionTest`):
+  - `focalPixels = 0.5 * hypot(width, height) / tan(diagonalFov / 2)` -> 693 px for 640x480 at the C270's 60 deg diagonal FOV (~49.6 deg horizontal).
+  - `distance = focalPixels * ballDiameter / measuredDiameter` (similar triangles).
+  - `bearing = atan((x - width / 2) / focalPixels)`, positive to the robot's right. That is the same sign `Robot.drive` uses for a positive turn, so it is fed straight in; do **not** apply `SDK_YAW_TO_TURN`, which exists for the left-positive SDK `ftcPose.bearing`.
+- Control: forward = `(range - target) x 0.07`, clipped to 0.5 with a 0.14 floor so it keeps closing; turn = `bearing x 0.02`, clipped to 0.3. A lost ball coasts forward at 0.15 for 0.6 s before the sweep takes over.
+- Capture: it stops at 8 in, then with the intake running creeps to 3 in. Losing the ball during that creep counts as collected.
+
+```mermaid
+flowchart TD
+    S["Init: Robot.init(hw, false) + YellowBallVision"] --> W["waitForStart"]
+    W --> ST{"Camera STREAMING within 4 s?"}
+    ST -- no --> X["Stop, report camera status"]
+    ST -- yes --> SR["Sweep +/-0.18 for 3 s"]
+    SR -- ball seen --> CH["Chase to 8 in<br/>range -> forward, bearing -> turn"]
+    SR -- none --> X
+    CH -- REACHED --> CAP["Intake on, creep to 3 in"]
+    CH -- LOST / TIMEOUT --> SR2{"Attempts left?"}
+    SR2 -- yes --> SR
+    SR2 -- no --> X
+    CAP --> E["Stop all, close camera"]
+```
+
+
 ## 8. Road Runner motion stack
 
 ### Trajectory following loop
@@ -280,6 +314,10 @@ Notes:
 13. Dead wheels are read only for telemetry. `AlignLog`, `Drawing.getCameraSource`, `AprilTagVision.findTagInGroup` and `Shooter` are unused.
 14. Camera init failures are silent, and AprilTag decimation/exposure are unset, so detections drop out during fast movement.
 15. Empty directory `FTC_-UnderEngineeredToasters27/` at the repo root is a clone artifact.
+16. Yellow-ball range is monocular: it is only as accurate as `YellowBallVision.ballDiameterInches` and `diagonalFovDegrees`. A wrong ball diameter makes the robot stop short of or nudge the ball. Calibrate with `Yellow Ball Camera Test` before trusting the chase.
+17. One camera, one portal. AprilTag and yellow-ball vision each build their own portal; to use both in a single OpMode they must be added as two processors on one shared portal instead.
+18. `ColorRange.YELLOW` is the SDK default. If the venue lighting, exposure or the actual ball colour differs, replace it with a calibrated `ColorRange` (see `YellowBallVision.targetColorRange`).
+19. The chase re-picks the nearest blob every frame, so two adjacent yellow balls can make it oscillate, and it has no re-identification once a ball leaves the frame for good.
 
 ## 10. Direction of work
 
@@ -291,5 +329,6 @@ The team is moving from the 2-motor tank to a 4-motor mecanum chassis (see `old/
 4. Tune Road Runner (section 8) and enable dead-wheel localization.
 5. Rebuild autonomous as Road Runner trajectories, using AprilTag alignment only for final correction, and add the flower/intake leg to `AprilTagAutonomous`.
 6. Replace open-loop flywheels with velocity control.
+7. Turn the yellow-ball chase into a scoring route: collect with the intake, drive to the scoring cluster, and score through `AutoSequence.shootBalls`; share one portal if AprilTag alignment is needed in the same OpMode.
 
 Active remote branches: `dev`, `dev-avinash-test`, `feature/driver-station-port`, `feature/flower-touch-stop`, `feature/mecanum-drive-controls`, `feature/mono-camera-bringup`, `feature/shooter-pidf`.
