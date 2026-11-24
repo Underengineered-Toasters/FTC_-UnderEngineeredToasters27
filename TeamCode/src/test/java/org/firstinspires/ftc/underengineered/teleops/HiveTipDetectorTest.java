@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.underengineered.teleops;
 
+import org.firstinspires.ftc.teamcode.robot.HiveTipDetector;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
