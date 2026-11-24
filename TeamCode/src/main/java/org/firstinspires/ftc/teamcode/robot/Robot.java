@@ -161,12 +161,14 @@ public class Robot {
             // Allows OpMode to run if odom pods are not plugged in or configured differently
         }
 
-        // Initialize intake, shooter, and turret subsystems
-        intakeSystem.init(hardwareMap);
-        shooter1System.init(hardwareMap);
-        shooter2System.init(hardwareMap);
-        shooter.init(hardwareMap);
-        turretSystem.init(hardwareMap);
+        // Optional mechanisms (intake / shooters / turret). Each is initialized only if its
+        // hardware exists in the current robot configuration. Wrapped individually so a missing
+        // device never stops the drivetrain + odometry OpModes from starting.
+        try { intakeSystem.init(hardwareMap); }  catch (Exception e) { }
+        try { shooter1System.init(hardwareMap); } catch (Exception e) { }
+        try { shooter2System.init(hardwareMap); } catch (Exception e) { }
+        try { shooter.init(hardwareMap); }       catch (Exception e) { }
+        try { turretSystem.init(hardwareMap); }  catch (Exception e) { }
 
         try {
             vision.init(hardwareMap);
