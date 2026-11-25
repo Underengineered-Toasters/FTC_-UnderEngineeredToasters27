@@ -66,9 +66,9 @@ public class Robot {
     private static final String[] IMU_NAMES = {"imu", "IMU", "imu1"};
     private String imuName = null;
 
-    // Inches per encoder tick for each pod. Replace after running the Pedro "Two Wheel Tuner".
-    public static final double FORWARD_TICKS_TO_INCHES = 1.0;
-    public static final double STRAFE_TICKS_TO_INCHES  = 1.0;
+    // Measured by the team's Pedro Two Wheel AutoTune procedure.
+    public static final double FORWARD_TICKS_TO_INCHES = 0.0016335172015208453;
+    public static final double STRAFE_TICKS_TO_INCHES  = 0.0018013083543485444;
 
     private double fieldX = 0.0;                // inches, Pedro frame (0 = left edge of the field)
     private double fieldY = 0.0;                // inches, Pedro frame (0 = bottom edge of the field)
@@ -108,7 +108,7 @@ public class Robot {
         }
 
         // IMU for heading: look up the Control Hub's built-in IMU by its config name. Orientation
-        // matches OdometryTest.java (logo UP, USB FORWARD).
+        // matches the team's measured Control Hub mounting orientation.
         imuName = null;
         for (String name : IMU_NAMES) {
             try {
@@ -117,8 +117,8 @@ public class Robot {
                     continue;
                 }
                 candidate.initialize(new IMU.Parameters(new RevHubOrientationOnRobot(
-                        RevHubOrientationOnRobot.LogoFacingDirection.UP,
-                        RevHubOrientationOnRobot.UsbFacingDirection.FORWARD
+                        RevHubOrientationOnRobot.LogoFacingDirection.FORWARD,
+                        RevHubOrientationOnRobot.UsbFacingDirection.RIGHT
                 )));
                 imu = candidate;
                 imuName = name;

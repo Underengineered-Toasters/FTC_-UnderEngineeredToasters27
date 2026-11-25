@@ -4,6 +4,7 @@ import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 /** Manual mecanum drive with live two-wheel Pedro odometry. */
 @TeleOp(name = "Odometry Calibration Drive", group = "Calibration")
@@ -14,6 +15,9 @@ public class OdometryCalibrationDrive extends LinearOpMode {
     @Override
     public void runOpMode() {
         Follower follower = Constants.create(hardwareMap);
+        // The external pods are connected to the encoder pins of these configured motor ports.
+        DcMotorEx forwardPod = hardwareMap.get(DcMotorEx.class, "frontleft");
+        DcMotorEx strafePod = hardwareMap.get(DcMotorEx.class, "frontright");
 
         telemetry.addLine("Start sets the current robot pose to (0, 0, 0).");
         telemetry.addLine("Left stick: drive/strafe. Right stick X: turn. Left bumper: slow.");
@@ -46,6 +50,9 @@ public class OdometryCalibrationDrive extends LinearOpMode {
                 telemetry.addData("X (forward, in)", "%.2f", pose.x());
                 telemetry.addData("Y (left, in)", "%.2f", pose.y());
                 telemetry.addData("Heading (deg)", "%.1f", Math.toDegrees(pose.heading()));
+                telemetry.addData("Forward pod raw ticks", forwardPod.getCurrentPosition());
+                telemetry.addData("Strafe pod raw ticks", strafePod.getCurrentPosition());
+                telemetry.addLine("If a pod's raw ticks stay at 0 while its wheel rolls, check that pod's cable/port.");
                 telemetry.addLine("A resets pose to 0, 0, 0");
                 telemetry.update();
                 idle();
