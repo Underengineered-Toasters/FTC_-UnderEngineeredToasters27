@@ -21,7 +21,7 @@ public final class Constants {
     private Constants() { }
 
     /** Safety switch for generated autonomous paths. Set true only after confirming localization. */
-    public static final boolean AUTONOMOUS_ARMED = false;
+    public static final boolean AUTONOMOUS_ARMED = true;
 
     public static MecanumConfig drivetrainConfig = new MecanumConfig(c -> {
         c.frontLeftName.set("frontleft");
