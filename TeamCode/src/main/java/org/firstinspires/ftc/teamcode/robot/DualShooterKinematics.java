@@ -10,14 +10,14 @@ public class DualShooterKinematics {
     public static final double SHOOTER_HEIGHT_INCHES = 12.73;
     public static final double DELTA_Y_INCHES = TARGET_HEIGHT_INCHES - SHOOTER_HEIGHT_INCHES; // 46.832177 in
 
-    public static final double LAUNCH_ANGLE_DEG = 65.0; // 65 degrees from horizontal
+    public static final double LAUNCH_ANGLE_DEG = 60.0;
 
     // --- Flywheel Geometry ---
     // 72mm converted to inches = 72 / 25.4 = 2.83464567 inches
     public static final double WHEEL_DIAMETER_INCHES = 72.0 / 25.4;
     public static final double WHEEL_RADIUS_INCHES = WHEEL_DIAMETER_INCHES / 2.0; // ~1.4173 in
 
-    // Dual-wheel shooters have minimal slip due to dual contact traction (typically 0.82 - 0.90)
+    // PLACEHOLDER: calibrate against measured shots; wheel slip depends on compression and game piece.
     public static double SLIP_FACTOR = 0.85;
 
     /**

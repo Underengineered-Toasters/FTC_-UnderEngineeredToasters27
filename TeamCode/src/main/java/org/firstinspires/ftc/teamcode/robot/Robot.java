@@ -90,76 +90,9 @@ public class Robot {
     private long lastStrafeMoveMs = 0;
 
     public void init(HardwareMap hardwareMap) {
-        // Mecanum drivetrain. Names and directions mirror MecanumDriveTest.java so that a positive
-        // forward/strafe/turn input produces the expected motion.
-        frontLeftDrive  = hardwareMap.get(DcMotor.class, "frontleft");
-        frontRightDrive = hardwareMap.get(DcMotor.class, "frontright");
-        backLeftDrive   = hardwareMap.get(DcMotor.class, "backleft");
-        backRightDrive  = hardwareMap.get(DcMotor.class, "backright");
+        initDriveAndOdometry(hardwareMap);
 
-        frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
-        frontRightDrive.setDirection(DcMotor.Direction.FORWARD);
-        backLeftDrive.setDirection(DcMotor.Direction.FORWARD);
-        backRightDrive.setDirection(DcMotor.Direction.REVERSE);
-
-        for (DcMotor motor : new DcMotor[]{frontLeftDrive, frontRightDrive, backLeftDrive, backRightDrive}) {
-            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-            motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        }
-
-        // IMU for heading: look up the Control Hub's built-in IMU by its config name. Orientation
-        // matches the team's measured Control Hub mounting orientation.
-        imuName = null;
-        for (String name : IMU_NAMES) {
-            try {
-                IMU candidate = hardwareMap.tryGet(IMU.class, name);
-                if (candidate == null) {
-                    continue;
-                }
-                candidate.initialize(new IMU.Parameters(new RevHubOrientationOnRobot(
-                        RevHubOrientationOnRobot.LogoFacingDirection.FORWARD,
-                        RevHubOrientationOnRobot.UsbFacingDirection.RIGHT
-                )));
-                imu = candidate;
-                imuName = name;
-                break;
-            } catch (Exception e) {
-                // Try the next candidate name; teleop still runs if no IMU is configured.
-            }
-        }
-        if (imuName == null) {
-            imu = null;
-        }
-
-        // Initialize Match Loader Servo ("matchLoader")
-        try {
-            matchLoaderServo = hardwareMap.tryGet(Servo.class, "matchLoader");
-            if (matchLoaderServo != null) {
-                matchLoaderServo.setPosition(MATCH_LOADER_UP);
-            }
-        } catch (Exception e) {
-            matchLoaderServo = null;
-        }
-
-        // Initialize Match Loader Touch Sensor ("matchLoaderTouch" or "touch")
-        try {
-            matchLoaderTouch = hardwareMap.tryGet(TouchSensor.class, "matchLoaderTouch");
-            if (matchLoaderTouch == null) {
-                matchLoaderTouch = hardwareMap.tryGet(TouchSensor.class, "touch");
-            }
-        } catch (Exception e) {
-            matchLoaderTouch = null;
-        }
-
-        // Initialize 2 Odometry Encoders ("frontleft" = Y/forward pod, "frontright" = X/sideways pod)
-        try {
-            parallelEncoder = hardwareMap.get(DcMotor.class, "frontleft");
-            perpendicularEncoder = hardwareMap.get(DcMotor.class, "frontright");
-
-            resetOdomEncoders();
-        } catch (Exception e) {
-            // Allows OpMode to run if odom pods are not plugged in or configured differently
-        }
+        initMatchLoader(hardwareMap);
 
         // Optional mechanisms (intake / shooters / turret). Each is initialized only if its
         // hardware exists in the current robot configuration. Wrapped individually so a missing
@@ -175,6 +108,72 @@ public class Robot {
         } catch (Exception e) {
             // Allows teleop to run if camera is disconnected
         }
+    }
+
+    /** Initializes the optional match-loader servo and its limit switch. */
+    public void initMatchLoader(HardwareMap hardwareMap) {
+        try {
+            matchLoaderServo = hardwareMap.tryGet(Servo.class, "matchLoader");
+            if (matchLoaderServo != null) {
+                matchLoaderServo.setPosition(MATCH_LOADER_UP);
+            }
+        } catch (Exception e) {
+            matchLoaderServo = null;
+        }
+
+        try {
+            matchLoaderTouch = hardwareMap.tryGet(TouchSensor.class, "matchLoaderTouch");
+            if (matchLoaderTouch == null) {
+                matchLoaderTouch = hardwareMap.tryGet(TouchSensor.class, "touch");
+            }
+        } catch (Exception e) {
+            matchLoaderTouch = null;
+        }
+    }
+
+    /** Initializes only drivetrain, IMU and odometry hardware for isolated drive/shooter OpModes. */
+    public void initDriveAndOdometry(HardwareMap hardwareMap) {
+        frontLeftDrive = hardwareMap.get(DcMotor.class, "frontleft");
+        frontRightDrive = hardwareMap.get(DcMotor.class, "frontright");
+        backLeftDrive = hardwareMap.get(DcMotor.class, "backleft");
+        backRightDrive = hardwareMap.get(DcMotor.class, "backright");
+
+        frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
+        frontRightDrive.setDirection(DcMotor.Direction.FORWARD);
+        backLeftDrive.setDirection(DcMotor.Direction.FORWARD);
+        backRightDrive.setDirection(DcMotor.Direction.REVERSE);
+
+        for (DcMotor motor : new DcMotor[]{frontLeftDrive, frontRightDrive, backLeftDrive, backRightDrive}) {
+            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
+
+        imuName = null;
+        for (String name : IMU_NAMES) {
+            try {
+                IMU candidate = hardwareMap.tryGet(IMU.class, name);
+                if (candidate == null) {
+                    continue;
+                }
+                candidate.initialize(new IMU.Parameters(new RevHubOrientationOnRobot(
+                        RevHubOrientationOnRobot.LogoFacingDirection.UP,
+                        RevHubOrientationOnRobot.UsbFacingDirection.FORWARD
+                )));
+                imu = candidate;
+                imuName = name;
+                break;
+            } catch (Exception e) {
+                // Continue checking alternate configured IMU names.
+            }
+        }
+        if (imuName == null) {
+            imu = null;
+        }
+
+        // These existing encoder ports are also used as the two odometry inputs.
+        parallelEncoder = hardwareMap.get(DcMotor.class, "frontleft");
+        perpendicularEncoder = hardwareMap.get(DcMotor.class, "frontright");
+        resetOdomEncoders();
     }
 
     public void resetOdomEncoders() {

@@ -1,11 +1,13 @@
 package org.firstinspires.ftc.teamcode.robot;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+@Config
 public class DualShooterSubsystem {
     private final DcMotorEx masterMotor;
     private final DcMotorEx followerMotor;
@@ -20,12 +22,11 @@ public class DualShooterSubsystem {
     // If motor pulley has 30 teeth and wheel pulley has 15 teeth, ratio is (30.0 / 15.0) = 2.0 (speed-up).
     public static double GEAR_RATIO_WHEEL_OVER_MOTOR = 1.0;
 
-    // --- PIDF Constants ---
-    // With 2 motors on one axle, you have double the torque, so recovery is extremely fast.
+    // PLACEHOLDER PIDF gains: tune on the robot with the flywheel unloaded first.
     public static double kF = 1.0 / ((MAX_MOTOR_RPM / 60.0) * TICKS_PER_REV);
-    public static double kP = 0.00035;
-    public static double kI = 0.00000;
-    public static double kD = 0.00001;
+    public static double kP = 0.00005;
+    public static double kI = 0.0;
+    public static double kD = 0.0;
 
     private double targetWheelRPM = 0.0;
     private double lastError = 0.0;
@@ -57,7 +58,14 @@ public class DualShooterSubsystem {
      * @param wheelRPM The desired RPM of the 72mm shooter wheel.
      */
     public void setTargetRPM(double wheelRPM) {
-        this.targetWheelRPM = Math.max(0.0, wheelRPM);
+        double gearRatio = GEAR_RATIO_WHEEL_OVER_MOTOR;
+        if (!Double.isFinite(wheelRPM) || !Double.isFinite(gearRatio) || gearRatio <= 0.0) {
+            targetWheelRPM = 0.0;
+            return;
+        }
+
+        double maxWheelRPM = MAX_MOTOR_RPM * gearRatio;
+        targetWheelRPM = Math.max(0.0, Math.min(maxWheelRPM, wheelRPM));
     }
 
     public void update() {
@@ -66,10 +74,13 @@ public class DualShooterSubsystem {
         if (dt <= 0.001) return;
 
         // Target motor shaft RPM = wheel RPM / gear ratio
-        double targetMotorRPM = Math.min(
-                targetWheelRPM / GEAR_RATIO_WHEEL_OVER_MOTOR,
-                MAX_MOTOR_RPM
-        );
+        double gearRatio = GEAR_RATIO_WHEEL_OVER_MOTOR;
+        if (!Double.isFinite(gearRatio) || gearRatio <= 0.0) {
+            stop();
+            return;
+        }
+
+        double targetMotorRPM = Math.min(targetWheelRPM / gearRatio, MAX_MOTOR_RPM);
 
         // Current motor speed from master encoder
         double currentMotorTicksPerSec = Math.abs(masterMotor.getVelocity());
@@ -100,9 +111,39 @@ public class DualShooterSubsystem {
         lastTime = currentTime;
     }
 
+    public void stop() {
+        targetWheelRPM = 0.0;
+        masterMotor.setPower(0.0);
+        followerMotor.setPower(0.0);
+        integralSum = 0.0;
+        lastError = 0.0;
+        lastTime = timer.seconds();
+    }
+
+    public double getMasterWheelRPM() {
+        return motorVelocityToWheelRPM(masterMotor);
+    }
+
+    public double getFollowerWheelRPM() {
+        return motorVelocityToWheelRPM(followerMotor);
+    }
+
     public double getCurrentWheelRPM() {
-        double motorRPM = (Math.abs(masterMotor.getVelocity()) / TICKS_PER_REV) * 60.0;
-        return motorRPM * GEAR_RATIO_WHEEL_OVER_MOTOR;
+        return (getMasterWheelRPM() + getFollowerWheelRPM()) / 2.0;
+    }
+
+    public double getMasterPower() {
+        return masterMotor.getPower();
+    }
+
+    public double getFollowerPower() {
+        return followerMotor.getPower();
+    }
+
+    private double motorVelocityToWheelRPM(DcMotorEx motor) {
+        return (Math.abs(motor.getVelocity()) / TICKS_PER_REV)
+                * 60.0
+                * GEAR_RATIO_WHEEL_OVER_MOTOR;
     }
 
     public double getTargetWheelRPM() {
@@ -110,6 +151,9 @@ public class DualShooterSubsystem {
     }
 
     public boolean isReadyToShoot(double toleranceRPM) {
-        return targetWheelRPM > 0 && Math.abs(getCurrentWheelRPM() - targetWheelRPM) <= toleranceRPM;
+        return targetWheelRPM > 0.0
+                && toleranceRPM >= 0.0
+                && Math.abs(getMasterWheelRPM() - targetWheelRPM) <= toleranceRPM
+                && Math.abs(getFollowerWheelRPM() - targetWheelRPM) <= toleranceRPM;
     }
 }
