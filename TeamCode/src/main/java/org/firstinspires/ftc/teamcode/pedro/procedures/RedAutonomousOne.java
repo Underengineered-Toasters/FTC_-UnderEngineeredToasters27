@@ -11,8 +11,8 @@ import static com.pedropathing.ivy.groups.Groups.sequential;
 import static com.pedropathing.ivy.pedro.PedroCommands.follow;
 
 /** Paths transcribed from the supplied Red Auton 1 Pedro planner JSON. */
-@Autonomous(name = "Red Auton 1", group = "Autonomous")
-public class Red_Auton_1 extends PedroAutonomousBase {
+@Autonomous(name = "RedAutonomousOne", group = "Autonomous")
+public class RedAutonomousOne extends PedroAutonomousBase {
     private final PoseFactory poses = PoseFactory.degrees();
     private final Pose start = poses.of(58.326532250287755, 132.08412605692226, 90);
     private final Pose highTarget1 = poses.of(57.852151135292175, 132.12861985831424, 90);

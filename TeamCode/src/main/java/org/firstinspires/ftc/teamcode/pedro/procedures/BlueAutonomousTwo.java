@@ -10,8 +10,8 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import static com.pedropathing.ivy.groups.Groups.sequential;
 import static com.pedropathing.ivy.pedro.PedroCommands.follow;
 
-@Autonomous(name = "Blue_W5_S1_f1.I_S2_f2.I_S2_P", group = "Autonomous")
-public class Blue_W5_S1_f1_I_S2_f2_I_S2_P extends PedroAutonomousBase {
+@Autonomous(name = "BlueAutonomousTwo", group = "Autonomous")
+public class BlueAutonomousTwo extends PedroAutonomousBase {
     private final PoseFactory poses = PoseFactory.degrees();
     private final Pose start = poses.of(80.6244, 10.1776, 270);
     private final Pose path1End = poses.of(93.7389, 14.7398, 270);
