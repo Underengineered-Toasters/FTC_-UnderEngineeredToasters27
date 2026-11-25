@@ -7,7 +7,7 @@ import com.qualcomm.robotcore.hardware.TouchSensor;
 /**
  * Controller for 360-Degree Turret Motor ("turret") and Magnetic Limit Switch ("mag").
  * Rotates the shooter mechanism left and right using D-Pad controls.
- * Tracks position via encoder ticks to hold static initial position.
+ * Tracks position via encoder ticks and supports rotateTo(deg).
  */
 public class turret {
 
@@ -36,11 +36,25 @@ public class turret {
     }
 
     public void rotateLeft() {
+        if (turretMotor != null && turretMotor.getMode() != DcMotor.RunMode.RUN_WITHOUT_ENCODER) {
+            turretMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
         setPower(-TURRET_SPEED);
     }
 
     public void rotateRight() {
+        if (turretMotor != null && turretMotor.getMode() != DcMotor.RunMode.RUN_WITHOUT_ENCODER) {
+            turretMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
         setPower(TURRET_SPEED);
+    }
+
+    public void rotateTo(double deg) {
+        if (turretMotor != null) {
+            turretMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            turretMotor.setTargetPosition((int) (deg * 110.0 / 20.0 / 180.0));
+            turretMotor.setPower(0.30);
+        }
     }
 
     public void setPower(double power) {
