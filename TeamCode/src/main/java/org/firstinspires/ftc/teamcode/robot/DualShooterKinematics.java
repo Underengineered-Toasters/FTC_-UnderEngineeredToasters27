@@ -1,16 +1,16 @@
 package org.firstinspires.ftc.teamcode.robot;
 
+import org.firstinspires.ftc.teamcode.messages.KinematicsModel;
+
 public class DualShooterKinematics {
     // Gravitational constant in inches/second^2 (32.174 ft/s^2 * 12)
-    public static final double GRAVITY_IN_PER_SEC2 = 386.09;
-
+    public static final double GRAVITY_IN_PER_SEC2 = 386.089;
     // --- Heights & Launch Angle ---
     // DeltaY: (6.062177 + 10.7275 + 42.7725) - 12.73 = 46.832177 inches
-    public static final double TARGET_HEIGHT_INCHES = 6.062177 + 10.7275 + 42.7725; // 59.562177 in
+    public static final double TARGET_HIVE_HEIGHT_INCHES = 6.062177 + 10.7275 + 42.7725; // 59.562177 in
     public static final double SHOOTER_HEIGHT_INCHES = 12.73;
-    public static final double DELTA_Y_INCHES = TARGET_HEIGHT_INCHES - SHOOTER_HEIGHT_INCHES; // 46.832177 in
 
-    public static final double LAUNCH_ANGLE_DEG = 60.0;
+    public static final double LAUNCH_ANGLE_DEG = 55.0;
 
     // --- Flywheel Geometry ---
     // 72mm converted to inches = 72 / 25.4 = 2.83464567 inches
@@ -27,11 +27,11 @@ public class DualShooterKinematics {
      * @param horizontalDistanceInches x: distance from shooter exit to target opening
      * @return Ball exit speed in inches/second
      */
-    public static double calculateExitVelocity(double horizontalDistanceInches) {
-        double thetaRad = Math.toRadians(LAUNCH_ANGLE_DEG);
+    public static double calculateExitVelocity(double horizontalDistanceInches, double deltaYInInches, double launchAngleInDegrees) {
+        double thetaRad = Math.toRadians(launchAngleInDegrees);
 
         // Denominator: 2 * (x * tan(theta) - deltaY)
-        double denom = 2.0 * (horizontalDistanceInches * Math.tan(thetaRad) - DELTA_Y_INCHES);
+        double denom = 2.0 * (horizontalDistanceInches * Math.tan(thetaRad) - deltaYInInches);
 
         // Denominator <= 0 means apex cannot physically reach target height
         if (denom <= 0.0) {
@@ -58,11 +58,14 @@ public class DualShooterKinematics {
         return (wheelSurfaceSpeedNeeded * 60.0) / circumferenceInches;
     }
 
-    /**
-     * Direct conversion: Distance (inches) -> Motor Target RPM
-     */
-    public static double getTargetRPM(double distanceInches) {
-        double vBall = calculateExitVelocity(distanceInches);
+
+    public static double getTargetRPM(KinematicsModel kinematicsModel) {
+        double deltaYInInches = kinematicsModel.getTargetHiveHeightInInches() - kinematicsModel.getShooterHeightInInches();
+        return getTargetRPM(kinematicsModel.getHorizontalDistanceInches(), deltaYInInches, kinematicsModel.getLaunchAngleInDegree());
+    }
+
+    public static double getTargetRPM(double horizontalDistanceInches, double deltaYInInches, double launchAngleInDegrees) {
+        double vBall = calculateExitVelocity(horizontalDistanceInches, deltaYInInches, launchAngleInDegrees);
         return velocityToRPM(vBall);
     }
 }

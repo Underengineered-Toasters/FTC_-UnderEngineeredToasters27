@@ -7,6 +7,8 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.teamcode.messages.KinematicsModel;
+
 @Config
 @TeleOp(name = "Dual Shooter Odometry Test", group = "Testing")
 @SuppressWarnings("unused") // FTC discovers OpModes through their annotations.
@@ -129,7 +131,9 @@ public class DualShooterTestTeleOp extends LinearOpMode {
                     requestedRPM = maxWheelRPM * gamepad1.right_trigger;
                     controlMode = "Manual trigger";
                 } else if (gamepad1.left_trigger > TRIGGER_DEADBAND) {
-                    requestedRPM = DualShooterKinematics.getTargetRPM(shooterDistanceInches);
+                    KinematicsModel kinematicsModel = new KinematicsModel(shooterDistanceInches,
+                            DualShooterKinematics.TARGET_HIVE_HEIGHT_INCHES, DualShooterKinematics.SHOOTER_HEIGHT_INCHES, DualShooterKinematics.LAUNCH_ANGLE_DEG);
+                    requestedRPM = DualShooterKinematics.getTargetRPM(kinematicsModel);
                     controlMode = "Odometry distance";
                 }
 

@@ -2,6 +2,9 @@ package org.firstinspires.ftc.teamcode.robot;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+
+import org.firstinspires.ftc.teamcode.messages.KinematicsModel;
+
 @TeleOp(name="Dual-Wheel Auto-Aim Shooter", group="TeleOp")
 @SuppressWarnings("unused") // FTC discovers OpModes through their annotations.
 public class TeleOpDualShooterAuto extends LinearOpMode {
@@ -43,8 +46,10 @@ public class TeleOpDualShooterAuto extends LinearOpMode {
             // 3. CONTROLS
             // ==========================================================
             if (gamepad1.right_bumper) {
+                KinematicsModel kinematicsModel = new KinematicsModel(horizontalDistance,
+                        DualShooterKinematics.TARGET_HIVE_HEIGHT_INCHES, DualShooterKinematics.SHOOTER_HEIGHT_INCHES, DualShooterKinematics.LAUNCH_ANGLE_DEG);
                 // Calculate required RPM dynamically based on position
-                double targetRPM = DualShooterKinematics.getTargetRPM(horizontalDistance);
+                double targetRPM = DualShooterKinematics.getTargetRPM(kinematicsModel);
                 shooter.setTargetRPM(targetRPM);
             } else if (gamepad1.left_bumper) {
                 // Turn off
