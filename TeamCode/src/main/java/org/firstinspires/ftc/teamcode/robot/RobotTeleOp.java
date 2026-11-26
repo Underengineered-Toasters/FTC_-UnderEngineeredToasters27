@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.robot;
 
+import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -7,6 +8,7 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 
 import java.util.List;
 
+@Config
 @TeleOp(name = "Robot TeleOp", group = "Main")
 public class RobotTeleOp extends LinearOpMode {
 
@@ -24,10 +26,16 @@ public class RobotTeleOp extends LinearOpMode {
     private static final double P_DRIVE_GAIN = 0.03;
     private static final double P_TURN_GAIN  = 0.02;
 
+    // Shooter wheel speed held by DualShooterSubsystem while the right trigger is pressed.
+    // PLACEHOLDER: tune via FTC Dashboard, then copy the value back here.
+    public static double SHOOTER_TARGET_RPM = 5000.0;
+    public static double SHOOTER_READY_TOLERANCE_RPM = 80.0;
+
     @Override
     public void runOpMode() {
 
         robot.init(hardwareMap);
+        DualShooterSubsystem shooter = new DualShooterSubsystem(hardwareMap, "shooter1", "shooter2");
 
         telemetry.addLine("==============================");
         telemetry.addLine("       ROBOT INITIALIZED");
@@ -37,7 +45,7 @@ public class RobotTeleOp extends LinearOpMode {
         telemetry.addLine("LB / RB       = Camera AprilTag Auto-Align");
         telemetry.addLine("D-Pad Left/Right = Rotate Turret 360°");
         telemetry.addLine("Left Trigger  = Run Intake (Port 2)");
-        telemetry.addLine("Right Trigger = Shoot (Shooter 1 & 2 at 100%)");
+        telemetry.addLine("Right Trigger = Shoot (hold shooter RPM)");
         telemetry.addLine("Y Button      = Toggle Intake Direction");
         telemetry.addLine("A Button      = Match Loader Servo DOWN 90°");
         telemetry.addLine("X Button      = Direct Intake OUT (Reverse)");
@@ -46,6 +54,7 @@ public class RobotTeleOp extends LinearOpMode {
         waitForStart();
 
         if (isStopRequested()) {
+            shooter.stop();
             robot.close();
             return;
         }
@@ -153,13 +162,8 @@ public class RobotTeleOp extends LinearOpMode {
             boolean buttonX       = gamepad1.x || gamepad2.x;
 
             // SHOOTER CONTROL (Right Trigger)
-            if (shooterTrigger > 0.05) {
-                robot.shooter1System.spinForwardMaxSpeed();
-                robot.shooter2System.spinForwardMaxSpeed();
-            } else {
-                robot.shooter1System.spinDown();
-                robot.shooter2System.spinDown();
-            }
+            shooter.setTargetRPM(shooterTrigger > 0.05 ? SHOOTER_TARGET_RPM : 0.0);
+            shooter.update();
 
             // INTAKE CONTROL (Left Trigger / Button X)
             if (buttonX) {
@@ -198,8 +202,13 @@ public class RobotTeleOp extends LinearOpMode {
             telemetry.addData("Intake Power", "%.2f", robot.intakeSystem.getPower());
 
             telemetry.addLine("------------------------------");
-            telemetry.addData("Shooter 1 Power", "%.2f", robot.shooter1System.getCurrentPower());
-            telemetry.addData("Shooter 2 Power", "%.2f", robot.shooter2System.getCurrentPower());
+            telemetry.addData("Shooter Target", "%.0f RPM", shooter.getTargetWheelRPM());
+            telemetry.addData("Shooter RPM", "M: %.0f | F: %.0f",
+                    shooter.getMasterWheelRPM(), shooter.getFollowerWheelRPM());
+            telemetry.addData("Shooter Power", "M: %.2f | F: %.2f",
+                    shooter.getMasterPower(), shooter.getFollowerPower());
+            telemetry.addData("Shooter Ready",
+                    shooter.isReadyToShoot(SHOOTER_READY_TOLERANCE_RPM) ? "YES" : "NO");
 
             telemetry.addLine("------------------------------");
             telemetry.addData("Match Loader Servo (A)", matchLoaderDown ? "DOWN (90°)" : "UP (Rest)");
@@ -225,8 +234,7 @@ public class RobotTeleOp extends LinearOpMode {
         }
 
         robot.intakeSystem.stopIntake();
-        robot.shooter1System.spinDown();
-        robot.shooter2System.spinDown();
+        shooter.stop();
         robot.turretSystem.stopTurret();
         robot.close();
     }

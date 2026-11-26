@@ -41,7 +41,7 @@ public class DualShooterTestTeleOp extends LinearOpMode {
         boolean feederAvailable = robot.matchLoaderServo != null;
 
         DualShooterSubsystem shooter =
-                new DualShooterSubsystem(hardwareMap, "leftShooter", "rightShooter");
+                new DualShooterSubsystem(hardwareMap, "shooter1", "shooter2");
 
         // Pedro coordinates use the field corner as (0,0). With the robot flush in that
         // corner, the centered IMU is 9 inches from both walls. Forward faces the lower wall.

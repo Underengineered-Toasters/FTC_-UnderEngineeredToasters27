@@ -46,10 +46,11 @@ public class DualShooterSubsystem {
         masterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         followerMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
-        // BOTH MOTORS SHARE A BELT: THEY MUST SPIN IN THE SAME DIRECTION!
+        // Both motors share a belt but are mounted facing opposite ways, so the follower is
+        // reversed (matches Shooter/shooter2). If they fight each other (high power, low RPM),
+        // the mounting differs; if the ball shoots backwards, swap BOTH directions.
         masterMotor.setDirection(DcMotorSimple.Direction.FORWARD);
-        followerMotor.setDirection(DcMotorSimple.Direction.FORWARD);
-        // Note: If the ball shoots backwards into the robot, change BOTH to REVERSE.
+        followerMotor.setDirection(DcMotorSimple.Direction.REVERSE);
 
         timer = new ElapsedTime();
     }

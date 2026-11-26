@@ -15,8 +15,8 @@ public class TeleOpDualShooterAuto extends LinearOpMode {
         DualShooterSubsystem shooter;
 
         // Configure these two motor names in your Driver Station phone configuration:
-        // "leftShooter" and "rightShooter"
-        shooter = new DualShooterSubsystem(hardwareMap, "leftShooter", "rightShooter");
+        // "shooter1" and "shooter2" (same names used by Shooter/shooter1/shooter2)
+        shooter = new DualShooterSubsystem(hardwareMap, "shooter1", "shooter2");
 
         telemetry.addLine("Dual 6000 RPM Shooter Initialized.");
         telemetry.update();
