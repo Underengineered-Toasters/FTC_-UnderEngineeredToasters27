@@ -61,10 +61,15 @@ public class shooter1 {
     }
 
     public void spinReverseMaxSpeed() {
+        setReversePower(POWER_MAX);
+    }
+
+    public void setReversePower(double power) {
+        double magnitude = Math.max(POWER_OFF, Math.min(POWER_MAX, power));
         if (sparkMiniFlywheel != null) {
-            sparkMiniFlywheel.setPower(-POWER_MAX); // -100% Reverse Speed on SPARK Mini
+            sparkMiniFlywheel.setPower(-magnitude);
         } else if (motorFlywheel != null) {
-            motorFlywheel.setPower(-POWER_MAX);
+            motorFlywheel.setPower(-magnitude);
         }
     }
 

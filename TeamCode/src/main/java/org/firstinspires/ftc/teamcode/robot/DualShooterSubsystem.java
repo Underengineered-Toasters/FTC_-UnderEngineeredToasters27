@@ -34,6 +34,11 @@ public class DualShooterSubsystem {
     private double lastTime = 0.0;
 
     public DualShooterSubsystem(HardwareMap hardwareMap, String motor1Name, String motor2Name) {
+        this(hardwareMap, motor1Name, motor2Name, false);
+    }
+
+    public DualShooterSubsystem(HardwareMap hardwareMap, String motor1Name, String motor2Name,
+                                boolean reverse) {
         masterMotor = hardwareMap.get(DcMotorEx.class, motor1Name);
         followerMotor = hardwareMap.get(DcMotorEx.class, motor2Name);
 
@@ -46,11 +51,11 @@ public class DualShooterSubsystem {
         masterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         followerMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
-        // Both motors share a belt but are mounted facing opposite ways, so the follower is
-        // reversed (matches Shooter/shooter2). If they fight each other (high power, low RPM),
-        // the mounting differs; if the ball shoots backwards, swap BOTH directions.
-        masterMotor.setDirection(DcMotorSimple.Direction.FORWARD);
-        followerMotor.setDirection(DcMotorSimple.Direction.REVERSE);
+        // The belted motors face opposite ways. Reverse both directions together.
+        DcMotorSimple.Direction masterDirection = reverse
+                ? DcMotorSimple.Direction.REVERSE : DcMotorSimple.Direction.FORWARD;
+        masterMotor.setDirection(masterDirection);
+        followerMotor.setDirection(masterDirection.inverted());
 
         timer = new ElapsedTime();
     }

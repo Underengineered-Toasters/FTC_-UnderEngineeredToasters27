@@ -1,6 +1,9 @@
 package org.firstinspires.ftc.teamcode.robot;
 
 import com.acmerobotics.dashboard.config.Config;
+import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -26,16 +29,29 @@ public class RobotTeleOp extends LinearOpMode {
     private static final double P_DRIVE_GAIN = 0.03;
     private static final double P_TURN_GAIN  = 0.02;
 
-    // Shooter wheel speed held by DualShooterSubsystem while the right trigger is pressed.
-    // PLACEHOLDER: tune via FTC Dashboard, then copy the value back here.
-    public static double SHOOTER_TARGET_RPM = 5000.0;
+    // Tune the shooter target and readiness tolerance through FTC Dashboard.
+    public static double SHOOTER_TARGET_RPM = 3395.47;
     public static double SHOOTER_READY_TOLERANCE_RPM = 80.0;
 
     @Override
     public void runOpMode() {
 
         robot.init(hardwareMap);
-        DualShooterSubsystem shooter = new DualShooterSubsystem(hardwareMap, "shooter1", "shooter2");
+        boolean servoShooters = (hardwareMap.tryGet(CRServo.class, "shooter1") != null
+                || hardwareMap.tryGet(CRServo.class, "shooter") != null)
+                && hardwareMap.tryGet(CRServo.class, "shooter2") != null;
+        String masterName = hardwareMap.tryGet(DcMotorEx.class, "shooter1") != null
+                ? "shooter1" : "shooter";
+        DualShooterSubsystem shooter = null;
+        String shooterStatus = "Open-loop reverse (check shooter configuration)";
+        if (servoShooters) {
+            shooterStatus = "Servo-port RPM estimate (no speed feedback)";
+        } else if (hardwareMap.tryGet(DcMotorEx.class, masterName) != null
+                && hardwareMap.tryGet(DcMotorEx.class, "shooter2") != null) {
+            shooter = new DualShooterSubsystem(
+                    hardwareMap, masterName, "shooter2", /* reverse= */ true);
+            shooterStatus = "RPM control";
+        }
 
         telemetry.addLine("==============================");
         telemetry.addLine("       ROBOT INITIALIZED");
@@ -45,16 +61,23 @@ public class RobotTeleOp extends LinearOpMode {
         telemetry.addLine("LB / RB       = Camera AprilTag Auto-Align");
         telemetry.addLine("D-Pad Left/Right = Rotate Turret 360°");
         telemetry.addLine("Left Trigger  = Run Intake (Port 2)");
-        telemetry.addLine("Right Trigger = Shoot (hold shooter RPM)");
+        telemetry.addLine("Right Trigger = Shoot (reverse) + Run Transfer");
+        telemetry.addData("Shooter Status", shooterStatus);
         telemetry.addLine("Y Button      = Toggle Intake Direction");
         telemetry.addLine("A Button      = Match Loader Servo DOWN 90°");
-        telemetry.addLine("X Button      = Direct Intake OUT (Reverse)");
+        telemetry.addLine("X Button      = Reverse Intake");
         telemetry.update();
+
+        DcMotor transfer = hardwareMap.tryGet(DcMotor.class, "transfer");
+        if (transfer != null) {
+            transfer.setPower(0.0);
+            transfer.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
 
         waitForStart();
 
         if (isStopRequested()) {
-            shooter.stop();
+            stopShooter(shooter);
             robot.close();
             return;
         }
@@ -65,7 +88,7 @@ public class RobotTeleOp extends LinearOpMode {
 
             double drive  = -gamepad1.left_stick_y;
             double strafe = gamepad1.left_stick_x;
-            double turn   = -gamepad1.right_stick_x;
+            double turn   = gamepad1.right_stick_x;
 
             // ==================================
             // CAMERA APRILTAG AUTO-ALIGNMENT (LB / RB)
@@ -161,9 +184,25 @@ public class RobotTeleOp extends LinearOpMode {
             double shooterTrigger = Math.max(gamepad1.right_trigger, gamepad2.right_trigger);
             boolean buttonX       = gamepad1.x || gamepad2.x;
 
-            // SHOOTER CONTROL (Right Trigger)
-            shooter.setTargetRPM(shooterTrigger > 0.05 ? SHOOTER_TARGET_RPM : 0.0);
-            shooter.update();
+            // SHOOTER AND TRANSFER CONTROL (Right Trigger)
+            boolean shootPressed = shooterTrigger > 0.05;
+            double targetRPM = shootPressed ? SHOOTER_TARGET_RPM : 0.0;
+            if (shooter != null) {
+                shooter.setTargetRPM(targetRPM);
+                shooter.update();
+            } else {
+                // Servo ports accept power only. Estimate power from the wheel speed target.
+                double maxWheelRPM = DualShooterSubsystem.MAX_MOTOR_RPM
+                        * DualShooterSubsystem.GEAR_RATIO_WHEEL_OVER_MOTOR;
+                double reversePower = Double.isFinite(targetRPM) && Double.isFinite(maxWheelRPM)
+                        && maxWheelRPM > 0.0 ? targetRPM / maxWheelRPM : 0.0;
+                robot.shooter1System.setReversePower(reversePower);
+                robot.shooter2System.setReversePower(reversePower);
+            }
+
+            if (transfer != null) {
+                transfer.setPower(shootPressed ? 0.80 : 0.0);
+            }
 
             // INTAKE CONTROL (Left Trigger / Button X)
             if (buttonX) {
@@ -202,13 +241,20 @@ public class RobotTeleOp extends LinearOpMode {
             telemetry.addData("Intake Power", "%.2f", robot.intakeSystem.getPower());
 
             telemetry.addLine("------------------------------");
-            telemetry.addData("Shooter Target", "%.0f RPM", shooter.getTargetWheelRPM());
-            telemetry.addData("Shooter RPM", "M: %.0f | F: %.0f",
-                    shooter.getMasterWheelRPM(), shooter.getFollowerWheelRPM());
-            telemetry.addData("Shooter Power", "M: %.2f | F: %.2f",
-                    shooter.getMasterPower(), shooter.getFollowerPower());
-            telemetry.addData("Shooter Ready",
-                    shooter.isReadyToShoot(SHOOTER_READY_TOLERANCE_RPM) ? "YES" : "NO");
+            telemetry.addData("Shooter Status", shooterStatus);
+            if (shooter != null) {
+                telemetry.addData("Shooter Target", "%.0f RPM", shooter.getTargetWheelRPM());
+                telemetry.addData("Shooter RPM", "M: %.0f | F: %.0f",
+                        shooter.getMasterWheelRPM(), shooter.getFollowerWheelRPM());
+                telemetry.addData("Shooter Power", "M: %.2f | F: %.2f",
+                        shooter.getMasterPower(), shooter.getFollowerPower());
+                telemetry.addData("Shooter Ready",
+                        shooter.isReadyToShoot(SHOOTER_READY_TOLERANCE_RPM) ? "YES" : "NO");
+            } else {
+                telemetry.addData("Shooter Target (open loop)", "%.2f RPM", targetRPM);
+                telemetry.addData("Shooter Power", "1: %.2f | 2: %.2f",
+                        robot.shooter1System.getCurrentPower(), robot.shooter2System.getCurrentPower());
+            }
 
             telemetry.addLine("------------------------------");
             telemetry.addData("Match Loader Servo (A)", matchLoaderDown ? "DOWN (90°)" : "UP (Rest)");
@@ -234,8 +280,20 @@ public class RobotTeleOp extends LinearOpMode {
         }
 
         robot.intakeSystem.stopIntake();
-        shooter.stop();
+        stopShooter(shooter);
+        if (transfer != null) {
+            transfer.setPower(0.0);
+        }
         robot.turretSystem.stopTurret();
         robot.close();
+    }
+
+    private void stopShooter(DualShooterSubsystem shooter) {
+        if (shooter != null) {
+            shooter.stop();
+        } else {
+            robot.shooter1System.spinDown();
+            robot.shooter2System.spinDown();
+        }
     }
 }
