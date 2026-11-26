@@ -30,7 +30,7 @@ public class RobotTeleOp extends LinearOpMode {
     private static final double P_TURN_GAIN  = 0.02;
 
     // Tune the shooter target and readiness tolerance through FTC Dashboard.
-    public static double SHOOTER_TARGET_RPM = 3395.47;
+    public static double SHOOTER_TARGET_RPM = 5000;
     public static double SHOOTER_READY_TOLERANCE_RPM = 80.0;
 
     @Override
