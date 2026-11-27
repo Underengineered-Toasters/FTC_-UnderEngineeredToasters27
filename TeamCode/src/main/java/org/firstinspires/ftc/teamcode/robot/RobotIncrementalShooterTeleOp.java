@@ -1,6 +1,10 @@
 package org.firstinspires.ftc.teamcode.robot;
 
+import static org.firstinspires.ftc.teamcode.robot.DualShooterKinematics.BLUE_HIVE_1_POSITION;
+import static org.firstinspires.ftc.teamcode.robot.DualShooterKinematics.BLUE_HIVE_2_POSITION;
+
 import com.acmerobotics.dashboard.config.Config;
+import com.acmerobotics.roadrunner.Vector2d;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -8,6 +12,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.teamcode.messages.KinematicsModel;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 
 import java.util.List;
@@ -30,12 +35,31 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
     private static final double P_DRIVE_GAIN = 0.03;
     private static final double P_TURN_GAIN  = 0.02;
 
-    private static final double SHOOTER_RPM_INCREMENT = 50.0;
-    private static final double SHOOTER_MAX_TARGET_RPM = 5000.0;
-    private static final double SHOOTER_INCREMENT_INTERVAL_SECONDS = 10.0;
+    private static final double SHOT_SECONDS = 30.0;
+    private static final double COOLDOWN_SECONDS = 60.0;
 
-    // Tune the starting shooter target and readiness tolerance through FTC Dashboard.
-    public static double SHOOTER_TARGET_RPM = 4500;
+    // The sheet's 120 multiplier corresponds to a 0.50 slip factor.
+    private static final double SHEET_GRAVITY_IN_PER_SEC2 = 2.0 * 193.044;
+    private static final double SHEET_SLIP_FACTOR = 0.50;
+    private static final double SHEET_TARGET_HEIGHT_INCHES = 59.55;
+
+    // Robot and hive coordinates in inches from Shot Calculator, rows 5–8.
+    private static final KinematicsModel[] SHOT_PRESETS = {
+            createShotPreset(new Vector2d(83.5, 133.7), BLUE_HIVE_2_POSITION),
+            createShotPreset(new Vector2d(129.0, 133.7), BLUE_HIVE_2_POSITION),
+            createShotPreset(new Vector2d(80.5, 10.3), BLUE_HIVE_1_POSITION),
+            createShotPreset(new Vector2d(94.5, 15.0), BLUE_HIVE_1_POSITION)
+    };
+
+    private static KinematicsModel createShotPreset(Vector2d botPose, Vector2d hivePose) {
+        return new KinematicsModel(botPose, hivePose, SHEET_TARGET_HEIGHT_INCHES,
+                DualShooterKinematics.SHOOTER_HEIGHT_INCHES, DualShooterKinematics.LAUNCH_ANGLE_DEG);
+    }
+
+    private enum ShotState {
+        READY, SHOOTING, COOLDOWN
+    }
+
     public static double SHOOTER_READY_TOLERANCE_RPM = 80.0;
 
     @Override
@@ -66,7 +90,8 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
         telemetry.addLine("LB / RB       = Camera AprilTag Auto-Align");
         telemetry.addLine("D-Pad Left/Right = Rotate Turret 360°");
         telemetry.addLine("Left Trigger  = Run Intake (Port 2)");
-        telemetry.addLine("Right Trigger = Shoot (reverse) + Run Transfer");
+        telemetry.addLine("D-Pad Up/Down = Select Shot Preset");
+        telemetry.addLine("Hold Right Trigger = Shoot for up to 30 s, then cool down for 60 s");
         telemetry.addData("Shooter Status", shooterStatus);
         telemetry.addLine("Y Button      = Toggle Intake Direction");
         telemetry.addLine("A Button      = Match Loader Servo DOWN 90°");
@@ -87,8 +112,12 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
             return;
         }
 
-        ElapsedTime shooterHoldTimer = new ElapsedTime();
+        ElapsedTime shotTimer = new ElapsedTime();
+        ShotState shotState = ShotState.READY;
+        int shotIndex = 0;
         boolean wasShootPressed = false;
+        boolean previousUp = false;
+        boolean previousDown = false;
         while (opModeIsActive()) {
 
             List<AprilTagDetection> detections = robot.getAprilTagDetections();
@@ -192,33 +221,54 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
             boolean buttonX       = gamepad1.x || gamepad2.x;
 
             // SHOOTER AND TRANSFER CONTROL (Right Trigger)
+            boolean up = gamepad1.dpad_up || gamepad2.dpad_up;
+            boolean down = gamepad1.dpad_down || gamepad2.dpad_down;
             boolean shootPressed = shooterTrigger > 0.05;
-            double targetRPM = 0.0;
-            if (shootPressed) {
-                if (!wasShootPressed) {
-                    shooterHoldTimer.reset();
+            if (shotState == ShotState.COOLDOWN && shotTimer.seconds() >= COOLDOWN_SECONDS) {
+                shotState = ShotState.READY;
+            }
+            if (shotState == ShotState.READY) {
+                if (up && !previousUp) {
+                    shotIndex = (shotIndex + 1) % SHOT_PRESETS.length;
+                } else if (down && !previousDown) {
+                    shotIndex = (shotIndex + SHOT_PRESETS.length - 1) % SHOT_PRESETS.length;
                 }
-                double increments = Math.floor(
-                        shooterHoldTimer.seconds() / SHOOTER_INCREMENT_INTERVAL_SECONDS);
-                targetRPM = Math.min(SHOOTER_MAX_TARGET_RPM,
-                        SHOOTER_TARGET_RPM + increments * SHOOTER_RPM_INCREMENT);
+            }
+            previousUp = up;
+            previousDown = down;
+
+            KinematicsModel preset = SHOT_PRESETS[shotIndex];
+            double calculatedRPM = DualShooterKinematics.getTargetRPM(
+                    preset, SHEET_GRAVITY_IN_PER_SEC2, SHEET_SLIP_FACTOR);
+            double maxWheelRPM = DualShooterSubsystem.MAX_MOTOR_RPM
+                    * DualShooterSubsystem.GEAR_RATIO_WHEEL_OVER_MOTOR;
+            boolean validTarget = Double.isFinite(calculatedRPM) && calculatedRPM > 0.0
+                    && Double.isFinite(maxWheelRPM) && calculatedRPM <= maxWheelRPM;
+            if (shotState == ShotState.SHOOTING
+                    && (!shootPressed || shotTimer.seconds() >= SHOT_SECONDS || !validTarget)) {
+                shotState = ShotState.COOLDOWN;
+                shotTimer.reset();
+            } else if (shotState == ShotState.READY && shootPressed && !wasShootPressed
+                    && validTarget) {
+                shotState = ShotState.SHOOTING;
+                shotTimer.reset();
             }
             wasShootPressed = shootPressed;
+
+            boolean shooting = shotState == ShotState.SHOOTING;
+            double targetRPM = shooting ? calculatedRPM : 0.0;
             if (shooter != null) {
                 shooter.setTargetRPM(targetRPM);
                 shooter.update();
             } else {
                 // Servo ports accept power only. Estimate power from the wheel speed target.
-                double maxWheelRPM = DualShooterSubsystem.MAX_MOTOR_RPM
-                        * DualShooterSubsystem.GEAR_RATIO_WHEEL_OVER_MOTOR;
-                double reversePower = Double.isFinite(targetRPM) && Double.isFinite(maxWheelRPM)
-                        && maxWheelRPM > 0.0 ? targetRPM / maxWheelRPM : 0.0;
+                double reversePower = shooting ? targetRPM / maxWheelRPM : 0.0;
                 robot.shooter1System.setReversePower(reversePower);
                 robot.shooter2System.setReversePower(reversePower);
             }
 
             if (transfer != null) {
-                transfer.setPower(shootPressed ? 0.80 : 0.0);
+                transfer.setPower(shooting ? 0.80 : 0.0);
             }
 
             // INTAKE CONTROL (Left Trigger / Button X)
@@ -259,6 +309,22 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
 
             telemetry.addLine("------------------------------");
             telemetry.addData("Shooter Status", shooterStatus);
+            telemetry.addData("Shot Preset", "%d/%d", shotIndex + 1, SHOT_PRESETS.length);
+            telemetry.addData("Calculated Shooter RPM", "%.2f RPM", calculatedRPM);
+            Vector2d botPose = preset.getBotPose();
+            Vector2d hivePose = preset.getHivePose();
+            telemetry.addData("Bot Position (in)", "(%.1f, %.1f)", botPose.x, botPose.y);
+            telemetry.addData("Hive Position (in)", "(%.1f, %.1f)", hivePose.x, hivePose.y);
+            telemetry.addData("Horizontal Hive Distance", "%.2f in", preset.getHorizontalDistanceInches());
+            telemetry.addData("Shot State", shotState);
+            if (shotState != ShotState.READY) {
+                double phaseSeconds = shooting ? SHOT_SECONDS : COOLDOWN_SECONDS;
+                telemetry.addData("Time Remaining", "%.1f s",
+                        Math.max(0.0, phaseSeconds - shotTimer.seconds()));
+            }
+            if (!validTarget) {
+                telemetry.addLine("Calculated RPM is outside the configured wheel speed range.");
+            }
             if (shooter != null) {
                 telemetry.addData("Shooter Target", "%.0f RPM", shooter.getTargetWheelRPM());
                 telemetry.addData("Shooter RPM", "M: %.0f | F: %.0f",

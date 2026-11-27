@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.robot;
 
+import android.util.Size;
+
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
@@ -32,6 +34,10 @@ public class AprilTagVision {
     private VisionPortal visionPortal;
 
     public void init(HardwareMap hardwareMap) {
+        init(hardwareMap, null);
+    }
+
+    public void init(HardwareMap hardwareMap, Size resolution) {
 
         aprilTag = new AprilTagProcessor.Builder()
                 .setTagLibrary(AprilTagGameDatabase.getCurrentGameTagLibrary())
@@ -40,10 +46,13 @@ public class AprilTagVision {
 
         // "Webcam 1" must match the name in Driver Station configuration
         try {
-            visionPortal = new VisionPortal.Builder()
+            VisionPortal.Builder portal = new VisionPortal.Builder()
                     .setCamera(hardwareMap.get(WebcamName.class, "Webcam 1"))
-                    .addProcessor(aprilTag)
-                    .build();
+                    .addProcessor(aprilTag);
+            if (resolution != null) {
+                portal.setCameraResolution(resolution);
+            }
+            visionPortal = portal.build();
         } catch (Exception e) {
             visionPortal = null;
         }
@@ -75,6 +84,14 @@ public class AprilTagVision {
             }
         }
         return null;
+    }
+
+    public VisionPortal.CameraState getCameraState() {
+        return visionPortal == null ? VisionPortal.CameraState.ERROR : visionPortal.getCameraState();
+    }
+
+    public double getFps() {
+        return visionPortal == null ? 0.0 : visionPortal.getFps();
     }
 
     public CameraStreamSource getCameraSource() {

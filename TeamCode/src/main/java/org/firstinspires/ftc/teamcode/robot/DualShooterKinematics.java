@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.robot;
 
+import com.acmerobotics.roadrunner.Vector2d;
+
 import org.firstinspires.ftc.teamcode.messages.KinematicsModel;
 
 public class DualShooterKinematics {
@@ -18,7 +20,15 @@ public class DualShooterKinematics {
     public static final double WHEEL_RADIUS_INCHES = WHEEL_DIAMETER_INCHES / 2.0; // ~1.4173 in
 
     // PLACEHOLDER: calibrate against measured shots; wheel slip depends on compression and game piece.
-    public static double SLIP_FACTOR = 0.85;
+    public static double SLIP_FACTOR = 1.0;
+
+    public static final Vector2d BLUE_HIVE_1_POSITION = new Vector2d(83.5, 55.0);
+    public static final Vector2d BLUE_HIVE_2_POSITION = new Vector2d(83.5, 86.5);
+    public static final Vector2d RED_HIVE_1_POSITION = new Vector2d(83.5, 86.5);
+    public static final Vector2d RED_HIVE_2_POSITION = new Vector2d(83.5, 86.5);
+
+    private DualShooterKinematics() {
+    }
 
     /**
      * Trajectory Formula:
@@ -28,6 +38,12 @@ public class DualShooterKinematics {
      * @return Ball exit speed in inches/second
      */
     public static double calculateExitVelocity(double horizontalDistanceInches, double deltaYInInches, double launchAngleInDegrees) {
+        return calculateExitVelocity(horizontalDistanceInches, deltaYInInches,
+                launchAngleInDegrees, GRAVITY_IN_PER_SEC2);
+    }
+
+    private static double calculateExitVelocity(double horizontalDistanceInches, double deltaYInInches,
+                                                double launchAngleInDegrees, double gravity) {
         double thetaRad = Math.toRadians(launchAngleInDegrees);
 
         // Denominator: 2 * (x * tan(theta) - deltaY)
@@ -38,7 +54,7 @@ public class DualShooterKinematics {
             return 0.0;
         }
 
-        double insideSqrt = GRAVITY_IN_PER_SEC2 / denom;
+        double insideSqrt = gravity / denom;
         return (horizontalDistanceInches / Math.cos(thetaRad)) * Math.sqrt(insideSqrt);
     }
 
@@ -49,10 +65,14 @@ public class DualShooterKinematics {
      * v_ball = v_surface * SLIP_FACTOR
      */
     public static double velocityToRPM(double vBallInchesPerSec) {
+        return velocityToRPM(vBallInchesPerSec, SLIP_FACTOR);
+    }
+
+    private static double velocityToRPM(double vBallInchesPerSec, double slipFactor) {
         if (vBallInchesPerSec <= 0.0) return 0.0;
 
         double circumferenceInches = 2.0 * Math.PI * WHEEL_RADIUS_INCHES;
-        double wheelSurfaceSpeedNeeded = vBallInchesPerSec / SLIP_FACTOR;
+        double wheelSurfaceSpeedNeeded = vBallInchesPerSec / slipFactor;
 
         // RPM = (surface_speed * 60) / circumference
         return (wheelSurfaceSpeedNeeded * 60.0) / circumferenceInches;
@@ -60,8 +80,15 @@ public class DualShooterKinematics {
 
 
     public static double getTargetRPM(KinematicsModel kinematicsModel) {
-        double deltaYInInches = kinematicsModel.getTargetHiveHeightInInches() - kinematicsModel.getShooterHeightInInches();
-        return getTargetRPM(kinematicsModel.getHorizontalDistanceInches(), deltaYInInches, kinematicsModel.getLaunchAngleInDegree());
+        return getTargetRPM(kinematicsModel, GRAVITY_IN_PER_SEC2, SLIP_FACTOR);
+    }
+
+    static double getTargetRPM(KinematicsModel kinematicsModel, double gravity, double slipFactor) {
+        double heightDifference = kinematicsModel.getTargetHiveHeightInInches()
+                - kinematicsModel.getShooterHeightInInches();
+        double ballSpeed = calculateExitVelocity(kinematicsModel.getHorizontalDistanceInches(),
+                heightDifference, kinematicsModel.getLaunchAngleInDegree(), gravity);
+        return velocityToRPM(ballSpeed, slipFactor);
     }
 
     public static double getTargetRPM(double horizontalDistanceInches, double deltaYInInches, double launchAngleInDegrees) {

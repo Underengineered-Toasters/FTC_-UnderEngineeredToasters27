@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.robot;
 import com.acmerobotics.dashboard.FtcDashboard;
 import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
+import com.acmerobotics.roadrunner.Vector2d;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -117,10 +118,10 @@ public class DualShooterTestTeleOp extends LinearOpMode {
                         - SHOOTER_OFFSET_FROM_ROBOT_CENTER_INCHES * Math.sin(headingRadians);
 
                 double robotCenterDistanceToHiveInches = robot.getDistanceTo(hiveXInches, hiveYInches);
-                double shooterDistanceInches = Math.hypot(
-                        hiveXInches - shooterXInches,
-                        hiveYInches - shooterYInches
-                );
+                KinematicsModel kinematicsModel = new KinematicsModel(
+                        new Vector2d(shooterXInches, shooterYInches),
+                        new Vector2d(hiveXInches, hiveYInches));
+                double shooterDistanceInches = kinematicsModel.getHorizontalDistanceInches();
 
                 double requestedRPM = 0.0;
                 String controlMode = "Stopped";
@@ -131,8 +132,6 @@ public class DualShooterTestTeleOp extends LinearOpMode {
                     requestedRPM = maxWheelRPM * gamepad1.right_trigger;
                     controlMode = "Manual trigger";
                 } else if (gamepad1.left_trigger > TRIGGER_DEADBAND) {
-                    KinematicsModel kinematicsModel = new KinematicsModel(shooterDistanceInches,
-                            DualShooterKinematics.TARGET_HIVE_HEIGHT_INCHES, DualShooterKinematics.SHOOTER_HEIGHT_INCHES, DualShooterKinematics.LAUNCH_ANGLE_DEG);
                     requestedRPM = DualShooterKinematics.getTargetRPM(kinematicsModel);
                     controlMode = "Odometry distance";
                 }

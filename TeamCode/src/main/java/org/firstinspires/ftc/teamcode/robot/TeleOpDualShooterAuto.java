@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.robot;
 
+import com.acmerobotics.roadrunner.Vector2d;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -38,16 +39,14 @@ public class TeleOpDualShooterAuto extends LinearOpMode {
             // ==========================================================
             // 2. COMPUTE DISTANCE (x) TO GOAL
             // ==========================================================
-            double dx = HIVE_X_INCHES - robotX;
-            double dy = HIVE_Y_INCHES - robotY;
-            double horizontalDistance = Math.hypot(dx, dy); // x in inches
+            KinematicsModel kinematicsModel = new KinematicsModel(
+                    new Vector2d(robotX, robotY), new Vector2d(HIVE_X_INCHES, HIVE_Y_INCHES));
+            double horizontalDistance = kinematicsModel.getHorizontalDistanceInches();
 
             // ==========================================================
             // 3. CONTROLS
             // ==========================================================
             if (gamepad1.right_bumper) {
-                KinematicsModel kinematicsModel = new KinematicsModel(horizontalDistance,
-                        DualShooterKinematics.TARGET_HIVE_HEIGHT_INCHES, DualShooterKinematics.SHOOTER_HEIGHT_INCHES, DualShooterKinematics.LAUNCH_ANGLE_DEG);
                 // Calculate required RPM dynamically based on position
                 double targetRPM = DualShooterKinematics.getTargetRPM(kinematicsModel);
                 shooter.setTargetRPM(targetRPM);
