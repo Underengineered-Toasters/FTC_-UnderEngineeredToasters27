@@ -42,18 +42,20 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
     private static final double SHEET_GRAVITY_IN_PER_SEC2 = 2.0 * 193.044;
     private static final double SHEET_SLIP_FACTOR = 0.50;
     private static final double SHEET_TARGET_HEIGHT_INCHES = 59.55;
+    private static final double SHEET_SHOOTER_HEIGHT_INCHES = 12.0;
+    private static final double SHEET_LAUNCH_ANGLE_DEG = 60.0;
 
     // Robot and hive coordinates in inches from Shot Calculator, rows 5–8.
     private static final KinematicsModel[] SHOT_PRESETS = {
-            createShotPreset(new Vector2d(83.5, 133.7), BLUE_HIVE_2_POSITION),
-            createShotPreset(new Vector2d(129.0, 133.7), BLUE_HIVE_2_POSITION),
+            createShotPreset(new Vector2d(83.5, 131.5), BLUE_HIVE_2_POSITION),
+            createShotPreset(new Vector2d(129.0, 131.5), BLUE_HIVE_2_POSITION),
             createShotPreset(new Vector2d(80.5, 10.3), BLUE_HIVE_1_POSITION),
             createShotPreset(new Vector2d(94.5, 15.0), BLUE_HIVE_1_POSITION)
     };
 
     private static KinematicsModel createShotPreset(Vector2d botPose, Vector2d hivePose) {
         return new KinematicsModel(botPose, hivePose, SHEET_TARGET_HEIGHT_INCHES,
-                DualShooterKinematics.SHOOTER_HEIGHT_INCHES, DualShooterKinematics.LAUNCH_ANGLE_DEG);
+                SHEET_SHOOTER_HEIGHT_INCHES, SHEET_LAUNCH_ANGLE_DEG);
     }
 
     private enum ShotState {
