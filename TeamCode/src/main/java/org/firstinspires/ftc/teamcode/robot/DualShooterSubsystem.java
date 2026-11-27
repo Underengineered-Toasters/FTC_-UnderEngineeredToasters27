@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.robot;
 
 import com.acmerobotics.dashboard.config.Config;
+import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -23,15 +24,30 @@ public class DualShooterSubsystem {
     public static double GEAR_RATIO_WHEEL_OVER_MOTOR = 1.0;
 
     // PLACEHOLDER PIDF gains: tune on the robot with the flywheel unloaded first.
-    public static double kF = 1.0 / ((MAX_MOTOR_RPM / 60.0) * TICKS_PER_REV);
-    public static double kP = 0.00005;
+    public static double kF = 0.00005 / ((MAX_MOTOR_RPM / 60.0) * TICKS_PER_REV);
+    public static double kP = 0.0;
     public static double kI = 0.0;
-    public static double kD = 0.0;
+    public static double kD = 0.000357142857;
 
     private double targetWheelRPM = 0.0;
     private double lastError = 0.0;
     private double integralSum = 0.0;
     private double lastTime = 0.0;
+
+    static DualShooterSubsystem tryCreate(HardwareMap hardwareMap, boolean reverse) {
+        if (hardwareMap.tryGet(CRServo.class, "shooter1") != null
+                || hardwareMap.tryGet(CRServo.class, "shooter") != null
+                || hardwareMap.tryGet(CRServo.class, "shooter2") != null) {
+            return null;
+        }
+        String masterName = hardwareMap.tryGet(DcMotorEx.class, "shooter1") != null
+                ? "shooter1" : "shooter";
+        if (hardwareMap.tryGet(DcMotorEx.class, masterName) == null
+                || hardwareMap.tryGet(DcMotorEx.class, "shooter2") == null) {
+            return null;
+        }
+        return new DualShooterSubsystem(hardwareMap, masterName, "shooter2", reverse);
+    }
 
     public DualShooterSubsystem(HardwareMap hardwareMap, String motor1Name, String motor2Name) {
         this(hardwareMap, motor1Name, motor2Name, false);
@@ -51,13 +67,16 @@ public class DualShooterSubsystem {
         masterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         followerMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
+        setReverse(reverse);
+        timer = new ElapsedTime();
+    }
+
+    void setReverse(boolean reverse) {
         // The belted motors face opposite ways. Reverse both directions together.
         DcMotorSimple.Direction masterDirection = reverse
                 ? DcMotorSimple.Direction.REVERSE : DcMotorSimple.Direction.FORWARD;
         masterMotor.setDirection(masterDirection);
         followerMotor.setDirection(masterDirection.inverted());
-
-        timer = new ElapsedTime();
     }
 
     /**

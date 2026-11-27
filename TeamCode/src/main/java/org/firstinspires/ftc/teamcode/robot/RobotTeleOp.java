@@ -3,7 +3,6 @@ package org.firstinspires.ftc.teamcode.robot;
 import com.acmerobotics.dashboard.config.Config;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -29,9 +28,9 @@ public class RobotTeleOp extends LinearOpMode {
     private static final double P_DRIVE_GAIN = 0.03;
     private static final double P_TURN_GAIN  = 0.02;
 
-    // Tune the shooter target and readiness tolerance through FTC Dashboard.
     public static double SHOOTER_TARGET_RPM = 5000;
-    public static double SHOOTER_READY_TOLERANCE_RPM = 80.0;
+    // Estimated flywheel RPM at full power. Calibrate using a tachometer.
+    public static double SERVO_SHOOTER_FULL_POWER_RPM = 6000.0;
 
     @Override
     public void runOpMode() {
@@ -40,18 +39,8 @@ public class RobotTeleOp extends LinearOpMode {
         boolean servoShooters = (hardwareMap.tryGet(CRServo.class, "shooter1") != null
                 || hardwareMap.tryGet(CRServo.class, "shooter") != null)
                 && hardwareMap.tryGet(CRServo.class, "shooter2") != null;
-        String masterName = hardwareMap.tryGet(DcMotorEx.class, "shooter1") != null
-                ? "shooter1" : "shooter";
-        DualShooterSubsystem shooter = null;
-        String shooterStatus = "Open-loop reverse (check shooter configuration)";
-        if (servoShooters) {
-            shooterStatus = "Servo-port RPM estimate (no speed feedback)";
-        } else if (hardwareMap.tryGet(DcMotorEx.class, masterName) != null
-                && hardwareMap.tryGet(DcMotorEx.class, "shooter2") != null) {
-            shooter = new DualShooterSubsystem(
-                    hardwareMap, masterName, "shooter2", /* reverse= */ true);
-            shooterStatus = "RPM control";
-        }
+        String shooterStatus = servoShooters ? "Servo-port power (no RPM feedback)"
+                : "Open-loop power (check shooter port configuration)";
 
         telemetry.addLine("==============================");
         telemetry.addLine("       ROBOT INITIALIZED");
@@ -77,7 +66,7 @@ public class RobotTeleOp extends LinearOpMode {
         waitForStart();
 
         if (isStopRequested()) {
-            stopShooter(shooter);
+            stopShooter();
             robot.close();
             return;
         }
@@ -187,18 +176,11 @@ public class RobotTeleOp extends LinearOpMode {
             // SHOOTER AND TRANSFER CONTROL (Right Trigger)
             boolean shootPressed = shooterTrigger > 0.05;
             double targetRPM = shootPressed ? SHOOTER_TARGET_RPM : 0.0;
-            if (shooter != null) {
-                shooter.setTargetRPM(targetRPM);
-                shooter.update();
-            } else {
-                // Servo ports accept power only. Estimate power from the wheel speed target.
-                double maxWheelRPM = DualShooterSubsystem.MAX_MOTOR_RPM
-                        * DualShooterSubsystem.GEAR_RATIO_WHEEL_OVER_MOTOR;
-                double reversePower = Double.isFinite(targetRPM) && Double.isFinite(maxWheelRPM)
-                        && maxWheelRPM > 0.0 ? targetRPM / maxWheelRPM : 0.0;
-                robot.shooter1System.setReversePower(reversePower);
-                robot.shooter2System.setReversePower(reversePower);
-            }
+            double fullPowerRPM = SERVO_SHOOTER_FULL_POWER_RPM;
+            double reversePower = Double.isFinite(targetRPM) && Double.isFinite(fullPowerRPM)
+                    && fullPowerRPM > 0.0 ? targetRPM / fullPowerRPM : 0.0;
+            robot.shooter1System.setReversePower(reversePower);
+            robot.shooter2System.setReversePower(reversePower);
 
             if (transfer != null) {
                 transfer.setPower(shootPressed ? 0.80 : 0.0);
@@ -242,19 +224,9 @@ public class RobotTeleOp extends LinearOpMode {
 
             telemetry.addLine("------------------------------");
             telemetry.addData("Shooter Status", shooterStatus);
-            if (shooter != null) {
-                telemetry.addData("Shooter Target", "%.0f RPM", shooter.getTargetWheelRPM());
-                telemetry.addData("Shooter RPM", "M: %.0f | F: %.0f",
-                        shooter.getMasterWheelRPM(), shooter.getFollowerWheelRPM());
-                telemetry.addData("Shooter Power", "M: %.2f | F: %.2f",
-                        shooter.getMasterPower(), shooter.getFollowerPower());
-                telemetry.addData("Shooter Ready",
-                        shooter.isReadyToShoot(SHOOTER_READY_TOLERANCE_RPM) ? "YES" : "NO");
-            } else {
-                telemetry.addData("Shooter Target (open loop)", "%.2f RPM", targetRPM);
-                telemetry.addData("Shooter Power", "1: %.2f | 2: %.2f",
-                        robot.shooter1System.getCurrentPower(), robot.shooter2System.getCurrentPower());
-            }
+            telemetry.addData("Shooter Target (open loop)", "%.2f RPM", targetRPM);
+            telemetry.addData("Shooter Power", "1: %.2f | 2: %.2f",
+                    robot.shooter1System.getCurrentPower(), robot.shooter2System.getCurrentPower());
 
             telemetry.addLine("------------------------------");
             telemetry.addData("Match Loader Servo (A)", matchLoaderDown ? "DOWN (90°)" : "UP (Rest)");
@@ -280,7 +252,7 @@ public class RobotTeleOp extends LinearOpMode {
         }
 
         robot.intakeSystem.stopIntake();
-        stopShooter(shooter);
+        stopShooter();
         if (transfer != null) {
             transfer.setPower(0.0);
         }
@@ -288,12 +260,8 @@ public class RobotTeleOp extends LinearOpMode {
         robot.close();
     }
 
-    private void stopShooter(DualShooterSubsystem shooter) {
-        if (shooter != null) {
-            shooter.stop();
-        } else {
-            robot.shooter1System.spinDown();
-            robot.shooter2System.spinDown();
-        }
+    private void stopShooter() {
+        robot.shooter1System.spinDown();
+        robot.shooter2System.spinDown();
     }
 }

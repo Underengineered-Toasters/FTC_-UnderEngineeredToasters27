@@ -7,7 +7,6 @@ import com.acmerobotics.dashboard.config.Config;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -21,6 +20,7 @@ import java.util.List;
 @TeleOp(name = "Robot Incremental Shooter TeleOp", group = "Main")
 public class RobotIncrementalShooterTeleOp extends LinearOpMode {
 
+    public static final double TRANSFER_MOTOR_POWER = 0.80;
     private final Robot robot = new Robot();
 
     // Intake direction state
@@ -45,8 +45,8 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
 
     // Robot and hive coordinates in inches from Shot Calculator, rows 5–8.
     private static final KinematicsModel[] SHOT_PRESETS = {
-            createShotPreset(new Vector2d(83.5, 133.7), BLUE_HIVE_2_POSITION),
-            createShotPreset(new Vector2d(129.0, 133.7), BLUE_HIVE_2_POSITION),
+            createShotPreset(new Vector2d(83.5, 131.5), BLUE_HIVE_2_POSITION),
+            createShotPreset(new Vector2d(129.0, 131.5), BLUE_HIVE_2_POSITION),
             createShotPreset(new Vector2d(80.5, 10.3), BLUE_HIVE_1_POSITION),
             createShotPreset(new Vector2d(94.5, 15.0), BLUE_HIVE_1_POSITION)
     };
@@ -60,7 +60,8 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
         READY, SHOOTING, COOLDOWN
     }
 
-    public static double SHOOTER_READY_TOLERANCE_RPM = 80.0;
+    // Estimated flywheel RPM at full power. Calibrate using a tachometer.
+    public static double SERVO_SHOOTER_FULL_POWER_RPM = 6000.0;
 
     @Override
     public void runOpMode() {
@@ -69,18 +70,10 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
         boolean servoShooters = (hardwareMap.tryGet(CRServo.class, "shooter1") != null
                 || hardwareMap.tryGet(CRServo.class, "shooter") != null)
                 && hardwareMap.tryGet(CRServo.class, "shooter2") != null;
-        String masterName = hardwareMap.tryGet(DcMotorEx.class, "shooter1") != null
-                ? "shooter1" : "shooter";
-        DualShooterSubsystem shooter = null;
-        String shooterStatus = "Open-loop reverse (check shooter configuration)";
-        if (servoShooters) {
-            shooterStatus = "Servo-port RPM estimate (no speed feedback)";
-        } else if (hardwareMap.tryGet(DcMotorEx.class, masterName) != null
-                && hardwareMap.tryGet(DcMotorEx.class, "shooter2") != null) {
-            shooter = new DualShooterSubsystem(
-                    hardwareMap, masterName, "shooter2", /* reverse= */ true);
-            shooterStatus = "RPM control";
-        }
+        DualShooterSubsystem shooter = DualShooterSubsystem.tryCreate(hardwareMap, true);
+        String shooterStatus = shooter != null ? "Encoder PIDF"
+                : servoShooters ? "Servo-port power (no RPM feedback)"
+                : "Open-loop power (check shooter port configuration)";
 
         telemetry.addLine("==============================");
         telemetry.addLine("       ROBOT INITIALIZED");
@@ -122,15 +115,15 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
 
             List<AprilTagDetection> detections = robot.getAprilTagDetections();
 
-            double drive  = -gamepad1.left_stick_y;
+            double drive = -gamepad1.left_stick_y;
             double strafe = gamepad1.left_stick_x;
-            double turn   = gamepad1.right_stick_x;
+            double turn = gamepad1.right_stick_x;
 
             // ==================================
             // CAMERA APRILTAG AUTO-ALIGNMENT (LB / RB)
             // ==================================
 
-            boolean leftBumper  = gamepad1.left_bumper;
+            boolean leftBumper = gamepad1.left_bumper;
             boolean rightBumper = gamepad1.right_bumper;
 
             if (leftBumper || rightBumper) {
@@ -147,15 +140,15 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
 
                 if (targetTag != null && targetTag.ftcPose != null) {
 
-                    double rangeError   = targetTag.ftcPose.range - DESIRED_DISTANCE_INCHES;
+                    double rangeError = targetTag.ftcPose.range - DESIRED_DISTANCE_INCHES;
                     double bearingError = targetTag.ftcPose.bearing;
 
-                    drive  = rangeError * P_DRIVE_GAIN;
-                    turn   = bearingError * P_TURN_GAIN;
+                    drive = rangeError * P_DRIVE_GAIN;
+                    turn = bearingError * P_TURN_GAIN;
                     strafe = 0.0;
 
                     drive = Math.max(-0.4, Math.min(0.4, drive));
-                    turn  = Math.max(-0.3, Math.min(0.3, turn));
+                    turn = Math.max(-0.3, Math.min(0.3, turn));
 
                     telemetry.addData("Auto-Align Target",
                             AprilTagTargets.nameOf(targetTag));
@@ -163,8 +156,8 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
                     telemetry.addData("Align Heading Error", "%.1f deg", bearingError);
 
                 } else {
-                    drive  = 0.0;
-                    turn   = 0.0;
+                    drive = 0.0;
+                    turn = 0.0;
                     strafe = 0.0;
                     telemetry.addData("Auto-Align Status", "Target tag not in view!");
                 }
@@ -176,7 +169,7 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
             // TURRET ROTATION CONTROL (D-Pad Left / Right)
             // ==================================
 
-            boolean dpadLeft  = gamepad1.dpad_left || gamepad2.dpad_left;
+            boolean dpadLeft = gamepad1.dpad_left || gamepad2.dpad_left;
             boolean dpadRight = gamepad1.dpad_right || gamepad2.dpad_right;
 
             if (dpadLeft) {
@@ -216,9 +209,9 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
             // TRIGGERS & INTAKE / SHOOTER CONTROLS
             // ==================================
 
-            double intakeTrigger  = Math.max(gamepad1.left_trigger, gamepad2.left_trigger);
+            double intakeTrigger = Math.max(gamepad1.left_trigger, gamepad2.left_trigger);
             double shooterTrigger = Math.max(gamepad1.right_trigger, gamepad2.right_trigger);
-            boolean buttonX       = gamepad1.x || gamepad2.x;
+            boolean buttonX = gamepad1.x || gamepad2.x;
 
             // SHOOTER AND TRANSFER CONTROL (Right Trigger)
             boolean up = gamepad1.dpad_up || gamepad2.dpad_up;
@@ -238,12 +231,12 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
             previousDown = down;
 
             KinematicsModel preset = SHOT_PRESETS[shotIndex];
-            double calculatedRPM = DualShooterKinematics.getTargetRPM(
+            final double calculatedRPM = DualShooterKinematics.getTargetRPM(
                     preset, SHEET_GRAVITY_IN_PER_SEC2, SHEET_SLIP_FACTOR);
-            double maxWheelRPM = DualShooterSubsystem.MAX_MOTOR_RPM
-                    * DualShooterSubsystem.GEAR_RATIO_WHEEL_OVER_MOTOR;
+            double fullPowerRPM = shooter == null ? SERVO_SHOOTER_FULL_POWER_RPM
+                    : DualShooterSubsystem.MAX_MOTOR_RPM * DualShooterSubsystem.GEAR_RATIO_WHEEL_OVER_MOTOR;
             boolean validTarget = Double.isFinite(calculatedRPM) && calculatedRPM > 0.0
-                    && Double.isFinite(maxWheelRPM) && calculatedRPM <= maxWheelRPM;
+                    && Double.isFinite(fullPowerRPM) && calculatedRPM <= fullPowerRPM;
             if (shotState == ShotState.SHOOTING
                     && (!shootPressed || shotTimer.seconds() >= SHOT_SECONDS || !validTarget)) {
                 shotState = ShotState.COOLDOWN;
@@ -257,18 +250,18 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
 
             boolean shooting = shotState == ShotState.SHOOTING;
             double targetRPM = shooting ? calculatedRPM : 0.0;
+            double finalShooterPower = 0;
             if (shooter != null) {
                 shooter.setTargetRPM(targetRPM);
                 shooter.update();
             } else {
-                // Servo ports accept power only. Estimate power from the wheel speed target.
-                double reversePower = shooting ? targetRPM / maxWheelRPM : 0.0;
-                robot.shooter1System.setReversePower(reversePower);
-                robot.shooter2System.setReversePower(reversePower);
+                finalShooterPower = shooting ? targetRPM / fullPowerRPM : 0.0;
+                robot.shooter1System.setReversePower(finalShooterPower);
+                robot.shooter2System.setReversePower(finalShooterPower);
             }
 
             if (transfer != null) {
-                transfer.setPower(shooting ? 0.80 : 0.0);
+                transfer.setPower(shooting ? TRANSFER_MOTOR_POWER : 0.0);
             }
 
             // INTAKE CONTROL (Left Trigger / Button X)
@@ -317,6 +310,7 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
             telemetry.addData("Hive Position (in)", "(%.1f, %.1f)", hivePose.x, hivePose.y);
             telemetry.addData("Horizontal Hive Distance", "%.2f in", preset.getHorizontalDistanceInches());
             telemetry.addData("Shot State", shotState);
+            telemetry.addData("Final Shooter Power", "%.2f", finalShooterPower);
             if (shotState != ShotState.READY) {
                 double phaseSeconds = shooting ? SHOT_SECONDS : COOLDOWN_SECONDS;
                 telemetry.addData("Time Remaining", "%.1f s",
@@ -326,13 +320,11 @@ public class RobotIncrementalShooterTeleOp extends LinearOpMode {
                 telemetry.addLine("Calculated RPM is outside the configured wheel speed range.");
             }
             if (shooter != null) {
-                telemetry.addData("Shooter Target", "%.0f RPM", shooter.getTargetWheelRPM());
-                telemetry.addData("Shooter RPM", "M: %.0f | F: %.0f",
+                telemetry.addData("Shooter Target", "%.2f RPM", shooter.getTargetWheelRPM());
+                telemetry.addData("Shooter 1 / 2 RPM", "%.0f / %.0f",
                         shooter.getMasterWheelRPM(), shooter.getFollowerWheelRPM());
-                telemetry.addData("Shooter Power", "M: %.2f | F: %.2f",
+                telemetry.addData("Shooter Power", "1: %.2f | 2: %.2f",
                         shooter.getMasterPower(), shooter.getFollowerPower());
-                telemetry.addData("Shooter Ready",
-                        shooter.isReadyToShoot(SHOOTER_READY_TOLERANCE_RPM) ? "YES" : "NO");
             } else {
                 telemetry.addData("Shooter Target (open loop)", "%.2f RPM", targetRPM);
                 telemetry.addData("Shooter Power", "1: %.2f | 2: %.2f",

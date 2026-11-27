@@ -10,9 +10,9 @@ public class DualShooterKinematics {
     // --- Heights & Launch Angle ---
     // DeltaY: (6.062177 + 10.7275 + 42.7725) - 12.73 = 46.832177 inches
     public static final double TARGET_HIVE_HEIGHT_INCHES = 6.062177 + 10.7275 + 42.7725; // 59.562177 in
-    public static final double SHOOTER_HEIGHT_INCHES = 12.73;
+    public static final double SHOOTER_HEIGHT_INCHES = 12.00;
 
-    public static final double LAUNCH_ANGLE_DEG = 55.0;
+    public static final double LAUNCH_ANGLE_DEG = 30.0;
 
     // --- Flywheel Geometry ---
     // 72mm converted to inches = 72 / 25.4 = 2.83464567 inches
